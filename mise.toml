@@ -1,0 +1,15 @@
+[tasks.check]
+description = "Run all pre-commit checks (fmt, clippy, test)"
+run = [
+  "cargo fmt -- --check",
+  "cargo clippy --all-targets -- -W clippy::pedantic -D warnings",
+  "cargo test",
+]
+
+[tasks.test]
+description = "Run tests"
+run = "cargo test"
+
+[tasks.clippy]
+description = "Run clippy with pedantic warnings"
+run = "cargo clippy --all-targets -- -W clippy::pedantic -D warnings"
