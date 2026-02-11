@@ -6,6 +6,8 @@ pub mod cli;
 mod docgen;
 pub mod error;
 #[allow(dead_code)]
+mod external;
+#[allow(dead_code)]
 mod index_builder;
 #[allow(dead_code)]
 mod query;
