@@ -46,30 +46,24 @@ pub(crate) fn generate_rustdoc_json(
         CrateSource::CurrentCrate {
             manifest_path,
             name,
-            version,
             ..
         } => {
             let workspace_root = manifest_path
                 .parent()
                 .expect("invariant: manifest_path has a parent");
             let target_dir = workspace_root.join("target");
-            eprint_status(name, version);
             generate_for_current_crate(workspace_root, name, &target_dir, features, private)?;
             let json_path = json_output_path(&target_dir, name);
-            eprint_done();
             Ok(json_path)
         }
         CrateSource::Dependency {
             manifest_path,
             name,
-            version,
             ..
         } => {
             let target_dir = find_workspace_target_dir(manifest_path)?;
-            eprint_status(name, version);
             generate_for_dependency(&target_dir, name, features, private)?;
             let json_path = json_output_path(&target_dir, name);
-            eprint_done();
             Ok(json_path)
         }
         CrateSource::Stdlib { name } => {
@@ -386,16 +380,6 @@ fn find_workspace_target_dir(dep_manifest_path: &Path) -> Result<PathBuf> {
             details: e.to_string(),
         })?;
     Ok(metadata.target_directory.into_std_path_buf())
-}
-
-/// Prints a status message to stderr.
-fn eprint_status(name: &str, version: &str) {
-    eprint!("[grox] Building index for {name} {version}...");
-}
-
-/// Prints the "done" status to stderr.
-fn eprint_done() {
-    eprintln!(" done");
 }
 
 #[cfg(test)]

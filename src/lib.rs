@@ -162,7 +162,7 @@ fn load_or_build_index(
     let start = Instant::now();
     let name = source.name().to_string();
     let version = source.version().unwrap_or("").to_string();
-    eprintln!("[grox] Building index for {name} {version}...");
+    eprint!("[grox] Building index for {name} {version}...");
 
     // Handle external crates: fetch first
     let (json_path, source) = if let CrateSource::External {
@@ -205,7 +205,7 @@ fn load_or_build_index(
     }
 
     let elapsed = start.elapsed().as_secs_f64();
-    eprintln!("[grox] Building index for {name} {version}... done ({elapsed:.1}s)");
+    eprintln!(" done ({elapsed:.1}s)");
 
     Ok((index, source))
 }
