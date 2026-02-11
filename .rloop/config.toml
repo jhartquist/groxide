@@ -1,0 +1,14 @@
+[step]
+model = "Opus"
+max_turns = 50
+max_retries = 10
+timeout_seconds = 300
+
+[task]
+enhance_model = "Sonnet"
+
+[session]
+# Maximum number of tasks to execute in parallel.
+# Default is 1 (sequential). Set to 2-3 for parallel DAG execution.
+# Can also be overridden per-run with: rloop run --parallel N
+# max_parallel = 1
