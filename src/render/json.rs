@@ -93,6 +93,7 @@ pub(crate) fn render_json(display: &DisplayItem<'_>) -> String {
 /// Renders a `DisplayItem` as JSON Lines list (`--json --list`).
 ///
 /// Each line is a `JsonListItem`.
+#[allow(dead_code)]
 pub(crate) fn render_json_list(display: &DisplayItem<'_>) -> String {
     let items = collect_json_list_items(display);
     let mut out = String::new();
@@ -281,6 +282,7 @@ fn render_json_leaf(item: &IndexItem) -> String {
 }
 
 /// Collects items for JSON list mode.
+#[allow(dead_code)]
 fn collect_json_list_items<'a>(display: &'a DisplayItem<'a>) -> Vec<&'a IndexItem> {
     match display {
         DisplayItem::Crate { children, .. } | DisplayItem::Module { children, .. } => {

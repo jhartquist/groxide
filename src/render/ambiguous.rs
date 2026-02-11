@@ -180,16 +180,19 @@ pub(crate) fn render_source_ambiguous(items_with_source: &[(&IndexItem, Option<&
 }
 
 /// Renders the README view.
+#[allow(dead_code)]
 pub(crate) fn render_readme(content: &str) -> String {
     content.to_string()
 }
 
 /// Renders the "README not found" message.
+#[allow(dead_code)]
 pub(crate) fn render_readme_not_found(crate_name: &str) -> String {
     format!("No README found for {crate_name}")
 }
 
 /// Renders the "README not available for stdlib" message.
+#[allow(dead_code)]
 pub(crate) fn render_readme_stdlib_unavailable(crate_name: &str) -> String {
     format!("README not available for standard library crate '{crate_name}'")
 }

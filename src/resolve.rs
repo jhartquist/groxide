@@ -104,11 +104,13 @@ impl ProjectContext {
     }
 
     /// Returns the current package's name (as-is from Cargo.toml, may have hyphens).
+    #[allow(dead_code)]
     pub(crate) fn current_package_name(&self) -> &str {
         &self.metadata[&self.current_package_id].name
     }
 
     /// Returns the current package's version as a string.
+    #[allow(dead_code)]
     pub(crate) fn current_package_version(&self) -> String {
         self.metadata[&self.current_package_id].version.to_string()
     }
@@ -122,6 +124,7 @@ impl ProjectContext {
     }
 
     /// Returns the target directory for this workspace.
+    #[allow(dead_code)]
     pub(crate) fn target_directory(&self) -> PathBuf {
         self.metadata.target_directory.clone().into_std_path_buf()
     }
@@ -249,6 +252,7 @@ impl ProjectContext {
     }
 
     /// Returns all package names in the metadata for suggestion generation.
+    #[allow(dead_code)]
     pub(crate) fn all_package_names(&self) -> Vec<String> {
         self.metadata
             .packages

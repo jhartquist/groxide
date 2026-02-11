@@ -114,6 +114,7 @@ fn stdlib_cache_dir() -> Result<PathBuf> {
 /// Computes the cache file path for a stdlib crate.
 ///
 /// Path: `~/.cache/groxide/stdlib/<name>-<toolchain_hash>.groxide`
+#[allow(dead_code)]
 pub(crate) fn stdlib_cache_path(
     crate_name: &str,
     toolchain_hash: &str,

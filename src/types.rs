@@ -178,6 +178,7 @@ pub(crate) fn group_items<'a>(items: &[&'a IndexItem]) -> GroupedItems<'a> {
 }
 
 /// Returns the total item count across all categories.
+#[allow(dead_code)]
 pub(crate) fn grouped_items_total(groups: &GroupedItems<'_>) -> usize {
     groups.values().map(Vec::len).sum()
 }
@@ -312,6 +313,7 @@ impl DocIndex {
     }
 
     /// Returns the number of items in the index.
+    #[allow(dead_code)]
     pub(crate) fn len(&self) -> usize {
         self.items.len()
     }
