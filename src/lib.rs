@@ -1,4 +1,6 @@
 #[allow(dead_code)]
+mod cache;
+#[allow(dead_code)]
 pub mod cli;
 #[allow(dead_code)]
 mod docgen;

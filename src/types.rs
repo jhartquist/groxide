@@ -183,7 +183,7 @@ pub(crate) fn grouped_items_total(groups: &GroupedItems<'_>) -> usize {
 }
 
 /// One entry per documented item. Stored in `DocIndex.items`, serialized to cache.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct IndexItem {
     /// Full path, e.g., `tokio::sync::Mutex`.
     pub(crate) path: String,
@@ -210,7 +210,7 @@ pub(crate) struct IndexItem {
 }
 
 /// References a child item within a [`DocIndex`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ChildRef {
     /// Index into `DocIndex.items`.
     pub(crate) index: usize,
@@ -221,7 +221,7 @@ pub(crate) struct ChildRef {
 }
 
 /// Source file location for an item.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct SourceSpan {
     /// Relative path, e.g., "src/lib.rs". Empty if unavailable.
     pub(crate) file: String,
@@ -232,7 +232,7 @@ pub(crate) struct SourceSpan {
 }
 
 /// Describes a trait implementation on a type.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct TraitImplInfo {
     /// Trait path, e.g., "Clone", `std::fmt::Debug`.
     pub(crate) trait_path: String,
@@ -241,7 +241,7 @@ pub(crate) struct TraitImplInfo {
 }
 
 /// The queryable index for one crate. Built from rustdoc JSON, cached to disk.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct DocIndex {
     /// All items in the index.
     pub(crate) items: Vec<IndexItem>,
