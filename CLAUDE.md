@@ -1,0 +1,71 @@
+# groxide — Project Context
+
+## What is this?
+
+A Rust CLI tool that lets LLM coding agents (and humans) query crate documentation from the terminal. Inspired by `go doc` — the path is the query, smart defaults by item kind.
+
+## Key files
+
+- `docs/spec/` — The canonical specification (5 spec files). All implementation decisions should be checked against these.
+- `docs/IMPLEMENTATION.md` — Task breakdown, dependency graph, and phased plan.
+
+## Design principles
+
+1. **Path is the query.** `grox serde::Deserialize` — no subcommands.
+2. **Smart defaults.** 80% of queries need zero flags.
+3. **Progressive disclosure.** Crate -> module -> type -> method drill-down.
+4. **Token-efficient.** ~200-800 tokens per query, truncation by default.
+5. **Zero setup.** Auto-builds and caches index on first use.
+6. **Plain text output.** Not markdown. Indentation-based like `go doc`.
+
+## Tech stack
+
+- Rust (edition 2024) + clap (derive) for CLI
+- `rustdoc-types` for parsing rustdoc JSON
+- `cargo_metadata` for dependency resolution
+- `rmp-serde` for index cache serialization
+- `cargo +nightly rustdoc --output-format json` for doc generation
+
+## Architecture
+
+```
+CLI (clap) -> Query Engine -> Index Layer -> Cache Layer -> Rustdoc JSON Generation
+```
+
+- **CLI**: Parse args, dispatch to query engine
+- **Crate Resolution**: Map first path segment to a crate source (current, dependency, @external, stdlib)
+- **Index Layer**: Parse rustdoc JSON into queryable DocIndex with path/name/suffix maps
+- **Cache Layer**: Serialize DocIndex to disk, invalidate by mtime or version
+- **Query Engine**: Path resolution (case-insensitive, suffix matching, ambiguity handling)
+- **Output**: Plain text renderer with smart defaults per item kind, truncation
+
+## Pre-commit checks
+
+**Before every commit, run `mise run check` (or all three manually):**
+
+1. `cargo fmt -- --check` — formatting must be clean
+2. `cargo clippy --all-targets -- -W clippy::pedantic -D warnings` — zero warnings with pedantic
+3. `cargo test` — all tests must pass
+
+Do not commit if any of these fail. Fix issues first.
+
+## Important for automated agents
+
+- **Working directory:** Always run `cargo test`, `cargo clippy`, and `mise run check` from the project root (`/Users/john/projects/groxide/groxide/`). NEVER cd into `test-fixtures/groxide_test_api/` to run tests — that's a fixture crate with no tests.
+- **Snapshot updates:** When code changes cause snapshot test diffs, update them non-interactively with `INSTA_UPDATE=always cargo test`. Do NOT use `cargo insta accept` (requires a terminal).
+- **Cache invalidation:** After changing `index_builder.rs`, delete `target/groxide/` to clear the index cache before testing.
+- **Spec is truth:** Before implementing any task, read the relevant spec sections listed in `docs/IMPLEMENTATION.md`. The spec files are the single source of truth.
+
+## Conventions
+
+- All status/progress messages go to stderr, content to stdout
+- Exit codes: 0 = success, 1 = not found, 2 = error
+- Tests use a fixture crate at `test-fixtures/groxide_test_api/`
+- Snapshot tests with `insta` for output format verification
+- TDD: Write tests first, then implement
+- One commit per task. Message format: `task N: <summary>`
+
+## rloop task management
+
+- To create tasks: `rloop task add --help`. Always use `opus` for the model.
+- Tasks live in `.rloop/tasks/`
