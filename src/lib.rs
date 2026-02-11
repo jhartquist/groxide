@@ -4,6 +4,8 @@ pub mod error;
 #[allow(dead_code)]
 mod index_builder;
 #[allow(dead_code)]
+mod query;
+#[allow(dead_code)]
 mod signature;
 #[allow(dead_code)]
 mod types;
