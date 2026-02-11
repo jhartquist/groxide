@@ -1,0 +1,13 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+Found 2 items matching "Error":
+
+--- mycrate::de::Error ---
+pub trait Error: Sized
+When a Deserialize implementation encounters an error.
+
+--- mycrate::ser::Error ---
+pub trait Error: Sized
+When a Serialize implementation encounters an error.

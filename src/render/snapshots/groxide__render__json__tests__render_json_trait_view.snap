@@ -1,0 +1,5 @@
+---
+source: src/render/json.rs
+expression: output
+---
+{"path":"mycrate::Iterator","kind":"trait","signature":"pub trait Iterator","doc":"An interface for dealing with iterators.","feature_gate":null,"methods":[{"name":"next","signature":"fn next(&mut self) -> Option<Self::Item>","summary":"Advances the iterator.","has_body":false},{"name":"count","signature":"fn count(self) -> usize","summary":"Consumes the iterator.","has_body":true}]}

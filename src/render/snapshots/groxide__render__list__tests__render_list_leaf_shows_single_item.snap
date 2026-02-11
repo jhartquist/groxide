@@ -1,0 +1,5 @@
+---
+source: src/render/list.rs
+expression: output
+---
+fn  mycrate::spawn  Spawns a task.

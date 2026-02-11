@@ -1,0 +1,11 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+trait mycrate::MyTrait
+
+pub trait MyTrait
+
+Implementors:
+  mycrate::MyStruct
+  mycrate::OtherStruct

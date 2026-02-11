@@ -1,0 +1,10 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+"Serialize" matches 2 items:
+
+  trait    Serialize             A data structure that can be serialized.
+  macro    Serialize             Derive macro for the Serialize trait.
+
+Use --kind trait or --kind macro to select.

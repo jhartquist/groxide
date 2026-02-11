@@ -1,0 +1,6 @@
+---
+source: src/render/json.rs
+expression: output
+---
+{"path":"mycrate::sync::Mutex","kind":"struct","signature":"pub struct Mutex<T: ?Sized>","summary":"An asynchronous Mutex-like type."}
+{"path":"mycrate::sync::RwLock","kind":"struct","signature":"pub struct RwLock<T: ?Sized>","summary":"An asynchronous reader-writer lock."}

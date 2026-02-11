@@ -1,0 +1,9 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+struct mycrate::Empty
+
+pub struct Empty
+
+No trait implementations.

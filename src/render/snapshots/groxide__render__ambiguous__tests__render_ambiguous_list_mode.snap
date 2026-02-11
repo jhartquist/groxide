@@ -1,0 +1,7 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+mycrate::de::Error
+mycrate::ser::Error
+mycrate::json::Error

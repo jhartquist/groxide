@@ -1,0 +1,14 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+struct mycrate::Mutex
+
+pub struct Mutex<T: ?Sized>
+
+Trait Implementations:
+  impl Clone
+  impl Debug
+  impl Default
+  impl Send (synthetic)
+  impl Sync (synthetic)

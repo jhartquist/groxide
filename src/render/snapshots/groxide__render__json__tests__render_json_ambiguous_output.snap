@@ -1,0 +1,6 @@
+---
+source: src/render/json.rs
+expression: output
+---
+{"path":"mycrate::de::Error","kind":"trait","signature":"pub trait Error: Sized","summary":"When deserialization encounters an error."}
+{"path":"mycrate::ser::Error","kind":"trait","signature":"pub trait Error: Sized","summary":"When serialization encounters an error."}

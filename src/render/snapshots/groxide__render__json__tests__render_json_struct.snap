@@ -1,0 +1,5 @@
+---
+source: src/render/json.rs
+expression: output
+---
+{"path":"mycrate::Mutex","kind":"struct","signature":"pub struct Mutex<T: ?Sized>","doc":"An asynchronous Mutex-like type.","feature_gate":null,"methods":[{"name":"lock","signature":"pub fn lock(&self) -> MutexGuard<'_, T>","summary":"Locks this mutex."},{"name":"new","signature":"pub fn new(t: T) -> Self","summary":"Creates a new lock."}],"trait_impls":["Debug","Send"]}

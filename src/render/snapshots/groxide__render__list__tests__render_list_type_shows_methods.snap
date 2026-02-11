@@ -1,0 +1,6 @@
+---
+source: src/render/list.rs
+expression: output
+---
+fn  mycrate::Mutex::lock  Locks the mutex.
+fn  mycrate::Mutex::new   Creates a new lock.

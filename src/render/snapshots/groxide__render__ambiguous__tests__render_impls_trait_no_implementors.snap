@@ -1,0 +1,9 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+trait mycrate::MyTrait
+
+pub trait MyTrait
+
+No known implementors.

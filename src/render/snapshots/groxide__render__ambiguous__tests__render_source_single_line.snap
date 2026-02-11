@@ -1,0 +1,6 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+// src/lib.rs:42
+pub const MAX_SIZE: usize = 1024;

@@ -1,0 +1,13 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+Found 7 items matching "Error":
+
+struct   mycrate::de::Error                      When deserialization encounters an error.
+struct   mycrate::ser::Error                     When serialization encounters an error.
+struct   mycrate::de::value::Error               A minimal deserialization error.
+struct   mycrate::json::Error                    An error that occurred during parsing.
+fn       mycrate::json::Error::classify          Categorizes the cause of this error.
+fn       mycrate::json::Error::column            One-indexed column number of the error.
+fn       mycrate::json::Error::line              One-indexed line number of the error.

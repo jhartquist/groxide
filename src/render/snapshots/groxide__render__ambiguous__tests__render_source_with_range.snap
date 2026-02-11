@@ -1,0 +1,9 @@
+---
+source: src/render/ambiguous.rs
+expression: output
+---
+// src/sync/mutex.rs:42-147
+pub struct Mutex<T: ?Sized> {
+    s: semaphore::Semaphore,
+    c: UnsafeCell<T>,
+}

@@ -1,0 +1,8 @@
+---
+source: src/render/json.rs
+expression: output
+---
+{"path":"mycrate","kind":"mod","signature":"","doc":"A test crate.","feature_gate":null}
+{"path":"mycrate::utils","kind":"mod","signature":"","summary":"Utility helpers."}
+{"path":"mycrate::Widget","kind":"struct","signature":"pub struct Widget","summary":"A widget."}
+{"path":"mycrate::process","kind":"fn","signature":"pub fn process() -> u32","summary":"Processes data."}
