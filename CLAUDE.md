@@ -56,6 +56,21 @@ Do not commit if any of these fail. Fix issues first.
 - **Cache invalidation:** After changing `index_builder.rs`, delete `target/groxide/` to clear the index cache before testing.
 - **Spec is truth:** Before implementing any task, read the relevant spec sections listed in `docs/IMPLEMENTATION.md`. The spec files are the single source of truth.
 
+## Rust coding rules
+
+- Use `cargo check` instead of `cargo build` during development — it's 2-10x faster.
+- Use `cargo add <crate>` to add dependencies — never hand-edit version strings in Cargo.toml.
+- No `.unwrap()` in library code. Use `?`, `.expect("invariant: reason")` for true invariants, or combinators (`.unwrap_or()`, `.map_err()`).
+- No `.clone()` to silence the borrow checker. Fix the ownership design.
+- Struct fields private by default. Expose via getter methods. Promote to `pub(crate)` then `pub` only when needed.
+- Match all enum variants explicitly. No wildcard `_` on enums we control — the compiler should catch new variants.
+- Error handling: `thiserror` for our error types, `?` for propagation, `.map_err()` for context.
+- Prefer `&str` over `String` in function arguments. Use `Cow<'_, str>` when ownership is conditional.
+- `///` doc comments on all public items, starting with a third-person verb ("Returns the...", "Creates a...").
+- Naming: `as_`/`to_`/`into_` for conversions (free/allocating/consuming). No `get_` prefix on getters. `is_`/`has_` for boolean methods.
+- Test names: `{action}_{outcome}_{condition}` (e.g., `lookup_returns_found_when_exact_path_matches`).
+- `#[cfg(test)] mod tests` for unit tests, `tests/` directory for integration tests.
+
 ## Conventions
 
 - All status/progress messages go to stderr, content to stdout
