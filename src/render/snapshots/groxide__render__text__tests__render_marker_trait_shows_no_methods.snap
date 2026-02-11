@@ -1,0 +1,11 @@
+---
+source: src/render/text.rs
+expression: output
+---
+trait mycrate::Send
+
+pub unsafe auto trait Send
+
+Types that can be transferred across thread boundaries.
+
+(no methods)

@@ -1,0 +1,26 @@
+---
+source: src/render/text.rs
+expression: output
+---
+struct mycrate::Big
+
+pub struct Big
+
+A struct with many methods.
+
+Methods: (showing 15 of 20, use --all to expand)
+  pub fn method_00(&self)                                     Method 0.
+  pub fn method_01(&self)                                     Method 1.
+  pub fn method_02(&self)                                     Method 2.
+  pub fn method_03(&self)                                     Method 3.
+  pub fn method_04(&self)                                     Method 4.
+  pub fn method_05(&self)                                     Method 5.
+  pub fn method_06(&self)                                     Method 6.
+  pub fn method_07(&self)                                     Method 7.
+  pub fn method_08(&self)                                     Method 8.
+  pub fn method_09(&self)                                     Method 9.
+  pub fn method_10(&self)                                     Method 10.
+  pub fn method_11(&self)                                     Method 11.
+  pub fn method_12(&self)                                     Method 12.
+  pub fn method_13(&self)                                     Method 13.
+  pub fn method_14(&self)                                     Method 14.

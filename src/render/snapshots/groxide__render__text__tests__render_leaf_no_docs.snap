@@ -1,0 +1,7 @@
+---
+source: src/render/text.rs
+expression: output
+---
+fn mycrate::internal_helper
+
+pub fn internal_helper(x: u32) -> u32

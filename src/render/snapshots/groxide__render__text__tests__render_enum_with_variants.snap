@@ -1,0 +1,17 @@
+---
+source: src/render/text.rs
+expression: output
+---
+enum mycrate::Color
+
+pub enum Color
+
+Represents a color.
+
+Variants:
+  Blue(u8)                                                    The color blue with intensity.
+  Green                                                       The color green.
+  Red                                                         The color red.
+
+Methods:
+  pub fn name(&self) -> &str                                  Returns the color name.

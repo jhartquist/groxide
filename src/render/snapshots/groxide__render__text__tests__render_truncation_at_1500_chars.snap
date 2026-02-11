@@ -1,0 +1,9 @@
+---
+source: src/render/text.rs
+expression: output
+---
+fn mycrate::big_fn
+
+pub fn big_fn()
+
+First paragraph of documentation....

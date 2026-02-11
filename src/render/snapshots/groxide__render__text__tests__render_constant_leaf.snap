@@ -1,0 +1,9 @@
+---
+source: src/render/text.rs
+expression: output
+---
+const std::f64::consts::PI
+
+pub const PI: f64
+
+Archimedes' constant (pi = 3.14159...).

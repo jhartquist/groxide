@@ -1,0 +1,14 @@
+---
+source: src/render/text.rs
+expression: output
+---
+mod mycrate
+
+A crate.
+
+Modules:
+  fs                              Filesystem utilities.  [feature: fs]
+  io                              I/O utilities.
+
+Functions:
+  pub fn read(path: &str) -> Vec<u8>                          Reads a file.  [feature: fs]

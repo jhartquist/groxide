@@ -1,0 +1,16 @@
+---
+source: src/render/text.rs
+expression: output
+---
+mod mycrate
+
+A framework for doing things.
+
+Modules:
+  utils                           Utility helpers.
+
+Structs:
+  Widget                          A widget.
+
+Functions:
+  pub fn process(x: u32) -> u32                               Processes a value.

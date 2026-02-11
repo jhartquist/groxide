@@ -1,0 +1,13 @@
+---
+source: src/render/text.rs
+expression: output
+---
+mod mycrate::sync
+
+Synchronization primitives.
+
+Structs:
+  Mutex                           An asynchronous Mutex-like type.
+
+Enums:
+  TryLockError                    Error returned from try_lock.

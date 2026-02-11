@@ -6,6 +6,8 @@ mod index_builder;
 #[allow(dead_code)]
 mod query;
 #[allow(dead_code)]
+mod render;
+#[allow(dead_code)]
 mod search;
 #[allow(dead_code)]
 mod signature;

@@ -1,0 +1,15 @@
+---
+source: src/render/text.rs
+expression: output
+---
+struct mycrate::Foo
+
+pub struct Foo
+
+A foo struct.
+
+Trait Implementations:
+  impl Clone
+  impl Debug
+  impl Send
+  impl Sync

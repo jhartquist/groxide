@@ -1,0 +1,9 @@
+---
+source: src/render/text.rs
+expression: output
+---
+fn mycrate::fs::read  [feature: fs]
+
+pub async fn read(path: impl AsRef<Path>) -> io::Result<Vec<u8>>
+
+Reads the entire contents of a file.
