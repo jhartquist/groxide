@@ -86,7 +86,7 @@ fn feature_gate_list_suffix(feature_gate: Option<&String>) -> String {
 
 /// Removes trailing newlines from output.
 fn trim_trailing_newlines(s: &mut String) {
-    while s.ends_with('\n') {
+    while s.ends_with("\n\n") {
         s.pop();
     }
 }

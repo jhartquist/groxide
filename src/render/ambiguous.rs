@@ -372,7 +372,7 @@ fn extract_first_paragraph(docs: &str) -> String {
 
 /// Removes trailing newlines from output.
 fn trim_trailing_newlines(s: &mut String) {
-    while s.ends_with('\n') {
+    while s.ends_with("\n\n") {
         s.pop();
     }
 }

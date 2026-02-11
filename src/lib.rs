@@ -52,32 +52,32 @@ pub fn run(cli: &Cli) -> Result<()> {
 
     // Step 5: Handle --readme (early return)
     if cli.readme {
-        return handle_readme(&mut out, &source, ctx.as_ref());
+        handle_readme(&mut out, &source, ctx.as_ref())?;
+    } else if let Some(search_query) = &cli.search {
+        // Step 6: Handle --search
+        handle_search(&mut out, &index, search_query, cli)?;
+    } else {
+        // Step 7: Resolve item in index
+        let kind_filter = cli.kind.map(ItemKind::from);
+        let result = resolve_item(
+            &query_path,
+            &index,
+            kind_filter,
+            &features,
+            &feature_suffix,
+            cli.private,
+        );
+
+        if cli.source {
+            // Step 8: Handle --source
+            handle_source(&mut out, &result, &index, &source)?;
+        } else {
+            // Step 9: Render output
+            handle_output(&mut out, &result, &index, cli)?;
+        }
     }
 
-    // Step 6: Handle --search (early return)
-    if let Some(search_query) = &cli.search {
-        return handle_search(&mut out, &index, search_query, cli);
-    }
-
-    // Step 7: Resolve item in index
-    let kind_filter = cli.kind.map(ItemKind::from);
-    let result = resolve_item(
-        &query_path,
-        &index,
-        kind_filter,
-        &features,
-        &feature_suffix,
-        cli.private,
-    );
-
-    // Step 8: Handle --source (early return)
-    if cli.source {
-        return handle_source(&mut out, &result, &index, &source);
-    }
-
-    // Step 9: Render output
-    handle_output(&mut out, &result, &index, cli)
+    Ok(())
 }
 
 /// Resolves `CrateSpec` to `CrateSource`, with single-segment item reinterpretation.
