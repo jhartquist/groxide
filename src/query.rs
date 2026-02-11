@@ -193,6 +193,9 @@ fn apply_case_sensitivity(index: &DocIndex, indices: &[usize], query: &str) -> V
 }
 
 /// Converts a list of matching indices into a [`QueryResult`].
+///
+/// Runs the dedup sequence: re-export stub resolution, crate-root auto-selection,
+/// then (path, kind) dedup. If more than one item remains, returns `Ambiguous`.
 fn classify_results(index: &DocIndex, indices: &[usize], query: &str) -> QueryResult {
     if indices.is_empty() {
         return QueryResult::NotFound {
@@ -201,14 +204,17 @@ fn classify_results(index: &DocIndex, indices: &[usize], query: &str) -> QueryRe
         };
     }
 
-    // Deduplicate by (path, kind)
-    let deduped = deduplicate_by_path_kind(index, indices);
+    // Stage 1: Re-export stub resolution
+    let resolved = resolve_reexport_stubs(index, indices);
+
+    // Stage 2: (path, kind) dedup
+    let deduped = deduplicate_by_path_kind(index, &resolved);
 
     if deduped.len() == 1 {
         return QueryResult::Found { index: deduped[0] };
     }
 
-    // Try crate-root auto-selection
+    // Stage 3: Crate-root auto-selection
     if let Some(selected) = try_auto_select(index, &deduped) {
         return QueryResult::Found { index: selected };
     }
@@ -219,6 +225,57 @@ fn classify_results(index: &DocIndex, indices: &[usize], query: &str) -> QueryRe
         indices: sorted,
         query: query.to_string(),
     }
+}
+
+/// Resolves re-export stubs to their canonical items.
+///
+/// A re-export stub is an item whose signature starts with `pub use ` and has no children.
+/// If the canonical item (looked up by name in the index) is already in the result set,
+/// the stub is dropped.
+fn resolve_reexport_stubs(index: &DocIndex, indices: &[usize]) -> Vec<usize> {
+    let mut result = Vec::with_capacity(indices.len());
+    let index_set: std::collections::HashSet<usize> = indices.iter().copied().collect();
+
+    for &idx in indices {
+        let item = &index.items[idx];
+        if is_reexport_stub(item) {
+            // Check if any other match in our result set is the canonical item
+            // (same name, not a stub). If so, drop this stub.
+            let has_canonical = indices.iter().any(|&other_idx| {
+                other_idx != idx && {
+                    let other = &index.items[other_idx];
+                    other.name == item.name && !is_reexport_stub(other)
+                }
+            });
+            if has_canonical {
+                continue; // drop the stub
+            }
+
+            // Try to find the canonical item elsewhere in the full index
+            let name_lower = item.name.to_lowercase();
+            if let Some(name_indices) = index.name_map.get(&name_lower) {
+                let canonical = name_indices.iter().find(|&&ni| {
+                    !index_set.contains(&ni) && {
+                        let candidate = &index.items[ni];
+                        candidate.name == item.name && !is_reexport_stub(candidate)
+                    }
+                });
+                if let Some(&canonical_idx) = canonical {
+                    // Replace stub with canonical item
+                    result.push(canonical_idx);
+                    continue;
+                }
+            }
+        }
+        result.push(idx);
+    }
+
+    result
+}
+
+/// Returns whether an item is a re-export stub (`pub use` with no children).
+fn is_reexport_stub(item: &crate::types::IndexItem) -> bool {
+    item.signature.starts_with("pub use ") && item.children.is_empty()
 }
 
 /// Removes entries with duplicate (path, kind) pairs.
@@ -357,6 +414,146 @@ fn could_match_within_distance(s1: &str, s2: &str, max_dist: usize) -> bool {
     true
 }
 
+/// Looks up a method on a parent type.
+///
+/// Resolves `parent_segments` via `lookup()`, then searches the parent's children
+/// for `method_name`. If the parent is `Ambiguous`, bubbles up the ambiguity.
+/// If the parent is found but the method is not, returns `NotFound` with suggestions.
+pub(crate) fn lookup_method(
+    index: &DocIndex,
+    parent_segments: &[&str],
+    method_name: &str,
+    kind_filter: Option<ItemKind>,
+) -> QueryResult {
+    let parent_query = parent_segments.join("::");
+    let parent_result = lookup(index, &parent_query, None);
+
+    match parent_result {
+        QueryResult::Found { index: parent_idx } => {
+            let parent_item = &index.items[parent_idx];
+
+            // Search children for matching method name
+            let method_lower = method_name.to_lowercase();
+            let matching_children: Vec<usize> = parent_item
+                .children
+                .iter()
+                .filter(|child| {
+                    child.name.to_lowercase() == method_lower
+                        && kind_filter.map_or(true, |kf| child.kind.matches_filter(kf))
+                })
+                .map(|child| child.index)
+                .collect();
+
+            // Apply case sensitivity to matching children
+            let case_filtered = apply_case_sensitivity(index, &matching_children, method_name);
+
+            if !case_filtered.is_empty() {
+                let full_path = format!("{}::{method_name}", parent_item.path);
+                return classify_results(index, &case_filtered, &full_path);
+            }
+
+            // Parent found, method not found -> suggest similar method names
+            let full_path = format!("{}::{method_name}", parent_item.path);
+            let suggestions = compute_method_suggestions(index, parent_idx, method_name);
+            QueryResult::NotFound {
+                query: full_path,
+                suggestions,
+            }
+        }
+        // Ambiguous or NotFound parent -> bubble up
+        other => other,
+    }
+}
+
+/// Computes method name suggestions for a parent type.
+fn compute_method_suggestions(
+    index: &DocIndex,
+    parent_idx: usize,
+    method_name: &str,
+) -> Vec<String> {
+    let method_lower = method_name.to_lowercase();
+    let parent_item = &index.items[parent_idx];
+    let mut candidates: Vec<(String, usize)> = Vec::new();
+
+    for child in &parent_item.children {
+        let child_lower = child.name.to_lowercase();
+        if !could_match_within_distance(&method_lower, &child_lower, 3) {
+            continue;
+        }
+        let distance = levenshtein_distance(&method_lower, &child_lower);
+        if distance <= 3 {
+            let path = format!("{}::{}", parent_item.path, child.name);
+            candidates.push((path, distance));
+        }
+    }
+
+    candidates.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+
+    // Deduplicate by path
+    let mut seen = std::collections::HashSet::new();
+    candidates.retain(|(path, _)| seen.insert(path.clone()));
+
+    candidates.truncate(5);
+    candidates.into_iter().map(|(path, _)| path).collect()
+}
+
+/// Determines whether a single-segment query looks like an item name.
+///
+/// Returns `true` if the query is likely a Rust item (type, function, constant),
+/// `false` if it's likely a crate name. Used to gate multi-crate search and
+/// influence single-segment resolution reinterpretation.
+pub(crate) fn looks_like_item_name(query: &str) -> bool {
+    const COMMON_METHODS: &[&str] = &[
+        "clone", "default", "into", "from", "borrow", "deref", "format", "parse", "write", "read",
+        "open", "close", "send", "recv",
+    ];
+
+    // Rule 1: Empty string -> not an item name
+    if query.is_empty() {
+        return false;
+    }
+
+    // Rule 2: Contains hyphen -> definitely a crate name
+    if query.contains('-') {
+        return false;
+    }
+
+    // Rule 3: Any uppercase character -> item name
+    if query.chars().any(char::is_uppercase) {
+        return true;
+    }
+
+    // Rule 4: Contains underscores -> heuristic
+    if query.contains('_') {
+        let segments: Vec<&str> = query.split('_').collect();
+        let all_simple = segments
+            .iter()
+            .all(|s| s.chars().all(|c| c.is_lowercase() || c.is_ascii_digit()));
+        let avg_len = if segments.is_empty() {
+            0
+        } else {
+            segments.iter().map(|s| s.len()).sum::<usize>() / segments.len()
+        };
+        if segments.len() <= 3 && all_simple && avg_len <= 6 {
+            return false; // likely crate name
+        }
+        return true; // complex snake_case -> likely function/method
+    }
+
+    // Rule 5: Short single lowercase word
+    if query.len() <= 4 {
+        return true; // "new", "len", "pop", "push"
+    }
+
+    // Rule 6: Check common method names
+    if COMMON_METHODS.contains(&query) {
+        return true;
+    }
+
+    // Rule 7: Default -> crate name
+    false
+}
+
 /// Standard Levenshtein edit distance using two-row optimization.
 fn levenshtein_distance(s1: &str, s2: &str) -> usize {
     let a: Vec<char> = s1.chars().collect();
@@ -389,7 +586,7 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{IndexItem, SourceSpan};
+    use crate::types::{ChildRef, IndexItem, SourceSpan};
 
     /// Helper to build a test `IndexItem`.
     fn make_item(name: &str, path: &str, kind: ItemKind) -> IndexItem {
@@ -866,5 +1063,265 @@ mod tests {
             }
             other => panic!("expected Found for exact path, got {other:?}"),
         }
+    }
+
+    // ---- Task 8: Crate-root auto-selection ----
+
+    #[test]
+    fn auto_select_single_primary_at_root_wins() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Crate-root primary (depth 2)
+        index.add_item(make_item("Widget", "mycrate::Widget", ItemKind::Struct));
+        // Nested non-primary (depth 3)
+        index.add_item(make_item(
+            "Widget",
+            "mycrate::inner::Widget",
+            ItemKind::Function,
+        ));
+
+        let result = lookup(&index, "Widget", None);
+        match result {
+            QueryResult::Found { index: idx } => {
+                assert_eq!(index.items[idx].path, "mycrate::Widget");
+                assert_eq!(index.items[idx].kind, ItemKind::Struct);
+            }
+            other => panic!("expected Found via auto-selection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn auto_select_blocked_by_3_level_primary() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Crate-root primary
+        index.add_item(make_item("Widget", "mycrate::Widget", ItemKind::Struct));
+        // 3-level primary -> blocks auto-selection
+        index.add_item(make_item("Widget", "mycrate::ui::Widget", ItemKind::Struct));
+
+        let result = lookup(&index, "Widget", None);
+        assert!(
+            matches!(result, QueryResult::Ambiguous { .. }),
+            "expected Ambiguous when 3-level primary exists, got {result:?}"
+        );
+    }
+
+    // ---- Task 8: Dedup removes (path, kind) duplicates ----
+
+    #[test]
+    fn dedup_removes_path_kind_duplicates() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Three items with same (path, kind)
+        index.add_item(make_item("Foo", "mycrate::Foo", ItemKind::Struct));
+        index.add_item(make_item("Foo", "mycrate::Foo", ItemKind::Struct));
+        index.add_item(make_item("Foo", "mycrate::Foo", ItemKind::Struct));
+
+        let result = lookup(&index, "mycrate::Foo", None);
+        match result {
+            QueryResult::Found { .. } => {} // Deduped to 1
+            other => panic!("expected Found after dedup, got {other:?}"),
+        }
+    }
+
+    // ---- Task 8: Re-export stubs resolved to canonical items ----
+
+    #[test]
+    fn reexport_stub_resolved_to_canonical() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Canonical item (not a stub)
+        let mut canonical = make_item("Widget", "mycrate::inner::Widget", ItemKind::Struct);
+        canonical.children.push(ChildRef {
+            index: 999, // dummy
+            kind: ItemKind::Function,
+            name: "new".to_string(),
+        });
+        index.add_item(canonical);
+        // Re-export stub
+        let mut stub = make_item("Widget", "mycrate::Widget", ItemKind::Struct);
+        stub.signature = "pub use inner::Widget".to_string();
+        // stub has no children -> is_reexport_stub() returns true
+        index.add_item(stub);
+
+        // Both match "Widget". The stub should be dropped in favor of the canonical.
+        let result = lookup(&index, "Widget", None);
+        match result {
+            QueryResult::Found { index: idx } => {
+                assert_eq!(index.items[idx].path, "mycrate::inner::Widget");
+            }
+            other => panic!("expected Found (canonical), got {other:?}"),
+        }
+    }
+
+    // ---- Task 8: Suggestions for typos ----
+
+    #[test]
+    fn suggestions_returns_close_matches_for_typo() {
+        let index = build_test_index();
+        // "Mutx" -> "Mutex" (distance 1)
+        let suggestions = compute_suggestions(&index, "Mutx");
+        assert!(
+            suggestions.iter().any(|s| s.contains("Mutex")),
+            "expected Mutex in suggestions, got {suggestions:?}"
+        );
+    }
+
+    #[test]
+    fn suggestions_dedup_and_cap_at_5() {
+        // Build index with many similar items
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        for i in 0..20 {
+            let name = format!("Foob{i}");
+            let path = format!("mycrate::{name}");
+            index.add_item(make_item(&name, &path, ItemKind::Struct));
+        }
+
+        let suggestions = compute_suggestions(&index, "Foob");
+        assert!(
+            suggestions.len() <= 5,
+            "suggestions should be capped at 5, got {}",
+            suggestions.len()
+        );
+        // Verify no duplicates
+        let unique: std::collections::HashSet<&String> = suggestions.iter().collect();
+        assert_eq!(
+            unique.len(),
+            suggestions.len(),
+            "suggestions should be deduplicated"
+        );
+    }
+
+    // ---- Task 8: Method lookup ----
+
+    #[test]
+    fn method_lookup_finds_method_on_parent() {
+        let mut index = DocIndex::new("tokio".to_string(), "1.0.0".to_string());
+        // Parent: Mutex struct at index 0
+        let mut mutex = make_item("Mutex", "tokio::sync::Mutex", ItemKind::Struct);
+        // Child: lock method at index 1
+        mutex.children.push(ChildRef {
+            index: 1,
+            kind: ItemKind::Function,
+            name: "lock".to_string(),
+        });
+        index.add_item(mutex);
+        // The actual lock item
+        index.add_item(make_item(
+            "lock",
+            "tokio::sync::Mutex::lock",
+            ItemKind::Function,
+        ));
+
+        let result = lookup_method(&index, &["sync", "Mutex"], "lock", None);
+        match result {
+            QueryResult::Found { index: idx } => {
+                assert_eq!(index.items[idx].name, "lock");
+            }
+            other => panic!("expected Found for method lookup, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn method_lookup_returns_not_found_with_suggestions_when_method_missing() {
+        let mut index = DocIndex::new("tokio".to_string(), "1.0.0".to_string());
+        let mut mutex = make_item("Mutex", "tokio::sync::Mutex", ItemKind::Struct);
+        mutex.children.push(ChildRef {
+            index: 1,
+            kind: ItemKind::Function,
+            name: "lock".to_string(),
+        });
+        index.add_item(mutex);
+        index.add_item(make_item(
+            "lock",
+            "tokio::sync::Mutex::lock",
+            ItemKind::Function,
+        ));
+
+        // "lokc" is a typo for "lock"
+        let result = lookup_method(&index, &["sync", "Mutex"], "lokc", None);
+        match result {
+            QueryResult::NotFound { suggestions, .. } => {
+                assert!(
+                    suggestions.iter().any(|s| s.contains("lock")),
+                    "expected lock in suggestions, got {suggestions:?}"
+                );
+            }
+            other => panic!("expected NotFound with suggestions, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn method_lookup_bubbles_ambiguous_parent() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Two items named "Builder" at same depth -> ambiguous parent
+        index.add_item(make_item(
+            "Builder",
+            "mycrate::http::Builder",
+            ItemKind::Struct,
+        ));
+        index.add_item(make_item(
+            "Builder",
+            "mycrate::runtime::Builder",
+            ItemKind::Struct,
+        ));
+
+        let result = lookup_method(&index, &["Builder"], "build", None);
+        assert!(
+            matches!(result, QueryResult::Ambiguous { .. }),
+            "expected Ambiguous for ambiguous parent, got {result:?}"
+        );
+    }
+
+    // ---- Task 8: looks_like_item_name ----
+
+    #[test]
+    fn looks_like_item_name_uppercase_returns_true() {
+        assert!(looks_like_item_name("Mutex"));
+        assert!(looks_like_item_name("HashMap"));
+        assert!(looks_like_item_name("Vec"));
+        assert!(looks_like_item_name("MAX_SIZE"));
+    }
+
+    #[test]
+    fn looks_like_item_name_lowercase_long_returns_false() {
+        assert!(!looks_like_item_name("serde"));
+        assert!(!looks_like_item_name("tokio"));
+        assert!(!looks_like_item_name("regex"));
+        assert!(!looks_like_item_name("reqwest"));
+    }
+
+    #[test]
+    fn looks_like_item_name_short_returns_true() {
+        assert!(looks_like_item_name("new"));
+        assert!(looks_like_item_name("len"));
+        assert!(looks_like_item_name("pop"));
+        assert!(looks_like_item_name("push"));
+    }
+
+    #[test]
+    fn looks_like_item_name_common_method_returns_true() {
+        assert!(looks_like_item_name("clone"));
+        assert!(looks_like_item_name("default"));
+        assert!(looks_like_item_name("parse"));
+        assert!(looks_like_item_name("format"));
+    }
+
+    #[test]
+    fn looks_like_item_name_hyphen_returns_false() {
+        assert!(!looks_like_item_name("my-crate"));
+        assert!(!looks_like_item_name("serde-json"));
+    }
+
+    #[test]
+    fn looks_like_item_name_empty_returns_false() {
+        assert!(!looks_like_item_name(""));
+    }
+
+    #[test]
+    fn looks_like_item_name_underscore_crate_returns_false() {
+        assert!(!looks_like_item_name("serde_json"));
+        assert!(!looks_like_item_name("tokio_util"));
+    }
+
+    #[test]
+    fn looks_like_item_name_complex_snake_case_returns_true() {
+        assert!(looks_like_item_name("my_longer_function_name"));
     }
 }
