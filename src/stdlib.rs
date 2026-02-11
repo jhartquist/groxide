@@ -136,8 +136,13 @@ fn stdlib_target_dir(crate_name: &str, toolchain_hash: &str) -> Result<PathBuf> 
 /// Generates rustdoc JSON for a stdlib crate and returns the path to the JSON file.
 ///
 /// Locates the stdlib source via sysroot, builds with `--manifest-path` and
-/// `--target-dir` pointing to the global cache, and uses the `--all-features`
-/// with platform failure fallback strategy.
+/// `--target-dir` pointing to the global cache.
+///
+/// Unlike dependency crates, stdlib crates are always built with default features
+/// (unless the user explicitly specifies feature flags). Stdlib features like
+/// `panic_immediate_abort`, `optimize_for_size`, and `compiler-builtins-c` are
+/// internal build-system knobs that can break across nightly versions — they don't
+/// gate public API items the way user-crate features do.
 ///
 /// # Errors
 ///
@@ -174,47 +179,34 @@ pub(crate) fn generate_stdlib_json(
     )
     .map_err(GroxError::Io)?;
 
-    // 4. Build with fallback
+    // 4. Build rustdoc JSON
+    //
+    // For stdlib crates we intentionally skip `--all-features`. Stdlib features
+    // are internal build-system knobs (e.g. `panic_immediate_abort`,
+    // `compiler-builtins-c`) that break across nightly versions and don't gate
+    // public API items. We use default features unless the user explicitly
+    // specified feature flags.
     eprintln!("[grox] Building index for {crate_name}...");
 
-    if features.is_default() {
-        // Try with --all-features, fallback on platform failure
-        let all_features = FeatureFlags {
-            all_features: true,
+    let effective_features = if features.is_default() {
+        // Strip --all-features; use defaults for stdlib crates
+        FeatureFlags {
+            all_features: false,
             no_default_features: false,
             features: Vec::new(),
-        };
-        let cmd = build_stdlib_rustdoc_command(&manifest_path, &target_dir, &all_features, private);
-
-        match run_rustdoc_with_output(cmd) {
-            Ok(()) => {}
-            Err(stderr) => {
-                if is_platform_failure(&stderr) {
-                    eprintln!(
-                        "[grox] Build with --all-features failed, retrying with default features..."
-                    );
-                    let default_features = FeatureFlags {
-                        all_features: false,
-                        no_default_features: false,
-                        features: Vec::new(),
-                    };
-                    let retry_cmd = build_stdlib_rustdoc_command(
-                        &manifest_path,
-                        &target_dir,
-                        &default_features,
-                        private,
-                    );
-                    run_rustdoc_command(retry_cmd)?;
-                } else {
-                    return Err(GroxError::RustdocFailed { stderr });
-                }
-            }
         }
     } else {
-        // User specified explicit flags — use them directly
-        let cmd = build_stdlib_rustdoc_command(&manifest_path, &target_dir, features, private);
-        run_rustdoc_command(cmd)?;
-    }
+        // User specified explicit flags — honour them, but never inject --all-features
+        FeatureFlags {
+            all_features: false,
+            no_default_features: features.no_default_features,
+            features: features.features.clone(),
+        }
+    };
+
+    let cmd =
+        build_stdlib_rustdoc_command(&manifest_path, &target_dir, &effective_features, private);
+    run_rustdoc_command(cmd)?;
 
     // 5. Return JSON path
     let normalized = crate_name.replace('-', "_");
@@ -270,57 +262,6 @@ fn run_rustdoc_command(mut cmd: Command) -> Result<()> {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         Err(GroxError::RustdocFailed { stderr })
     }
-}
-
-/// Runs a rustdoc command, returning `Ok(())` on success or the stderr string on failure.
-fn run_rustdoc_with_output(mut cmd: Command) -> std::result::Result<(), String> {
-    let output = cmd
-        .output()
-        .map_err(|e| format!("failed to execute cargo rustdoc: {e}"))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
-    }
-}
-
-/// Patterns in stderr that indicate a platform-specific build failure.
-const PLATFORM_FAILURE_PATTERNS: &[&str] = &[
-    "failed to run custom build command",
-    "could not find",
-    "ld: library not found",
-    "ld: framework not found",
-    "ld: cannot find",
-    "Unable to find",
-    "not found in PATH",
-    "LINK : fatal error",
-    "error occurred: Command",
-    "is not recognized as an internal or external command",
-    "cannot specify features for packages outside of workspace",
-];
-
-/// Paired patterns: both strings must appear in stderr for the pattern to match.
-const PLATFORM_FAILURE_PAIRED_PATTERNS: &[(&str, &str)] =
-    &[("linker", "error"), ("could not find", "native")];
-
-/// Checks whether stderr from a failed build matches platform-specific failure patterns.
-fn is_platform_failure(stderr: &str) -> bool {
-    let stderr_lower = stderr.to_lowercase();
-
-    for pattern in PLATFORM_FAILURE_PATTERNS {
-        if stderr_lower.contains(&pattern.to_lowercase()) {
-            return true;
-        }
-    }
-
-    for (a, b) in PLATFORM_FAILURE_PAIRED_PATTERNS {
-        if stderr_lower.contains(&a.to_lowercase()) && stderr_lower.contains(&b.to_lowercase()) {
-            return true;
-        }
-    }
-
-    false
 }
 
 #[cfg(test)]
@@ -642,20 +583,6 @@ mod tests {
         );
         let args = format_command_args(&cmd);
         assert!(!has_arg(&args, "--document-private-items"));
-    }
-
-    // ---- Platform failure detection ----
-
-    #[test]
-    fn is_platform_failure_detects_custom_build() {
-        assert!(is_platform_failure(
-            "error: failed to run custom build command"
-        ));
-    }
-
-    #[test]
-    fn is_platform_failure_returns_false_for_normal_error() {
-        assert!(!is_platform_failure("error[E0412]: cannot find type `Foo`"));
     }
 
     // ---- generate_stdlib_json rejects non-stdlib ----
