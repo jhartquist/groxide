@@ -8,6 +8,8 @@ mod query;
 #[allow(dead_code)]
 mod render;
 #[allow(dead_code)]
+mod resolve;
+#[allow(dead_code)]
 mod search;
 #[allow(dead_code)]
 mod signature;
