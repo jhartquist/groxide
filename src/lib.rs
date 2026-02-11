@@ -1,5 +1,7 @@
 #[allow(dead_code)]
 pub mod cli;
+#[allow(dead_code)]
+mod docgen;
 pub mod error;
 #[allow(dead_code)]
 mod index_builder;
