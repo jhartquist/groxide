@@ -5,6 +5,11 @@ edition = "2021"
 rust-version = "1.75"
 description = "Query Rust crate documentation from the terminal"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/groxide/groxide"
+homepage = "https://github.com/groxide/groxide"
+keywords = ["documentation", "rustdoc", "cli", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [".rloop/", ".github/", "docs/", "CLAUDE.md", "mise.toml"]
 
 [[bin]]
 name = "grox"
