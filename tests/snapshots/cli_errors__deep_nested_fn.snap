@@ -1,0 +1,12 @@
+---
+source: tests/cli_errors.rs
+expression: stdout
+---
+fn groxide_test_api::deeply::nested::deep_fn
+
+pub fn deep_fn() -> &'static str
+
+A function at the deepest nesting level.
+
+Useful for testing suffix matching: querying nested::deep_fn should
+find groxide_test_api::deeply::nested::deep_fn.

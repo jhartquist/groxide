@@ -19,6 +19,7 @@ Accessing union fields requires `unsafe` since the compiler cannot guarantee
 which field was last written.
 fn      groxide_test_api::add               Adds two numbers together.
 fn      groxide_test_api::generic_fn        A function with multiple generic parameters.
+fn      groxide_test_api::unicode_docs      A function demonstrating unicode in documentation.
 fn      groxide_test_api::unstable_api      An item only available with the `unstable` feature.
 type    groxide_test_api::Callback          A type alias for a callback function.
 type    groxide_test_api::Result            A type alias for results in this crate.

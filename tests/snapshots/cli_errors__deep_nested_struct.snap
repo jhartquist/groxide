@@ -1,0 +1,16 @@
+---
+source: tests/cli_errors.rs
+expression: stdout
+---
+struct groxide_test_api::deeply::nested::InnerItem
+
+pub struct InnerItem { pub label: String }
+
+A struct at 3 levels of nesting.
+
+Trait Implementations: (showing 5 of 6, use --impls to expand)
+  impl Freeze
+  impl RefUnwindSafe
+  impl Send
+  impl Sync
+  impl Unpin

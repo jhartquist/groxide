@@ -152,6 +152,16 @@ pub struct UnstableStruct {
     pub experimental: bool,
 }
 
+/// A function demonstrating unicode in documentation.
+///
+/// Supports multi-language output: "こんにちは" (Japanese), "café" (French),
+/// "naïve" (English), and emoji: 🦀🔧.
+///
+/// Mathematical symbols: ∀x ∈ ℝ, x² ≥ 0.
+pub fn unicode_docs() -> &'static str {
+    "こんにちは"
+}
+
 // Private items (should appear with --private flag)
 fn private_helper() -> i32 {
     42
