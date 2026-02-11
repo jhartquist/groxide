@@ -68,7 +68,8 @@ pub(crate) fn cache_path(source: &CrateSource, feature_suffix: &str) -> Option<P
         }
         CrateSource::Stdlib { name } => {
             let cache_dir = dirs::cache_dir()?;
-            let filename = format!("{name}{feature_suffix}.groxide");
+            let toolchain = crate::stdlib::get_toolchain_hash().ok()?;
+            let filename = format!("{name}-{toolchain}{feature_suffix}.groxide");
             Some(cache_dir.join("groxide").join("stdlib").join(filename))
         }
         CrateSource::External { name, version } => {
@@ -182,9 +183,13 @@ fn create_header(source: &CrateSource) -> CacheHeader {
         CrateSource::Dependency { version, .. } => CacheMetadata::Dependency {
             package_version: version.clone(),
         },
-        CrateSource::Stdlib { name } => CacheMetadata::StdLib {
-            toolchain_version: name.clone(), // placeholder — real impl would use toolchain hash
-        },
+        CrateSource::Stdlib { .. } => {
+            let toolchain =
+                crate::stdlib::get_toolchain_hash().unwrap_or_else(|_| "unknown".to_string());
+            CacheMetadata::StdLib {
+                toolchain_version: toolchain,
+            }
+        }
         CrateSource::External { version, .. } => CacheMetadata::External {
             crate_version: version.as_deref().unwrap_or("unknown").to_string(),
         },
@@ -229,8 +234,12 @@ fn is_cache_valid(header: &CacheHeader, source: &CrateSource) -> bool {
             CacheMetadata::StdLib {
                 toolchain_version: cached_toolchain,
             },
-            CrateSource::Stdlib { name },
-        ) => cached_toolchain == name, // placeholder comparison
+            CrateSource::Stdlib { .. },
+        ) => {
+            let current =
+                crate::stdlib::get_toolchain_hash().unwrap_or_else(|_| "unknown".to_string());
+            cached_toolchain == &current
+        }
         (
             CacheMetadata::External {
                 crate_version: cached_version,
@@ -599,15 +608,25 @@ mod tests {
         let source = CrateSource::Stdlib {
             name: "std".to_string(),
         };
-        let path = cache_path(&source, "").unwrap();
+        // This test requires nightly for toolchain hash detection
+        let Some(path) = cache_path(&source, "") else {
+            eprintln!("SKIP: nightly not available for toolchain hash");
+            return;
+        };
         let path_str = path.to_str().unwrap();
         assert!(
             path_str.contains("groxide/stdlib/"),
             "stdlib should use global cache: {path_str}"
         );
+        // Path now includes toolchain hash: std-<hash>.groxide
+        let filename = path.file_name().unwrap().to_str().unwrap();
         assert!(
-            path_str.contains("std.groxide"),
-            "should contain crate name: {path_str}"
+            filename.starts_with("std-"),
+            "should start with crate name and dash: {filename}"
+        );
+        assert!(
+            filename.ends_with(".groxide"),
+            "should end with .groxide: {filename}"
         );
     }
 

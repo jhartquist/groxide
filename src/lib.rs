@@ -20,6 +20,8 @@ mod search;
 #[allow(dead_code)]
 mod signature;
 #[allow(dead_code)]
+mod stdlib;
+#[allow(dead_code)]
 mod types;
 
 use cli::Cli;

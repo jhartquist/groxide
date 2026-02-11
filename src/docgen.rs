@@ -214,87 +214,15 @@ fn generate_for_dependency(
 }
 
 /// Generates rustdoc JSON for a stdlib crate.
+///
+/// Delegates to the `stdlib` module for sysroot detection, toolchain hashing,
+/// and per-toolchain cache isolation.
 fn generate_for_stdlib(
     crate_name: &str,
     features: &FeatureFlags,
     private: bool,
 ) -> Result<PathBuf> {
-    let sysroot = get_sysroot()?;
-    let library_path = sysroot.join("lib/rustlib/src/rust/library");
-    if !library_path.exists() {
-        return Err(GroxError::StdLibSourceMissing);
-    }
-
-    let manifest_path = library_path.join(crate_name).join("Cargo.toml");
-    if !manifest_path.exists() {
-        return Err(GroxError::StdLibSourceMissing);
-    }
-
-    let toolchain_hash = get_toolchain_hash()?;
-    let cache_dir = global_cache_dir()?.join("stdlib");
-    std::fs::create_dir_all(&cache_dir).map_err(GroxError::Io)?;
-    let target_dir = cache_dir.join(format!("target-{crate_name}-{toolchain_hash}"));
-
-    eprint_status(crate_name, "stdlib");
-
-    if features.is_default() {
-        // Try with --all-features, fallback on platform failure
-        let all_features = FeatureFlags {
-            all_features: true,
-            no_default_features: false,
-            features: Vec::new(),
-        };
-        let cmd = build_rustdoc_command(
-            None,
-            None,
-            Some(&manifest_path),
-            Some(&target_dir),
-            &all_features,
-            private,
-            true,
-        );
-
-        match run_rustdoc_command_with_output(cmd) {
-            Ok(()) => {}
-            Err(stderr) => {
-                if is_platform_failure(&stderr) {
-                    eprintln!("[grox] Build with --all-features failed, retrying with default features...");
-                    let default_features = FeatureFlags {
-                        all_features: false,
-                        no_default_features: false,
-                        features: Vec::new(),
-                    };
-                    let retry_cmd = build_rustdoc_command(
-                        None,
-                        None,
-                        Some(&manifest_path),
-                        Some(&target_dir),
-                        &default_features,
-                        private,
-                        true,
-                    );
-                    run_rustdoc_command(retry_cmd)?;
-                } else {
-                    return Err(GroxError::RustdocFailed { stderr });
-                }
-            }
-        }
-    } else {
-        let cmd = build_rustdoc_command(
-            None,
-            None,
-            Some(&manifest_path),
-            Some(&target_dir),
-            features,
-            private,
-            true,
-        );
-        run_rustdoc_command(cmd)?;
-    }
-
-    let json_path = json_output_path(&target_dir, crate_name);
-    eprint_done();
-    Ok(json_path)
+    crate::stdlib::generate_stdlib_json(crate_name, features, private)
 }
 
 /// Generates rustdoc JSON for an external crate in its extracted source directory.
@@ -443,67 +371,6 @@ fn is_platform_failure(stderr: &str) -> bool {
 fn json_output_path(target_dir: &Path, crate_name: &str) -> PathBuf {
     let normalized = crate_name.replace('-', "_");
     target_dir.join("doc").join(format!("{normalized}.json"))
-}
-
-/// Gets the nightly sysroot path.
-fn get_sysroot() -> Result<PathBuf> {
-    let output = Command::new("rustc")
-        .args(["+nightly", "--print", "sysroot"])
-        .output()
-        .map_err(|_| GroxError::NightlyNotAvailable)?;
-
-    if !output.status.success() {
-        return Err(GroxError::NightlyNotAvailable);
-    }
-
-    let sysroot = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let path = PathBuf::from(sysroot);
-    if path.exists() {
-        Ok(path)
-    } else {
-        Err(GroxError::NightlyNotAvailable)
-    }
-}
-
-/// Gets a toolchain hash for cache key purposes.
-fn get_toolchain_hash() -> Result<String> {
-    let output = Command::new("rustc")
-        .args(["+nightly", "--version", "--verbose"])
-        .output()
-        .map_err(|_| GroxError::NightlyNotAvailable)?;
-
-    if !output.status.success() {
-        return Err(GroxError::NightlyNotAvailable);
-    }
-
-    let verbose = String::from_utf8_lossy(&output.stdout);
-
-    // Look for commit-hash line
-    for line in verbose.lines() {
-        if let Some(hash) = line.strip_prefix("commit-hash: ") {
-            return Ok(hash.trim().to_string());
-        }
-    }
-
-    // Fallback: DJB2 of the first line
-    let first_line = verbose.lines().next().unwrap_or("unknown");
-    Ok(format!("{:016x}", djb2_hash(first_line)))
-}
-
-/// DJB2 hash function.
-fn djb2_hash(s: &str) -> u64 {
-    let mut hash: u64 = 5381;
-    for byte in s.bytes() {
-        hash = hash.wrapping_mul(33).wrapping_add(u64::from(byte));
-    }
-    hash
-}
-
-/// Returns the global cache directory.
-fn global_cache_dir() -> Result<PathBuf> {
-    dirs::cache_dir()
-        .map(|d| d.join("groxide"))
-        .ok_or_else(|| GroxError::Io(std::io::Error::other("could not determine cache directory")))
 }
 
 /// Finds the workspace target directory for a dependency.
