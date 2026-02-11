@@ -2,6 +2,8 @@
 pub mod cli;
 pub mod error;
 #[allow(dead_code)]
+mod signature;
+#[allow(dead_code)]
 mod types;
 
 use cli::Cli;
