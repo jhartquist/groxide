@@ -1,0 +1,17 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+mod groxide_test_api::containers
+
+Container types for testing module-level items.
+
+This module provides various container types used to exercise
+groxide's rendering of structs, enums, and associated items.
+
+Structs:
+  Pair                            A pair of two values, possibly of different types.
+  Stack                           A stack data structure backed by a `Vec`.
+
+Constants:
+  pub const MAX_CAPACITY: usize                               The maximum capacity for a fixed-size container.

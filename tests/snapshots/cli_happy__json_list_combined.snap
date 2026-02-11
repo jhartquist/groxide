@@ -1,0 +1,7 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+struct  groxide_test_api::containers::Pair          A pair of two values, possibly of different types.
+struct  groxide_test_api::containers::Stack         A stack data structure backed by a `Vec`.
+const   groxide_test_api::containers::MAX_CAPACITY  The maximum capacity for a fixed-size container.

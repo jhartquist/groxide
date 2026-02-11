@@ -1,0 +1,28 @@
+---
+source: tests/cli_happy.rs
+expression: with_all_stdout
+---
+struct groxide_test_api::GenericStruct
+
+pub struct GenericStruct<T: Clone>
+
+A generic container holding a single value.
+
+Examples
+
+  use groxide_test_api::GenericStruct;
+  let gs = GenericStruct::new(42);
+  assert_eq!(*gs.value(), 42);
+
+Methods:
+  pub fn into_inner(self) -> T                                Converts into the inner value, consuming self.
+  pub fn new(value: T) -> Self                                Creates a new `GenericStruct` with the given value.
+  pub fn value(&self) -> &T                                   Returns a reference to the inner value.
+
+Trait Implementations:
+  impl Freeze
+  impl RefUnwindSafe
+  impl Send
+  impl Sync
+  impl Unpin
+  impl UnwindSafe

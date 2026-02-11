@@ -1,0 +1,21 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+enum groxide_test_api::Shape
+
+pub enum Shape
+
+An enum with data-carrying variants.
+
+Variants:
+  Circle(f64)                                                 A circle with a radius.
+  Point                                                       A point with no data.
+  Rectangle { width: f64, height: f64 }                       A rectangle with width and height.
+
+Trait Implementations: (showing 5 of 6, use --impls to expand)
+  impl Freeze
+  impl RefUnwindSafe
+  impl Send
+  impl Sync
+  impl Unpin

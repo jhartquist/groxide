@@ -1,0 +1,9 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+const groxide_test_api::MAX_BUFFER_SIZE
+
+pub const MAX_BUFFER_SIZE: usize
+
+The maximum buffer size in bytes.

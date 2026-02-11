@@ -1,0 +1,9 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+fn  groxide_test_api::containers::Stack::is_empty  Returns `true` if the stack contains no elements.
+fn  groxide_test_api::containers::Stack::len       Returns the number of elements in the stack.
+fn  groxide_test_api::containers::Stack::new       Creates a new empty stack.
+fn  groxide_test_api::containers::Stack::pop       Removes and returns the top element, or `None` if empty.
+fn  groxide_test_api::containers::Stack::push      Pushes a value onto the top of the stack.

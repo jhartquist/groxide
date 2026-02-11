@@ -1,0 +1,9 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+trait groxide_test_api::traits::Stringify
+
+pub trait Stringify
+
+No known implementors.

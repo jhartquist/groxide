@@ -1,0 +1,8 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+// src/lib.rs:21-23
+pub struct GenericStruct<T: Clone> {
+    value: T,
+}

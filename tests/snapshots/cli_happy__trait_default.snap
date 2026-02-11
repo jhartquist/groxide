@@ -1,0 +1,29 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+trait groxide_test_api::traits::Stringify
+
+pub trait Stringify
+
+A trait for items that can be serialized to a string representation.
+
+Examples
+
+Implement Stringify for a custom type:
+
+  use groxide_test_api::traits::Stringify;
+  
+  struct Point(f64, f64);
+  
+  impl Stringify for Point {
+      fn stringify(&self) -> String {
+          format!("({}, {})", self.0, self.1)
+      }
+  }
+
+Required Methods:
+  fn stringify(&self) -> String                               Converts this value to its string representation.
+
+Provided Methods:
+  fn debug_string(&self) -> String                            Returns a debug-formatted string representation.

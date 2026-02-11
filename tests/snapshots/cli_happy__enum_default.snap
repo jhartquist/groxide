@@ -1,0 +1,24 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+enum groxide_test_api::Direction
+
+pub enum Direction
+
+An enum representing cardinal directions.
+
+Used for testing enum variant rendering.
+
+Variants:
+  East                                                        Points east.
+  North                                                       Points north.
+  South                                                       Points south.
+  West                                                        Points west.
+
+Trait Implementations: (showing 5 of 6, use --impls to expand)
+  impl Freeze
+  impl RefUnwindSafe
+  impl Send
+  impl Sync
+  impl Unpin

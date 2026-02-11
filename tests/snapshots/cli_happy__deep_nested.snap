@@ -1,0 +1,15 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+mod groxide_test_api::deeply
+
+A module for testing deeply nested paths.
+
+Contains nested sub-modules to verify groxide handles 3+ level paths.
+
+Modules:
+  nested                          The deepest level of nesting for path resolution tests.
+
+Structs:
+  DeepMarker                      A marker type at the `deeply` module level.

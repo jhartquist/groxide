@@ -1,0 +1,8 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+// src/lib.rs:86-88
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}

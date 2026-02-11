@@ -1,0 +1,8 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+{"path":"groxide_test_api::containers","kind":"mod","signature":"pub mod containers","doc":"Container types for testing module-level items.\n\nThis module provides various container types used to exercise\ngroxide's rendering of structs, enums, and associated items.","feature_gate":null}
+{"path":"groxide_test_api::containers::Pair","kind":"struct","signature":"pub struct Pair<A, B>","summary":"A pair of two values, possibly of different types."}
+{"path":"groxide_test_api::containers::Stack","kind":"struct","signature":"pub struct Stack<T>","summary":"A stack data structure backed by a `Vec`."}
+{"path":"groxide_test_api::containers::MAX_CAPACITY","kind":"const","signature":"pub const MAX_CAPACITY: usize","summary":"The maximum capacity for a fixed-size container."}

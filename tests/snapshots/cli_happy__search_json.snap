@@ -1,0 +1,11 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+{"kind":"struct","path":"groxide_test_api::containers::Stack","score":100,"signature":"pub struct Stack<T>","summary":"A stack data structure backed by a `Vec`."}
+{"kind":"fn","path":"groxide_test_api::containers::Stack::default","score":30,"signature":"fn default() -> Self","summary":""}
+{"kind":"fn","path":"groxide_test_api::containers::Stack::is_empty","score":30,"signature":"pub fn is_empty(&self) -> bool","summary":"Returns `true` if the stack contains no elements."}
+{"kind":"fn","path":"groxide_test_api::containers::Stack::len","score":30,"signature":"pub fn len(&self) -> usize","summary":"Returns the number of elements in the stack."}
+{"kind":"fn","path":"groxide_test_api::containers::Stack::new","score":30,"signature":"pub fn new() -> Self","summary":"Creates a new empty stack."}
+{"kind":"fn","path":"groxide_test_api::containers::Stack::pop","score":30,"signature":"pub fn pop(&mut self) -> Option<T>","summary":"Removes and returns the top element, or `None` if empty."}
+{"kind":"fn","path":"groxide_test_api::containers::Stack::push","score":30,"signature":"pub fn push(&mut self, value: T)","summary":"Pushes a value onto the top of the stack."}

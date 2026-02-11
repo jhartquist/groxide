@@ -1,0 +1,15 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+struct groxide_test_api::GenericStruct
+
+pub struct GenericStruct<T: Clone>
+
+Trait Implementations:
+  impl Freeze (synthetic)
+  impl RefUnwindSafe (synthetic)
+  impl Send (synthetic)
+  impl Sync (synthetic)
+  impl Unpin (synthetic)
+  impl UnwindSafe (synthetic)

@@ -1,0 +1,9 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+type groxide_test_api::Result
+
+pub type Result<T> = std::result::Result<T, String>
+
+A type alias for results in this crate.

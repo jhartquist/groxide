@@ -1,0 +1,29 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+mod     groxide_test_api::containers        Container types for testing module-level items.
+mod     groxide_test_api::deeply            A module for testing deeply nested paths.
+mod     groxide_test_api::reexports         Module for testing re-export handling.
+mod     groxide_test_api::traits            Trait definitions for testing trait rendering.
+struct  groxide_test_api::GenericStruct     A generic container holding a single value.
+struct  groxide_test_api::SimpleStruct      A simple struct with no generics.
+struct  groxide_test_api::UnstableStruct    A feature-gated struct.
+enum    groxide_test_api::Direction         An enum representing cardinal directions.
+enum    groxide_test_api::Shape             An enum with data-carrying variants.
+union   groxide_test_api::IntOrFloat        A union for testing union item rendering.
+
+# Safety
+
+Accessing union fields requires `unsafe` since the compiler cannot guarantee
+which field was last written.
+fn      groxide_test_api::add               Adds two numbers together.
+fn      groxide_test_api::generic_fn        A function with multiple generic parameters.
+fn      groxide_test_api::unstable_api      An item only available with the `unstable` feature.
+type    groxide_test_api::Callback          A type alias for a callback function.
+type    groxide_test_api::Result            A type alias for results in this crate.
+const   groxide_test_api::DEFAULT_GREETING  The default greeting string.
+const   groxide_test_api::MAX_BUFFER_SIZE   The maximum buffer size in bytes.
+static  groxide_test_api::GLOBAL_COUNTER    A global counter for testing static items.
+static  groxide_test_api::VERSION           A simple static string.
+macro   groxide_test_api::greet             Generates a greeting string.
