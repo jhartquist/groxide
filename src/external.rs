@@ -322,53 +322,74 @@ fn extract_tarball(
         .map_err(|e| format!("read tar entries: {e}"))?
     {
         let mut entry = entry_result.map_err(|e| format!("read tar entry: {e}"))?;
-
         let entry_type = entry.header().entry_type();
 
-        // Security: skip symlinks and hard links
-        if entry_type.is_symlink() || entry_type.is_hard_link() {
+        if is_unsafe_entry_type(entry_type) {
             continue;
         }
 
         let raw_path = entry.path().map_err(|e| format!("entry path: {e}"))?;
 
-        // Strip top-level prefix
-        let stripped = match raw_path.strip_prefix(&prefix) {
-            Ok(p) => p.to_path_buf(),
-            Err(_) => continue, // Skip entries outside the expected prefix
+        let Some(stripped) = strip_tar_prefix(&raw_path, &prefix) else {
+            continue;
         };
 
         let target_path = temp_dir.join(&stripped);
 
-        // Create parent directories
-        if let Some(parent) = target_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| format!("create parent dir: {e}"))?;
+        validate_target_path(&target_path, &canonical_temp, &raw_path)?;
 
-            // Security: path traversal protection
-            let canonical_parent = parent
-                .canonicalize()
-                .map_err(|e| format!("canonicalize parent: {e}"))?;
-
-            let canonical_target = if let Some(file_name) = target_path.file_name() {
-                canonical_parent.join(file_name)
-            } else {
-                canonical_parent.clone()
-            };
-
-            if !canonical_target.starts_with(&canonical_temp) {
-                return Err(format!(
-                    "path traversal attempt detected: {}",
-                    raw_path.display()
-                ));
-            }
-        }
-
-        // Extract regular files and directories only
         if entry_type.is_file() || entry_type.is_dir() {
             entry
                 .unpack(&target_path)
                 .map_err(|e| format!("unpack {}: {e}", stripped.display()))?;
         }
+    }
+
+    Ok(())
+}
+
+/// Returns whether a tar entry type should be skipped for security reasons.
+///
+/// Symlinks and hard links are skipped to prevent path-based attacks.
+fn is_unsafe_entry_type(entry_type: tar::EntryType) -> bool {
+    entry_type.is_symlink() || entry_type.is_hard_link()
+}
+
+/// Strips the expected top-level prefix from a tar entry path.
+///
+/// Returns `None` for entries outside the expected `{name}-{version}/` prefix.
+fn strip_tar_prefix(raw_path: &Path, prefix: &str) -> Option<PathBuf> {
+    raw_path.strip_prefix(prefix).ok().map(Path::to_path_buf)
+}
+
+/// Creates parent directories and validates the target path stays within the extraction root.
+///
+/// Returns an error if a path traversal attempt is detected.
+fn validate_target_path(
+    target_path: &Path,
+    canonical_temp: &Path,
+    raw_path: &Path,
+) -> std::result::Result<(), String> {
+    let Some(parent) = target_path.parent() else {
+        return Ok(());
+    };
+
+    std::fs::create_dir_all(parent).map_err(|e| format!("create parent dir: {e}"))?;
+
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|e| format!("canonicalize parent: {e}"))?;
+
+    let canonical_target = match target_path.file_name() {
+        Some(file_name) => canonical_parent.join(file_name),
+        None => canonical_parent,
+    };
+
+    if !canonical_target.starts_with(canonical_temp) {
+        return Err(format!(
+            "path traversal attempt detected: {}",
+            raw_path.display()
+        ));
     }
 
     Ok(())
