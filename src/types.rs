@@ -426,6 +426,7 @@ impl DocIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::make_item;
 
     // ---- ItemKind::short_name ----
 
@@ -619,28 +620,6 @@ mod tests {
         assert!(!KindCategory::Variants.uses_signature_display());
         assert!(!KindCategory::Fields.uses_signature_display());
         assert!(!KindCategory::Primitives.uses_signature_display());
-    }
-
-    // ---- Helper to build test IndexItems ----
-
-    fn make_item(name: &str, path: &str, kind: ItemKind) -> IndexItem {
-        IndexItem {
-            path: path.to_string(),
-            name: name.to_string(),
-            kind,
-            signature: String::new(),
-            docs: String::new(),
-            summary: String::new(),
-            span: SourceSpan {
-                file: String::new(),
-                line_start: 0,
-                line_end: 0,
-            },
-            children: Vec::new(),
-            is_public: true,
-            has_body: false,
-            feature_gate: None,
-        }
     }
 
     // ---- GroupedItems ----

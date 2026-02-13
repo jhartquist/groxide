@@ -10,6 +10,8 @@ mod resolve;
 mod search;
 mod signature;
 mod stdlib;
+#[cfg(test)]
+mod test_utils;
 mod types;
 
 use std::io::{self, Write};

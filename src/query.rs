@@ -586,28 +586,8 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ChildRef, IndexItem, SourceSpan};
-
-    /// Helper to build a test `IndexItem`.
-    fn make_item(name: &str, path: &str, kind: ItemKind) -> IndexItem {
-        IndexItem {
-            path: path.to_string(),
-            name: name.to_string(),
-            kind,
-            signature: String::new(),
-            docs: String::new(),
-            summary: String::new(),
-            span: SourceSpan {
-                file: String::new(),
-                line_start: 0,
-                line_end: 0,
-            },
-            children: Vec::new(),
-            is_public: true,
-            has_body: false,
-            feature_gate: None,
-        }
-    }
+    use crate::test_utils::make_item;
+    use crate::types::ChildRef;
 
     /// Builds a synthetic `DocIndex` with common test items.
     fn build_test_index() -> DocIndex {
