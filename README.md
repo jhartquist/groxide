@@ -124,6 +124,12 @@ grox [OPTIONS] [PATH]
 5. **Query** with a 5-stage pipeline: exact path -> case-insensitive -> suffix match -> name match -> not found.
 6. **Render** plain text output with smart defaults per item kind, truncated to ~1500 chars.
 
+## Project context
+
+**Inside a Rust project** (directory with `Cargo.toml`): groxide reads the project's dependency graph from `Cargo.toml`. Running `grox` with no arguments shows the current crate's docs. Queries resolve through a priority chain: current crate → direct dependencies → workspace members → transitive dependencies → stdlib → crates.io auto-fetch. The index cache lives in `target/groxide/`.
+
+**Outside a Rust project**: Only stdlib queries (`grox std::collections::HashMap`) and crates.io auto-fetch (`grox serde::Deserialize`) work. Running `grox` with no arguments will error since there is no current crate. The cache for external crates lives in `~/.cache/groxide/`.
+
 ## Output design
 
 All documentation content goes to **stdout**. All status/progress messages go to **stderr**. This separation is critical for agent integration — agents pipe stdout into their context window and ignore stderr.
