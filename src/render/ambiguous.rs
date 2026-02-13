@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::types::{DocIndex, IndexItem, ItemKind, TraitImplInfo};
 
-use super::{feature_gate_suffix, strip_markdown};
+use super::{feature_gate_suffix, strip_markdown, trim_trailing_newlines};
 
 /// Maximum items shown in condensed (6+) mode.
 const MAX_SHOWN: usize = 10;
@@ -349,13 +349,6 @@ fn extract_first_paragraph(docs: &str) -> String {
         format!("{}...", &docs[..pos])
     } else {
         format!("{}...", &docs[..200])
-    }
-}
-
-/// Removes trailing newlines from output.
-fn trim_trailing_newlines(s: &mut String) {
-    while s.ends_with("\n\n") {
-        s.pop();
     }
 }
 

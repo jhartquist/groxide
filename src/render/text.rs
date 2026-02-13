@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::types::{DisplayItem, DisplayLimits, GroupedItems, IndexItem, TraitImplInfo};
 
-use super::{feature_gate_suffix, strip_markdown, truncate_doc};
+use super::{feature_gate_suffix, strip_markdown, trim_trailing_newlines, truncate_doc};
 
 /// Renders a `DisplayItem` as plain text.
 ///
@@ -358,13 +358,6 @@ fn feature_gate_annotation_inline(feature_gate: Option<&String>) -> String {
     match feature_gate {
         Some(gate) => format!("  [feature: {gate}]"),
         None => String::new(),
-    }
-}
-
-/// Removes trailing newlines from output, ensuring it ends cleanly.
-fn trim_trailing_newlines(s: &mut String) {
-    while s.ends_with("\n\n") {
-        s.pop();
     }
 }
 

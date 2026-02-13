@@ -2,6 +2,8 @@ use std::fmt::Write;
 
 use crate::types::{DisplayItem, GroupedItems, IndexItem};
 
+use super::trim_trailing_newlines;
+
 /// Renders a `DisplayItem` in list mode (`--list`).
 ///
 /// Produces one line per child item with dynamically-aligned columns:
@@ -81,13 +83,6 @@ fn feature_gate_list_suffix(feature_gate: Option<&String>) -> String {
     match feature_gate {
         Some(gate) => format!("  [feature: {gate}]"),
         None => String::new(),
-    }
-}
-
-/// Removes trailing newlines from output.
-fn trim_trailing_newlines(s: &mut String) {
-    while s.ends_with("\n\n") {
-        s.pop();
     }
 }
 

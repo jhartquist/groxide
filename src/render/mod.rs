@@ -484,6 +484,13 @@ fn safe_truncate_point(s: &str, max_bytes: usize) -> usize {
     pos
 }
 
+/// Removes trailing double-newlines from output, keeping at most one trailing newline.
+pub(crate) fn trim_trailing_newlines(s: &mut String) {
+    while s.ends_with("\n\n") {
+        s.pop();
+    }
+}
+
 /// Renders the feature gate annotation suffix.
 ///
 /// Returns `"  [feature: <gate>]"` if a gate exists, empty string otherwise.
