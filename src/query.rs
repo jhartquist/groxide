@@ -26,118 +26,186 @@ pub(crate) fn lookup(index: &DocIndex, query: &str, kind_filter: Option<ItemKind
     let query_path = segments.join("::");
     let query_lower = query_path.to_lowercase();
 
-    // ---- Stage 1: Exact path match (original case) ----
-    if let Some(indices) = index.path_map.get(&query_path) {
-        let filtered = apply_kind_filter(index, indices, kind_filter);
-        // Return immediately on exact path match — do NOT fall through.
-        return classify_results(index, &filtered, &query_path);
+    // Try each resolution strategy in priority order
+    if let Some(result) = try_exact_path_match(index, &query_path, kind_filter) {
+        return result;
+    }
+    if let Some(result) =
+        try_case_insensitive_path_match(index, &query_path, &query_lower, kind_filter)
+    {
+        return result;
+    }
+    if let Some(result) = try_suffix_match(index, &query_path, &query_lower, kind_filter) {
+        return result;
+    }
+    if let Some(result) = try_name_match(index, &segments, &query_path, kind_filter) {
+        return result;
     }
 
-    // ---- Stage 2: Case-insensitive path match ----
-    if let Some(suffix_indices) = index.suffix_map.get(&query_lower) {
-        let query_segment_count = query_path.split("::").count();
-        let ci_path_matches: Vec<usize> = suffix_indices
-            .iter()
-            .copied()
-            .filter(|&i| {
-                let item = &index.items[i];
-                item.path.to_lowercase() == query_lower
-                    && item.path.split("::").count() == query_segment_count
-            })
-            .collect();
-
-        if !ci_path_matches.is_empty() {
-            let filtered = apply_kind_filter(index, &ci_path_matches, kind_filter);
-            let case_filtered = apply_case_sensitivity(index, &filtered, &query_path);
-            if !case_filtered.is_empty() {
-                return classify_results(index, &case_filtered, &query_path);
-            }
-            // If case filter removed all results, fall through to suffix matching
-        }
-    }
-
-    // ---- Stage 3: Suffix match ----
-    if let Some(suffix_indices) = index.suffix_map.get(&query_lower) {
-        let filtered = apply_kind_filter(index, suffix_indices, kind_filter);
-        let case_filtered = apply_case_sensitivity(index, &filtered, &query_path);
-
-        // Sub-step 3a: Exact suffix matches
-        let query_segments: Vec<&str> = query_lower.split("::").collect();
-        let exact_suffix: Vec<usize> = case_filtered
-            .iter()
-            .copied()
-            .filter(|&idx| {
-                let item_segments: Vec<&str> = index.items[idx].path.split("::").collect();
-                if item_segments.len() < query_segments.len() {
-                    return false;
-                }
-                let offset = item_segments.len() - query_segments.len();
-                item_segments[offset..]
-                    .iter()
-                    .zip(query_segments.iter())
-                    .all(|(item_seg, query_seg)| item_seg.to_lowercase() == *query_seg)
-            })
-            .collect();
-
-        if !exact_suffix.is_empty() {
-            // Sub-step 3b: Non-duplicate preference
-            let non_duplicate: Vec<usize> = exact_suffix
-                .iter()
-                .copied()
-                .filter(|&idx| {
-                    if query_segments.len() == 1 {
-                        let query_seg = &query_segments[0];
-                        let item_segments_lower: Vec<String> = index.items[idx]
-                            .path
-                            .to_lowercase()
-                            .split("::")
-                            .map(String::from)
-                            .collect();
-                        let offset = item_segments_lower.len() - 1;
-                        if offset == 0 {
-                            true // no prefix, always non-duplicate
-                        } else {
-                            !item_segments_lower[..offset]
-                                .iter()
-                                .any(|seg| seg == query_seg)
-                        }
-                    } else {
-                        true // Multi-segment queries always pass
-                    }
-                })
-                .collect();
-
-            // Sub-step 3c: Return best matches
-            if !non_duplicate.is_empty() {
-                return classify_results(index, &non_duplicate, &query_path);
-            }
-            return classify_results(index, &exact_suffix, &query_path);
-        }
-
-        // Suffix map had results but none were exact suffix matches
-        if !case_filtered.is_empty() {
-            return classify_results(index, &case_filtered, &query_path);
-        }
-    }
-
-    // ---- Stage 4: Name match (single-segment only) ----
-    if segments.len() == 1 {
-        let name_lower = segments[0].to_lowercase();
-        if let Some(name_indices) = index.name_map.get(&name_lower) {
-            let filtered = apply_kind_filter(index, name_indices, kind_filter);
-            let case_filtered = apply_case_sensitivity(index, &filtered, segments[0]);
-            if !case_filtered.is_empty() {
-                return classify_results(index, &case_filtered, &query_path);
-            }
-        }
-    }
-
-    // ---- Stage 5: Not found ----
+    // Stage 5: Not found
     let suggestions = compute_suggestions(index, &query_path);
     QueryResult::NotFound {
         query: query_path,
         suggestions,
     }
+}
+
+/// Attempts exact path match (Stage 1).
+///
+/// Returns immediately on exact path match — does NOT fall through even if
+/// kind filtering removes all results.
+fn try_exact_path_match(
+    index: &DocIndex,
+    query_path: &str,
+    kind_filter: Option<ItemKind>,
+) -> Option<QueryResult> {
+    let indices = index.path_map.get(query_path)?;
+    let filtered = apply_kind_filter(index, indices, kind_filter);
+    Some(classify_results(index, &filtered, query_path))
+}
+
+/// Attempts case-insensitive full-path match (Stage 2).
+///
+/// Looks up the lowercased query in the suffix map, then filters to entries whose
+/// full path matches case-insensitively with the same segment count.
+fn try_case_insensitive_path_match(
+    index: &DocIndex,
+    query_path: &str,
+    query_lower: &str,
+    kind_filter: Option<ItemKind>,
+) -> Option<QueryResult> {
+    let suffix_indices = index.suffix_map.get(query_lower)?;
+    let query_segment_count = query_path.split("::").count();
+    let ci_path_matches: Vec<usize> = suffix_indices
+        .iter()
+        .copied()
+        .filter(|&i| {
+            let item = &index.items[i];
+            item.path.to_lowercase() == query_lower
+                && item.path.split("::").count() == query_segment_count
+        })
+        .collect();
+
+    if ci_path_matches.is_empty() {
+        return None;
+    }
+
+    let filtered = apply_kind_filter(index, &ci_path_matches, kind_filter);
+    let case_filtered = apply_case_sensitivity(index, &filtered, query_path);
+    if case_filtered.is_empty() {
+        return None; // Fall through to suffix matching
+    }
+    Some(classify_results(index, &case_filtered, query_path))
+}
+
+/// Attempts suffix match (Stage 3).
+///
+/// Finds items whose path ends with the query segments, preferring non-duplicate
+/// matches (where the query segment doesn't also appear earlier in the path).
+fn try_suffix_match(
+    index: &DocIndex,
+    query_path: &str,
+    query_lower: &str,
+    kind_filter: Option<ItemKind>,
+) -> Option<QueryResult> {
+    let suffix_indices = index.suffix_map.get(query_lower)?;
+    let filtered = apply_kind_filter(index, suffix_indices, kind_filter);
+    let case_filtered = apply_case_sensitivity(index, &filtered, query_path);
+
+    let query_segments: Vec<&str> = query_lower.split("::").collect();
+    let exact_suffix = filter_exact_suffix_matches(index, &case_filtered, &query_segments);
+
+    if !exact_suffix.is_empty() {
+        let non_duplicate = filter_non_duplicate_matches(index, &exact_suffix, &query_segments);
+        if !non_duplicate.is_empty() {
+            return Some(classify_results(index, &non_duplicate, query_path));
+        }
+        return Some(classify_results(index, &exact_suffix, query_path));
+    }
+
+    // Suffix map had results but none were exact suffix matches
+    if !case_filtered.is_empty() {
+        return Some(classify_results(index, &case_filtered, query_path));
+    }
+
+    None
+}
+
+/// Filters indices to those whose path ends with the query segments (case-insensitive).
+fn filter_exact_suffix_matches(
+    index: &DocIndex,
+    indices: &[usize],
+    query_segments: &[&str],
+) -> Vec<usize> {
+    indices
+        .iter()
+        .copied()
+        .filter(|&idx| {
+            let item_segments: Vec<&str> = index.items[idx].path.split("::").collect();
+            if item_segments.len() < query_segments.len() {
+                return false;
+            }
+            let offset = item_segments.len() - query_segments.len();
+            item_segments[offset..]
+                .iter()
+                .zip(query_segments.iter())
+                .all(|(item_seg, query_seg)| item_seg.to_lowercase() == *query_seg)
+        })
+        .collect()
+}
+
+/// Filters to non-duplicate matches for single-segment queries.
+///
+/// A "duplicate" is an item where the query segment also appears in an earlier path
+/// segment (e.g., querying "sync" matches `mycrate::sync::sync` — a duplicate).
+fn filter_non_duplicate_matches(
+    index: &DocIndex,
+    indices: &[usize],
+    query_segments: &[&str],
+) -> Vec<usize> {
+    if query_segments.len() != 1 {
+        return indices.to_vec(); // Multi-segment queries always pass
+    }
+
+    let query_seg = query_segments[0];
+    indices
+        .iter()
+        .copied()
+        .filter(|&idx| {
+            let item_segments_lower: Vec<String> = index.items[idx]
+                .path
+                .to_lowercase()
+                .split("::")
+                .map(String::from)
+                .collect();
+            let offset = item_segments_lower.len() - 1;
+            offset == 0
+                || !item_segments_lower[..offset]
+                    .iter()
+                    .any(|seg| seg == query_seg)
+        })
+        .collect()
+}
+
+/// Attempts name match for single-segment queries (Stage 4).
+fn try_name_match(
+    index: &DocIndex,
+    segments: &[&str],
+    query_path: &str,
+    kind_filter: Option<ItemKind>,
+) -> Option<QueryResult> {
+    if segments.len() != 1 {
+        return None;
+    }
+
+    let name_lower = segments[0].to_lowercase();
+    let name_indices = index.name_map.get(&name_lower)?;
+    let filtered = apply_kind_filter(index, name_indices, kind_filter);
+    let case_filtered = apply_case_sensitivity(index, &filtered, segments[0]);
+    if case_filtered.is_empty() {
+        return None;
+    }
+    Some(classify_results(index, &case_filtered, query_path))
 }
 
 /// Filters indices to only those whose kind matches the filter.
