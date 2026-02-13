@@ -259,9 +259,9 @@ fn download_and_extract(name: &str, version: &str, target_dir: &Path) -> Result<
             details: format!("download read failed: {e}"),
         })?;
 
-    // Prepare temp directory — use string append, NOT Path::with_extension
-    let temp_dir_str = format!("{}.tmp", target_dir.display());
-    let temp_dir = PathBuf::from(&temp_dir_str);
+    // String append instead of with_extension: versioned dirs like "serde-1.0.0"
+    // would lose the last segment ("serde-1.0.tmp") with Path::with_extension.
+    let temp_dir = PathBuf::from(format!("{}.tmp", target_dir.display()));
 
     if temp_dir.exists() {
         std::fs::remove_dir_all(&temp_dir).map_err(|e| GroxError::ExternalFetchFailed {
