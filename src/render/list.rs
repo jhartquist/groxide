@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::types::{DisplayItem, GroupedItems, IndexItem};
 
-use super::trim_trailing_newlines;
+use super::{feature_gate_suffix, trim_trailing_newlines};
 
 /// Renders a `DisplayItem` in list mode (`--list`).
 ///
@@ -26,7 +26,7 @@ pub(crate) fn render_list(display: &DisplayItem<'_>) -> String {
         let kind = item.kind.short_name();
         let path = &item.path;
         let summary = &item.summary;
-        let gate_suffix = feature_gate_list_suffix(item.feature_gate.as_ref());
+        let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
         if summary.is_empty() && gate_suffix.is_empty() {
             let _ = writeln!(out, "{kind:<max_kind_width$}  {path:<max_path_width$}");
         } else {
@@ -76,14 +76,6 @@ fn collect_grouped_items<'a>(groups: &'a GroupedItems<'a>) -> Vec<&'a IndexItem>
         items.extend(group_items);
     }
     items
-}
-
-/// Returns inline feature gate annotation for list lines.
-fn feature_gate_list_suffix(feature_gate: Option<&String>) -> String {
-    match feature_gate {
-        Some(gate) => format!("  [feature: {gate}]"),
-        None => String::new(),
-    }
 }
 
 #[cfg(test)]

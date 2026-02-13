@@ -317,7 +317,7 @@ fn render_grouped_children(out: &mut String, children: &GroupedItems<'_>) {
 fn render_name_line(out: &mut String, item: &IndexItem) {
     let name = &item.name;
     let summary = &item.summary;
-    let gate_suffix = feature_gate_annotation_inline(item.feature_gate.as_ref());
+    let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
     if summary.is_empty() && gate_suffix.is_empty() {
         let _ = writeln!(out, "  {name}");
     } else {
@@ -338,7 +338,7 @@ fn render_name_line(out: &mut String, item: &IndexItem) {
 fn render_signature_line(out: &mut String, item: &IndexItem) {
     let sig = &item.signature;
     let summary = &item.summary;
-    let gate_suffix = feature_gate_annotation_inline(item.feature_gate.as_ref());
+    let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
     if summary.is_empty() && gate_suffix.is_empty() {
         let _ = writeln!(out, "  {sig}");
     } else {
@@ -350,14 +350,6 @@ fn render_signature_line(out: &mut String, item: &IndexItem) {
             format!("{summary}{gate_suffix}")
         };
         let _ = writeln!(out, "  {sig:<58}  {display_summary}");
-    }
-}
-
-/// Returns inline feature gate annotation for listing lines.
-fn feature_gate_annotation_inline(feature_gate: Option<&String>) -> String {
-    match feature_gate {
-        Some(gate) => format!("  [feature: {gate}]"),
-        None => String::new(),
     }
 }
 
