@@ -141,6 +141,14 @@ Status messages are prefixed with `[grox]`:
 [grox] Building index for tokio 1.40.0... done (2.3s)
 ```
 
+## Security considerations
+
+**Code execution**: groxide runs `cargo +nightly rustdoc` on crate source code. For your own project and its dependencies, this is the same trust model as `cargo build`. For auto-fetched external crates, groxide downloads source from crates.io and runs rustdoc on it — the same trust model as `cargo install`.
+
+**Network access**: When auto-fetching, groxide contacts the crates.io API to resolve versions and download tarballs. No other network access occurs. Downloads are size-limited (500 MB) with timeouts.
+
+**File system**: Index caches are written to `target/groxide/` (project-local) and `~/.cache/groxide/` (global). External crate tarballs are extracted with path-traversal protection.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, testing, and development workflow.
