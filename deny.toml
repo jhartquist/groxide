@@ -6,25 +6,12 @@ targets = []
 all-features = false
 no-default-features = false
 
-# Lint level for when a crate version requirement is unmatched
 [advisories]
-# Path to a local copy of the advisory database (uses bundled by default)
-db-path = "~/.cargo/advisory-db"
-# Fetch the advisory database on each run
-db-urls = ["https://github.com/rustsec/advisory-db"]
-# Deny crates with known vulnerabilities
-vulnerability = "deny"
-# Deny crates that have been marked as unmaintained
-unmaintained = "warn"
-# Deny crates that have been yanked from the registry
-yanked = "warn"
-# Deny crates with outstanding advisories that have no fix available
-notice = "warn"
+version = 2
 
 [licenses]
-# Deny unlicensed crates
-unlicensed = "deny"
-# Allow these common permissive licenses
+version = 2
+# Allow common permissive licenses; all others are denied by default
 allow = [
     "MIT",
     "Apache-2.0",
@@ -35,49 +22,19 @@ allow = [
     "Unicode-DFS-2016",
     "Zlib",
 ]
-# Deny known-bad copyleft/restrictive licenses
-deny = [
-    "AGPL-1.0",
-    "AGPL-3.0",
-    "SSPL-1.0",
-    "BUSL-1.1",
-    "CC-BY-NC-1.0",
-    "CC-BY-NC-2.0",
-    "CC-BY-NC-2.5",
-    "CC-BY-NC-3.0",
-    "CC-BY-NC-4.0",
-    "CC-BY-NC-SA-1.0",
-    "CC-BY-NC-SA-2.0",
-    "CC-BY-NC-SA-2.5",
-    "CC-BY-NC-SA-3.0",
-    "CC-BY-NC-SA-4.0",
-    "CC-BY-NC-ND-1.0",
-    "CC-BY-NC-ND-2.0",
-    "CC-BY-NC-ND-2.5",
-    "CC-BY-NC-ND-3.0",
-    "CC-BY-NC-ND-4.0",
-    "GPL-2.0",
-    "GPL-3.0",
-]
-copyleft = "warn"
-# Use SPDX license expressions
 confidence-threshold = 0.8
 exceptions = []
 
 [bans]
-# Deny multiple versions of the same crate
 multiple-versions = "warn"
-# Deny wildcard dependencies
 wildcards = "allow"
 highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
-# Ban specific crates known to be problematic
 deny = [
     # Use rustls instead of openssl for TLS
     { crate = "openssl-sys", wrappers = [] },
 ]
-# Skip checking duplicate versions for these crates (transitive deps we can't control)
 skip = []
 skip-tree = []
 
