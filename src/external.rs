@@ -50,60 +50,85 @@ pub(crate) fn fetch_external_crate(
     features: &FeatureFlags,
     private: bool,
 ) -> Result<(PathBuf, String)> {
-    // 1. Resolve version
-    let exact_version = match version_opt {
-        Some(v) => resolve_version(name, v)?,
-        None => query_latest_version(name)?,
-    };
-
-    // 2. Check if JSON already cached
+    let exact_version = resolve_crate_version(name, version_opt)?;
     let cache_dir = external_cache_dir()?;
     let crate_dir = cache_dir.join(format!("{name}-{exact_version}"));
     let json_path = compute_json_path(&crate_dir, name, features);
 
-    if json_path.exists() {
-        eprintln!("[grox] Using cached {name} {exact_version}");
-        return Ok((json_path, exact_version));
+    if let Some(cached) = check_json_cache(&json_path, name, &exact_version) {
+        return Ok((cached, exact_version));
     }
 
-    // 3. Download source if needed
-    if !crate_dir.join("Cargo.toml").exists() {
-        eprintln!("[grox] Fetching {name} {exact_version} from crates.io...");
-        download_and_extract(name, &exact_version, &crate_dir)?;
-    }
-
-    // 4. Generate rustdoc JSON
+    ensure_source_available(name, &exact_version, &crate_dir)?;
     let generated_path = generate_rustdoc_json_external(&crate_dir, name, features, private)?;
-
-    // 5. If feature-suffixed, copy to feature-specific path
-    if !features.is_default() && generated_path != json_path {
-        if let Some(parent) = json_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| GroxError::ExternalFetchFailed {
-                name: name.to_string(),
-                details: format!("failed to create directory: {e}"),
-            })?;
-        }
-        std::fs::copy(&generated_path, &json_path).map_err(|e| GroxError::ExternalFetchFailed {
-            name: name.to_string(),
-            details: format!("failed to copy JSON for feature cache: {e}"),
-        })?;
-    }
-
-    // 6. Verify output
-    if !json_path.exists() && !generated_path.exists() {
-        return Err(GroxError::ExternalFetchFailed {
-            name: name.to_string(),
-            details: "rustdoc JSON was not generated".to_string(),
-        });
-    }
-
-    let final_path = if json_path.exists() {
-        json_path
-    } else {
-        generated_path
-    };
+    cache_feature_json(name, features, &generated_path, &json_path)?;
+    let final_path = select_output_path(name, &json_path, &generated_path)?;
 
     Ok((final_path, exact_version))
+}
+
+/// Resolves the exact crate version, querying crates.io if no version is specified.
+fn resolve_crate_version(name: &str, version_opt: Option<&str>) -> Result<String> {
+    match version_opt {
+        Some(v) => resolve_version(name, v),
+        None => query_latest_version(name),
+    }
+}
+
+/// Returns the cached JSON path if it already exists, or `None` if a rebuild is needed.
+fn check_json_cache(json_path: &Path, name: &str, version: &str) -> Option<PathBuf> {
+    if json_path.exists() {
+        eprintln!("[grox] Using cached {name} {version}");
+        Some(json_path.to_path_buf())
+    } else {
+        None
+    }
+}
+
+/// Downloads and extracts the crate source if not already present on disk.
+fn ensure_source_available(name: &str, version: &str, crate_dir: &Path) -> Result<()> {
+    if !crate_dir.join("Cargo.toml").exists() {
+        eprintln!("[grox] Fetching {name} {version} from crates.io...");
+        download_and_extract(name, version, crate_dir)?;
+    }
+    Ok(())
+}
+
+/// Copies generated JSON to a feature-suffixed path when non-default features are used.
+fn cache_feature_json(
+    name: &str,
+    features: &FeatureFlags,
+    generated_path: &Path,
+    json_path: &Path,
+) -> Result<()> {
+    if features.is_default() || generated_path == json_path {
+        return Ok(());
+    }
+    if let Some(parent) = json_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| GroxError::ExternalFetchFailed {
+            name: name.to_string(),
+            details: format!("failed to create directory: {e}"),
+        })?;
+    }
+    std::fs::copy(generated_path, json_path).map_err(|e| GroxError::ExternalFetchFailed {
+        name: name.to_string(),
+        details: format!("failed to copy JSON for feature cache: {e}"),
+    })?;
+    Ok(())
+}
+
+/// Verifies that rustdoc JSON was generated and returns the best available path.
+fn select_output_path(name: &str, json_path: &Path, generated_path: &Path) -> Result<PathBuf> {
+    if json_path.exists() {
+        return Ok(json_path.to_path_buf());
+    }
+    if generated_path.exists() {
+        return Ok(generated_path.to_path_buf());
+    }
+    Err(GroxError::ExternalFetchFailed {
+        name: name.to_string(),
+        details: "rustdoc JSON was not generated".to_string(),
+    })
 }
 
 /// Resolves a version string, handling exact, partial, and pre-release versions.
