@@ -4,7 +4,6 @@
 
 - **Rust stable** (MSRV 1.85): `rustup toolchain install stable`
 - **Rust nightly**: Required for rustdoc JSON generation. Install with `rustup toolchain install nightly`
-- **mise** (optional): Task runner for `mise run check`. Install from [mise.jdx.dev](https://mise.jdx.dev/)
 
 ## Building
 
@@ -66,10 +65,6 @@ rm -rf target/groxide/
 Before every commit, all three checks must pass:
 
 ```sh
-# Run all at once (requires mise)
-mise run check
-
-# Or run manually
 cargo fmt -- --check
 cargo clippy --all-targets
 cargo test

@@ -52,7 +52,6 @@ Create the project skeleton.
 - `LICENSE-MIT`, `LICENSE-APACHE`
 - `.github/workflows/ci.yml`
 - `CLAUDE.md` with project conventions
-- `mise.toml` with check/test/clippy tasks
 - `.gitignore`
 - Skeleton `README.md`
 

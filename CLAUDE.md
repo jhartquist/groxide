@@ -41,7 +41,7 @@ CLI (clap) -> Query Engine -> Index Layer -> Cache Layer -> Rustdoc JSON Generat
 
 ## Pre-commit checks
 
-**Before every commit, run `mise run check` (or all three manually):**
+**Before every commit, run the pre-commit checks:**
 
 1. `cargo fmt -- --check` — formatting must be clean
 2. `cargo clippy --all-targets` — zero warnings with pedantic (configured in Cargo.toml [lints])
@@ -51,7 +51,7 @@ Do not commit if any of these fail. Fix issues first.
 
 ## Important for automated agents
 
-- **Working directory:** Always run `cargo test`, `cargo clippy`, and `mise run check` from the project root (`/Users/john/projects/groxide/groxide/`). NEVER cd into `test-fixtures/groxide_test_api/` to run tests — that's a fixture crate with no tests.
+- **Working directory:** Always run `cargo test`, `cargo clippy`, and `cargo fmt` from the project root (`/Users/john/projects/groxide/groxide/`). NEVER cd into `test-fixtures/groxide_test_api/` to run tests — that's a fixture crate with no tests.
 - **Snapshot updates:** When code changes cause snapshot test diffs, update them non-interactively with `INSTA_UPDATE=always cargo test`. Do NOT use `cargo insta accept` (requires a terminal).
 - **Cache invalidation:** After changing `index_builder.rs`, delete `target/groxide/` to clear the index cache before testing.
 - **Spec is truth:** Before implementing any task, read the relevant spec sections listed in `docs/IMPLEMENTATION.md`. The spec files are the single source of truth.
