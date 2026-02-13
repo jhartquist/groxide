@@ -39,7 +39,7 @@ cargo install groxide
 ### From source
 
 ```sh
-git clone https://github.com/groxide/groxide.git
+git clone https://github.com/jhartquist/groxide.git
 cd groxide
 cargo install --path .
 ```
