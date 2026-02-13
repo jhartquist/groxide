@@ -71,7 +71,7 @@ mise run check
 
 # Or run manually
 cargo fmt -- --check
-cargo clippy --all-targets -- -W clippy::pedantic -D warnings
+cargo clippy --all-targets
 cargo test
 ```
 
@@ -84,7 +84,7 @@ cargo test
 - **Prefer `&str` over `String`** in function arguments.
 - **Doc comments** on all public items, starting with a third-person verb ("Returns the...", "Creates a...").
 - **Test names:** `{action}_{outcome}_{condition}` (e.g., `lookup_returns_found_when_exact_path_matches`).
-- **Pedantic clippy:** The project enforces `clippy::pedantic` with `-D warnings`.
+- **Pedantic clippy:** Lint levels are configured in `Cargo.toml` under `[lints]`.
 
 ## Project structure
 

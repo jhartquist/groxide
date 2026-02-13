@@ -1003,7 +1003,7 @@ path = "src/main.rs"
 Before every commit, all three must pass:
 
 1. `cargo fmt -- --check`
-2. `cargo clippy --all-targets -- -W clippy::pedantic -D warnings`
+2. `cargo clippy --all-targets`
 3. `cargo test`
 
 Or use the task runner: `mise run check`.

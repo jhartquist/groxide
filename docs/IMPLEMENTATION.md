@@ -8,7 +8,7 @@ sections of the spec files in `docs/spec/` — those are the single source of tr
 ## Conventions
 
 - **TDD**: Write tests first, then implement. Tests define expected behavior.
-- **Pre-commit**: Every task ends with `cargo fmt`, `cargo clippy --all-targets -- -W clippy::pedantic -D warnings`, `cargo test` all passing.
+- **Pre-commit**: Every task ends with `cargo fmt`, `cargo clippy --all-targets`, `cargo test` all passing.
 - **Commits**: One commit per task. Message format: `task N: <summary>`
 - **Spec references**: Each task lists the spec sections it implements. The implementer should read those sections before starting.
 
@@ -566,7 +566,7 @@ Implements:
 ### Task 23: Final polish
 
 - `cargo fmt -- --check` clean
-- `cargo clippy --all-targets -- -W clippy::pedantic -D warnings` clean
+- `cargo clippy --all-targets` clean
 - `cargo test` all passing
 - `cargo doc --no-deps` builds without warnings
 - `cargo package --list` shows clean contents
