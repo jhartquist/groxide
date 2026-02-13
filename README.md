@@ -46,6 +46,22 @@ cargo install --path .
 
 The binary is called `grox`.
 
+### Agent skill
+
+groxide ships with an [agent skill](https://agentskills.io) that teaches AI coding agents how to use it. Install the skill so your agent can query Rust docs autonomously:
+
+**Claude Code:**
+
+```sh
+cp -r skills/groxide ~/.claude/skills/
+```
+
+**Or install from GitHub (works with Claude Code, Codex, Cursor, Copilot, and [20+ other tools](https://agentskills.io)):**
+
+```sh
+npx skills add jhartquist/groxide
+```
+
 ## Quick start
 
 ```sh

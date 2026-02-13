@@ -9,7 +9,7 @@ repository = "https://github.com/jhartquist/groxide"
 homepage = "https://github.com/jhartquist/groxide"
 keywords = ["documentation", "rustdoc", "cli", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = [".rloop/", ".github/", "docs/", "CLAUDE.md"]
+exclude = [".rloop/", ".github/", "docs/", "skills/", "CLAUDE.md"]
 
 [[bin]]
 name = "grox"
