@@ -103,30 +103,12 @@ impl ProjectContext {
         })
     }
 
-    /// Returns the current package's name (as-is from Cargo.toml, may have hyphens).
-    #[allow(dead_code)]
-    pub(crate) fn current_package_name(&self) -> &str {
-        &self.metadata[&self.current_package_id].name
-    }
-
-    /// Returns the current package's version as a string.
-    #[allow(dead_code)]
-    pub(crate) fn current_package_version(&self) -> String {
-        self.metadata[&self.current_package_id].version.to_string()
-    }
-
     /// Returns the manifest path for the current package.
     pub(crate) fn current_manifest_path(&self) -> PathBuf {
         self.metadata[&self.current_package_id]
             .manifest_path
             .clone()
             .into_std_path_buf()
-    }
-
-    /// Returns the target directory for this workspace.
-    #[allow(dead_code)]
-    pub(crate) fn target_directory(&self) -> PathBuf {
-        self.metadata.target_directory.clone().into_std_path_buf()
     }
 
     /// Resolves a `CrateSpec` to a `CrateSource`.
@@ -249,16 +231,6 @@ impl ProjectContext {
             }
         }
         None
-    }
-
-    /// Returns all package names in the metadata for suggestion generation.
-    #[allow(dead_code)]
-    pub(crate) fn all_package_names(&self) -> Vec<String> {
-        self.metadata
-            .packages
-            .iter()
-            .map(|p| p.name.clone())
-            .collect()
     }
 }
 
@@ -469,20 +441,16 @@ mod tests {
     fn discover_finds_project_in_groxide_repo() {
         // Running from within the groxide project, discovery should succeed
         let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
-        assert_eq!(ctx.current_package_name(), "groxide");
+        let source = ctx.resolve_crate(&CrateSpec::CurrentCrate);
+        assert_eq!(source.name(), "groxide");
     }
 
     #[test]
     fn discover_uses_explicit_manifest_path() {
         let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
         let ctx = ProjectContext::discover(Some(&manifest)).expect("should use explicit path");
-        assert_eq!(ctx.current_package_name(), "groxide");
-    }
-
-    #[test]
-    fn discover_returns_version_for_current_package() {
-        let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
-        assert_eq!(ctx.current_package_version(), "0.1.0");
+        let source = ctx.resolve_crate(&CrateSpec::CurrentCrate);
+        assert_eq!(source.name(), "groxide");
     }
 
     #[test]
@@ -491,13 +459,6 @@ mod tests {
         let path = ctx.current_manifest_path();
         assert!(path.ends_with("Cargo.toml"));
         assert!(path.exists());
-    }
-
-    #[test]
-    fn discover_returns_target_directory() {
-        let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
-        let target = ctx.target_directory();
-        assert!(target.ends_with("target"));
     }
 
     // ---- resolve_crate with known dependencies ----
@@ -692,16 +653,5 @@ mod tests {
             version: None,
         };
         assert_eq!(ext_none.version(), None);
-    }
-
-    // ---- all_package_names ----
-
-    #[test]
-    fn all_package_names_includes_known_deps() {
-        let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
-        let names = ctx.all_package_names();
-        assert!(names.contains(&"clap".to_string()));
-        assert!(names.contains(&"serde".to_string()));
-        assert!(names.contains(&"groxide".to_string()));
     }
 }

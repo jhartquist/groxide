@@ -179,24 +179,6 @@ pub(crate) fn render_source_ambiguous(items_with_source: &[(&IndexItem, Option<&
     out
 }
 
-/// Renders the README view.
-#[allow(dead_code)]
-pub(crate) fn render_readme(content: &str) -> String {
-    content.to_string()
-}
-
-/// Renders the "README not found" message.
-#[allow(dead_code)]
-pub(crate) fn render_readme_not_found(crate_name: &str) -> String {
-    format!("No README found for {crate_name}")
-}
-
-/// Renders the "README not available for stdlib" message.
-#[allow(dead_code)]
-pub(crate) fn render_readme_stdlib_unavailable(crate_name: &str) -> String {
-    format!("README not available for standard library crate '{crate_name}'")
-}
-
 // ---- Private helpers ----
 
 /// Renders the macro/trait special format for exactly 2 ambiguous matches.
@@ -744,34 +726,6 @@ mod tests {
         assert_eq!(
             output,
             "// source not available (Could not read src/foo.rs)"
-        );
-    }
-
-    // ---- README found ----
-
-    #[test]
-    fn render_readme_found() {
-        let content = "# mycrate\n\nA great crate.\n\n## Usage\n\nAdd to Cargo.toml.";
-        let output = render_readme(content);
-        assert_eq!(output, content);
-    }
-
-    // ---- README not found ----
-
-    #[test]
-    fn render_readme_not_found_message() {
-        let output = render_readme_not_found("tokio");
-        assert_eq!(output, "No README found for tokio");
-    }
-
-    // ---- README stdlib unavailable ----
-
-    #[test]
-    fn render_readme_stdlib_unavailable_message() {
-        let output = render_readme_stdlib_unavailable("std");
-        assert_eq!(
-            output,
-            "README not available for standard library crate 'std'"
         );
     }
 

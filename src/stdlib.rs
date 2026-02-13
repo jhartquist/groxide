@@ -111,20 +111,6 @@ fn stdlib_cache_dir() -> Result<PathBuf> {
         .ok_or_else(|| GroxError::Io(std::io::Error::other("could not determine cache directory")))
 }
 
-/// Computes the cache file path for a stdlib crate.
-///
-/// Path: `~/.cache/groxide/stdlib/<name>-<toolchain_hash>.groxide`
-#[allow(dead_code)]
-pub(crate) fn stdlib_cache_path(
-    crate_name: &str,
-    toolchain_hash: &str,
-    feature_suffix: &str,
-) -> Result<PathBuf> {
-    let cache_dir = stdlib_cache_dir()?;
-    let filename = format!("{crate_name}-{toolchain_hash}{feature_suffix}.groxide");
-    Ok(cache_dir.join(filename))
-}
-
 /// Computes the target directory for stdlib rustdoc generation.
 ///
 /// Path: `~/.cache/groxide/stdlib/target-<crate_name>-<toolchain_hash>`
@@ -461,45 +447,6 @@ mod tests {
     fn djb2_hash_works_on_empty_string() {
         // Should return the initial value (5381)
         assert_eq!(djb2_hash(""), 5381);
-    }
-
-    // ---- Cache path computation ----
-
-    #[test]
-    fn stdlib_cache_path_includes_crate_name_and_hash() {
-        let path = stdlib_cache_path("std", "90b35a6239c3d8bdabc530a6a0816f7ff89a0aaf", "")
-            .expect("should compute path");
-        let filename = path
-            .file_name()
-            .expect("has filename")
-            .to_str()
-            .expect("utf8");
-        assert_eq!(
-            filename,
-            "std-90b35a6239c3d8bdabc530a6a0816f7ff89a0aaf.groxide"
-        );
-    }
-
-    #[test]
-    fn stdlib_cache_path_includes_feature_suffix() {
-        let path = stdlib_cache_path("core", "abc123", "-feat_deadbeef00000000")
-            .expect("should compute path");
-        let filename = path
-            .file_name()
-            .expect("has filename")
-            .to_str()
-            .expect("utf8");
-        assert_eq!(filename, "core-abc123-feat_deadbeef00000000.groxide");
-    }
-
-    #[test]
-    fn stdlib_cache_path_under_stdlib_directory() {
-        let path = stdlib_cache_path("alloc", "hash123", "").expect("should compute path");
-        let path_str = path.to_str().expect("utf8");
-        assert!(
-            path_str.contains("groxide/stdlib/"),
-            "should be under groxide/stdlib/: {path_str}"
-        );
     }
 
     // ---- build_stdlib_rustdoc_command ----

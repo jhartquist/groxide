@@ -177,12 +177,6 @@ pub(crate) fn group_items<'a>(items: &[&'a IndexItem]) -> GroupedItems<'a> {
     groups
 }
 
-/// Returns the total item count across all categories.
-#[allow(dead_code)]
-pub(crate) fn grouped_items_total(groups: &GroupedItems<'_>) -> usize {
-    groups.values().map(Vec::len).sum()
-}
-
 /// One entry per documented item. Stored in `DocIndex.items`, serialized to cache.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct IndexItem {
@@ -312,12 +306,6 @@ impl DocIndex {
         &self.items[index]
     }
 
-    /// Returns the number of items in the index.
-    #[allow(dead_code)]
-    pub(crate) fn len(&self) -> usize {
-        self.items.len()
-    }
-
     /// Returns trait implementations for the given item index, or an empty slice.
     pub(crate) fn item_trait_impls(&self, index: usize) -> &[TraitImplInfo] {
         self.trait_impls.get(&index).map_or(&[], Vec::as_slice)
@@ -424,6 +412,14 @@ impl Default for DisplayLimits {
             max_doc_length: 1500,
             expand_all: false,
         }
+    }
+}
+
+#[cfg(test)]
+impl DocIndex {
+    /// Returns the number of items in the index.
+    pub(crate) fn len(&self) -> usize {
+        self.items.len()
     }
 }
 
@@ -682,24 +678,6 @@ mod tests {
         assert_eq!(groups.len(), 1);
         assert!(groups.contains_key(&KindCategory::Structs));
         assert!(!groups.contains_key(&KindCategory::Functions));
-    }
-
-    #[test]
-    fn grouped_items_total_counts_all_items() {
-        let items = [
-            make_item("A", "crate::A", ItemKind::Struct),
-            make_item("b", "crate::b", ItemKind::Function),
-            make_item("c", "crate::c", ItemKind::Function),
-        ];
-        let refs: Vec<&IndexItem> = items.iter().collect();
-        let groups = group_items(&refs);
-        assert_eq!(grouped_items_total(&groups), 3);
-    }
-
-    #[test]
-    fn grouped_items_total_empty_returns_zero() {
-        let groups: GroupedItems<'_> = BTreeMap::new();
-        assert_eq!(grouped_items_total(&groups), 0);
     }
 
     // ---- DocIndex::add_item ----

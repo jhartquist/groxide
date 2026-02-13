@@ -90,27 +90,6 @@ pub(crate) fn render_json(display: &DisplayItem<'_>) -> String {
     }
 }
 
-/// Renders a `DisplayItem` as JSON Lines list (`--json --list`).
-///
-/// Each line is a `JsonListItem`.
-#[allow(dead_code)]
-pub(crate) fn render_json_list(display: &DisplayItem<'_>) -> String {
-    let items = collect_json_list_items(display);
-    let mut out = String::new();
-    for item in &items {
-        let list_item = JsonListItem {
-            path: item.path.clone(),
-            kind: item.kind.short_name().to_string(),
-            signature: item.signature.clone(),
-            summary: item.summary.clone(),
-        };
-        let json = serde_json::to_string(&list_item).expect("invariant: JsonListItem serializes");
-        let _ = writeln!(out, "{json}");
-    }
-    trim_trailing_newlines(&mut out);
-    out
-}
-
 /// Renders ambiguous matches as JSON Lines.
 ///
 /// Each line is a `JsonListItem` with path, kind, signature, summary.
@@ -279,32 +258,6 @@ fn render_json_leaf(item: &IndexItem) -> String {
     };
 
     serde_json::to_string(&doc_item).expect("invariant: JsonDocItem serializes")
-}
-
-/// Collects items for JSON list mode.
-#[allow(dead_code)]
-fn collect_json_list_items<'a>(display: &'a DisplayItem<'a>) -> Vec<&'a IndexItem> {
-    match display {
-        DisplayItem::Crate { children, .. } | DisplayItem::Module { children, .. } => {
-            let mut items = Vec::new();
-            for group_items in children.values() {
-                items.extend(group_items);
-            }
-            items
-        }
-        DisplayItem::Type { methods, .. } => methods.clone(),
-        DisplayItem::Trait {
-            required_methods,
-            provided_methods,
-            ..
-        } => {
-            let mut items: Vec<&IndexItem> = Vec::new();
-            items.extend(required_methods);
-            items.extend(provided_methods);
-            items
-        }
-        DisplayItem::Leaf { item } => vec![item],
-    }
 }
 
 /// Removes trailing newlines from output.
@@ -576,72 +529,6 @@ mod tests {
         let second: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
         assert!(second.get("summary").is_some());
         assert!(second.get("doc").is_none()); // No doc field on list items
-
-        insta::assert_snapshot!(output);
-    }
-
-    // ---- JSON Lines list output ----
-
-    #[test]
-    fn render_json_lines_list() {
-        let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
-
-        let s1 = make_item_full(
-            "Mutex",
-            "mycrate::sync::Mutex",
-            ItemKind::Struct,
-            "pub struct Mutex<T: ?Sized>",
-            "An asynchronous Mutex-like type.",
-            "An asynchronous Mutex-like type.",
-        );
-        let s2 = make_item_full(
-            "RwLock",
-            "mycrate::sync::RwLock",
-            ItemKind::Struct,
-            "pub struct RwLock<T: ?Sized>",
-            "An asynchronous reader-writer lock.",
-            "An asynchronous reader-writer lock.",
-        );
-
-        index.add_item(s1);
-        index.add_item(s2);
-
-        let mut mod_item = make_item_full(
-            "sync",
-            "mycrate::sync",
-            ItemKind::Module,
-            "",
-            "Sync primitives.",
-            "Sync primitives.",
-        );
-        mod_item.children = vec![
-            ChildRef {
-                index: 0,
-                kind: ItemKind::Struct,
-                name: "Mutex".to_string(),
-            },
-            ChildRef {
-                index: 1,
-                kind: ItemKind::Struct,
-                name: "RwLock".to_string(),
-            },
-        ];
-        index.add_item(mod_item);
-
-        let di = build_display_item(&index, 2, false);
-        let output = render_json_list(&di);
-
-        // Each line should be valid JSON
-        for line in output.lines() {
-            let parsed: serde_json::Value =
-                serde_json::from_str(line).expect("each line should be valid JSON");
-            assert!(parsed.get("path").is_some());
-            assert!(parsed.get("kind").is_some());
-            assert!(parsed.get("signature").is_some());
-            assert!(parsed.get("summary").is_some());
-            // No doc field in list items
-            assert!(parsed.get("doc").is_none());
-        }
 
         insta::assert_snapshot!(output);
     }
