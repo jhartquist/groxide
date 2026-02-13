@@ -44,7 +44,7 @@ CLI (clap) -> Query Engine -> Index Layer -> Cache Layer -> Rustdoc JSON Generat
 **Before every commit, run `mise run check` (or all three manually):**
 
 1. `cargo fmt -- --check` — formatting must be clean
-2. `cargo clippy --all-targets -- -W clippy::pedantic -D warnings` — zero warnings with pedantic
+2. `cargo clippy --all-targets` — zero warnings with pedantic (configured in Cargo.toml [lints])
 3. `cargo test` — all tests must pass
 
 Do not commit if any of these fail. Fix issues first.

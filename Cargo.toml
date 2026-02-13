@@ -29,6 +29,12 @@ tar = "0.4"
 thiserror = "2"
 ureq = { version = "2.10", features = ["json"] }
 
+[lints.rust]
+warnings = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
 [dev-dependencies]
 assert_cmd = "2.0"
 insta = { version = "1.40", features = ["filters"] }
