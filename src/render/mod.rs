@@ -474,9 +474,12 @@ fn safe_truncate_point(s: &str, max_bytes: usize) -> usize {
     pos
 }
 
-/// Removes trailing double-newlines from output, keeping at most one trailing newline.
+/// Strips all trailing newlines from output.
+///
+/// Renderers should produce content without trailing newlines; the caller
+/// adds exactly one via `writeln!`.
 pub(crate) fn trim_trailing_newlines(s: &mut String) {
-    while s.ends_with("\n\n") {
+    while s.ends_with('\n') {
         s.pop();
     }
 }

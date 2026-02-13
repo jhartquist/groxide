@@ -75,7 +75,15 @@ pub fn run(cli: &Cli) -> Result<()> {
             handle_source(&mut out, &result, &index, &source)?;
         } else {
             // Step 9: Render output
-            handle_output(&mut out, &result, &index, cli)?;
+            handle_output(
+                &mut out,
+                &result,
+                &index,
+                cli,
+                ctx.as_ref(),
+                &features,
+                &feature_suffix,
+            )?;
         }
     }
 
@@ -457,7 +465,7 @@ fn handle_source(
             let item = index.get(*idx);
             let content = read_source_content(item, source);
             let output = render::ambiguous::render_source(item, content.as_deref());
-            write!(w, "{output}").map_err(GroxError::Io)?;
+            writeln!(w, "{output}").map_err(GroxError::Io)?;
             Ok(())
         }
         QueryResult::Ambiguous { indices, .. } => {
@@ -477,7 +485,7 @@ fn handle_source(
                 .collect();
 
             let output = render::ambiguous::render_source_ambiguous(&refs);
-            write!(w, "{output}").map_err(GroxError::Io)?;
+            writeln!(w, "{output}").map_err(GroxError::Io)?;
             Ok(())
         }
         QueryResult::NotFound {
@@ -524,26 +532,178 @@ fn read_source_content(item: &types::IndexItem, source: &CrateSource) -> Option<
     Some(lines[start..end].join("\n"))
 }
 
+/// Extracts the source path from a re-export signature.
+///
+/// Parses `"pub use {source}"` or `"pub use {source} as {name}"` and returns
+/// the source path (e.g., `"serde_core::de::Deserialize"`).
+fn parse_reexport_source(signature: &str) -> Option<String> {
+    let rest = signature.strip_prefix("pub use ")?;
+    // Handle "pub use source as name"
+    let source = if let Some(pos) = rest.find(" as ") {
+        &rest[..pos]
+    } else {
+        rest.trim_end_matches(';').trim()
+    };
+    if source.is_empty() {
+        return None;
+    }
+    Some(source.to_string())
+}
+
+/// Follows a cross-crate re-export to the canonical item in the source crate.
+///
+/// Returns the source crate's `DocIndex` and the index of the canonical item,
+/// or `None` if the re-export cannot be followed (e.g., source crate unavailable).
+fn try_follow_reexport(
+    stub: &types::IndexItem,
+    ctx: Option<&ProjectContext>,
+    features: &FeatureFlags,
+    feature_suffix: &str,
+    private: bool,
+) -> Option<(DocIndex, usize)> {
+    let source_path = parse_reexport_source(&stub.signature)?;
+
+    // Split into crate name + item path on first `::`
+    let (crate_name, item_path) = source_path.split_once("::")?;
+
+    // Resolve source crate
+    let query_path = QueryPath {
+        crate_spec: CrateSpec::Named(crate_name.to_string()),
+        item_segments: Vec::new(),
+    };
+    let (source, _) = resolve_crate_source(ctx, query_path).ok()?;
+
+    // Load source crate index
+    let (source_index, _source) =
+        load_or_build_index(source, features, feature_suffix, private).ok()?;
+
+    // Query canonical item in source index
+    let source_query = QueryPath {
+        crate_spec: CrateSpec::CurrentCrate,
+        item_segments: item_path.split("::").map(String::from).collect(),
+    };
+    let result = resolve_item(
+        &source_query,
+        &source_index,
+        None,
+        features,
+        feature_suffix,
+        private,
+    );
+
+    match result {
+        QueryResult::Found { index: idx } => Some((source_index, idx)),
+        _ => None,
+    }
+}
+
+/// Post-processes rendered output for a followed re-export.
+///
+/// Replaces the canonical path in the header line with the stub path and inserts
+/// a `"Re-exported from {source_path}."` note before the doc text.
+fn annotate_reexport(output: &str, stub_path: &str, source_path: &str) -> String {
+    use std::fmt::Write as _;
+
+    let lines: Vec<&str> = output.lines().collect();
+    if lines.is_empty() {
+        return output.to_string();
+    }
+
+    // Replace the first line's path with the stub path.
+    // The first line is something like "trait serde_core::de::Deserialize"
+    // We want "trait serde::Deserialize"
+    let first_line = lines[0];
+    let Some(space_pos) = first_line.find(' ') else {
+        return output.to_string();
+    };
+
+    let kind_prefix = &first_line[..space_pos];
+    let new_first_line = format!("{kind_prefix} {stub_path}");
+
+    // Find where to insert the re-export note.
+    // After the signature (which follows the header after a blank line),
+    // look for the next blank line (before docs).
+    let mut insert_pos = None;
+    let mut blank_count = 0;
+    for (i, line) in lines.iter().enumerate().skip(1) {
+        if line.is_empty() {
+            blank_count += 1;
+            if blank_count == 2 {
+                // After header + blank + signature + blank -> insert here
+                insert_pos = Some(i + 1);
+                break;
+            }
+        }
+    }
+
+    let mut result = String::with_capacity(output.len() + 100);
+    result.push_str(&new_first_line);
+    result.push('\n');
+
+    for (i, line) in lines.iter().enumerate().skip(1) {
+        result.push_str(line);
+        result.push('\n');
+        if insert_pos == Some(i + 1) {
+            let _ = write!(result, "Re-exported from {source_path}.\n\n");
+        }
+    }
+
+    // Trim trailing newlines (writeln in caller adds one)
+    while result.ends_with('\n') {
+        result.pop();
+    }
+
+    result
+}
+
 /// Handles default/list/json/impls output.
 fn handle_output(
     w: &mut impl Write,
     result: &QueryResult,
     index: &DocIndex,
     cli: &Cli,
+    ctx: Option<&ProjectContext>,
+    features: &FeatureFlags,
+    feature_suffix: &str,
 ) -> Result<()> {
     match result {
         QueryResult::Found { index: idx } => {
+            let item = index.get(*idx);
+
+            // Check if this is a cross-crate re-export stub that we should follow
+            if query::is_reexport_stub(item) && !cli.json && !cli.list && !cli.impls {
+                if let Some((source_index, canonical_idx)) =
+                    try_follow_reexport(item, ctx, features, feature_suffix, cli.private)
+                {
+                    let source_path = parse_reexport_source(&item.signature).unwrap_or_default();
+                    let canonical_display =
+                        render::build_display_item(&source_index, canonical_idx, cli.private);
+                    let limits = if cli.all {
+                        DisplayLimits {
+                            expand_all: true,
+                            ..DisplayLimits::default()
+                        }
+                    } else {
+                        DisplayLimits::default()
+                    };
+                    let canonical_output = render::text::render_text(&canonical_display, &limits);
+                    let output = annotate_reexport(&canonical_output, &item.path, &source_path);
+                    writeln!(w, "{output}").map_err(GroxError::Io)?;
+                    return Ok(());
+                }
+            }
+
             let display = render::build_display_item(index, *idx, cli.private);
 
             if cli.impls {
                 let output = render_impls(&display, index, *idx);
-                write!(w, "{output}").map_err(GroxError::Io)?;
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.list {
                 let output = render::list::render_list(&display);
-                write!(w, "{output}").map_err(GroxError::Io)?;
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.json {
                 let output = render::json::render_json(&display);
-                write!(w, "{output}").map_err(GroxError::Io)?;
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else {
                 let limits = if cli.all {
                     DisplayLimits {
@@ -554,7 +714,7 @@ fn handle_output(
                     DisplayLimits::default()
                 };
                 let output = render::text::render_text(&display, &limits);
-                write!(w, "{output}").map_err(GroxError::Io)?;
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
             }
             Ok(())
         }
@@ -562,13 +722,13 @@ fn handle_output(
             if cli.json {
                 let items: Vec<&types::IndexItem> = indices.iter().map(|&i| index.get(i)).collect();
                 let output = render::json::render_json_ambiguous(&items);
-                write!(w, "{output}").map_err(GroxError::Io)?;
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.list {
                 let output = render::ambiguous::render_ambiguous_list(index, indices);
-                write!(w, "{output}").map_err(GroxError::Io)?;
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else {
                 let output = render::ambiguous::render_ambiguous(index, indices, query);
-                write!(w, "{output}").map_err(GroxError::Io)?;
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
             }
             Ok(())
         }
@@ -679,7 +839,15 @@ mod tests {
             }
         }
 
-        match handle_output(&mut stdout_buf, &result, index, &cli) {
+        match handle_output(
+            &mut stdout_buf,
+            &result,
+            index,
+            &cli,
+            None,
+            &features,
+            &feature_suffix,
+        ) {
             Ok(()) => {
                 let output = String::from_utf8(stdout_buf).expect("valid utf8");
                 (Ok(output), String::new())
@@ -742,7 +910,15 @@ mod tests {
 
         let mut buf = Vec::new();
         let cli = Cli::try_parse_from(["grox"]).expect("parses");
-        let r = handle_output(&mut buf, &result, &index, &cli);
+        let r = handle_output(
+            &mut buf,
+            &result,
+            &index,
+            &cli,
+            None,
+            &features,
+            &feature_suffix,
+        );
         assert!(r.is_ok(), "crate root query should succeed");
         let output = String::from_utf8(buf).expect("valid utf8");
         assert!(

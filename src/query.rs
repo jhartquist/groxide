@@ -342,7 +342,7 @@ fn resolve_reexport_stubs(index: &DocIndex, indices: &[usize]) -> Vec<usize> {
 }
 
 /// Returns whether an item is a re-export stub (`pub use` with no children).
-fn is_reexport_stub(item: &crate::types::IndexItem) -> bool {
+pub(crate) fn is_reexport_stub(item: &crate::types::IndexItem) -> bool {
     item.signature.starts_with("pub use ") && item.children.is_empty()
 }
 
