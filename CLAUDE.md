@@ -20,7 +20,7 @@ A Rust CLI tool that lets LLM coding agents (and humans) query crate documentati
 
 ## Tech stack
 
-- Rust (edition 2024) + clap (derive) for CLI
+- Rust (edition 2021) + clap (derive) for CLI
 - `rustdoc-types` for parsing rustdoc JSON
 - `cargo_metadata` for dependency resolution
 - `rmp-serde` for index cache serialization
