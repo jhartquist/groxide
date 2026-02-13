@@ -1,6 +1,7 @@
 # groxide
 
 [![CI](https://github.com/groxide/groxide/actions/workflows/ci.yml/badge.svg)](https://github.com/groxide/groxide/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/groxide/groxide/graph/badge.svg)](https://codecov.io/gh/groxide/groxide)
 [![Crates.io](https://img.shields.io/crates/v/groxide.svg)](https://crates.io/crates/groxide)
 [![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/groxide.svg)](LICENSE-MIT)
 
