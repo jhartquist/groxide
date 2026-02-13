@@ -125,15 +125,11 @@ fn collect_trait_methods<'a>(
 pub(crate) fn strip_markdown(input: &str) -> String {
     let mut output = String::with_capacity(input.len());
     let mut in_code_fence = false;
-    let lines = input.lines();
 
-    for line in lines {
+    for line in input.lines() {
         if in_code_fence {
-            if line.trim_start().starts_with("```") {
-                in_code_fence = false;
-                // Blank line after code block is handled by the next line processing
-            } else {
-                // Indent code block content by 2 spaces
+            in_code_fence = !line.trim_start().starts_with("```");
+            if in_code_fence {
                 output.push_str("  ");
                 output.push_str(line);
                 output.push('\n');
@@ -141,81 +137,75 @@ pub(crate) fn strip_markdown(input: &str) -> String {
             continue;
         }
 
-        // Check for code fence opening
         if line.trim_start().starts_with("```") {
             in_code_fence = true;
-            // Ensure blank line before code block if output doesn't already end with one
-            if !output.is_empty() && !output.ends_with("\n\n") {
-                if output.ends_with('\n') {
-                    output.push('\n');
-                } else {
-                    output.push_str("\n\n");
-                }
-            }
+            ensure_blank_line(&mut output);
             continue;
         }
 
-        // Horizontal rules
-        let trimmed = line.trim();
-        if is_horizontal_rule(trimmed) {
-            // Output a blank line
-            if !output.is_empty() && !output.ends_with("\n\n") {
-                if output.ends_with('\n') {
-                    output.push('\n');
-                } else {
-                    output.push_str("\n\n");
-                }
-            }
-            continue;
-        }
-
-        // Headings
-        if let Some(heading_text) = strip_heading(trimmed) {
-            output.push_str(heading_text);
-            output.push('\n');
-            continue;
-        }
-
-        // Blockquotes
-        if let Some(rest) = trimmed.strip_prefix("> ") {
-            let stripped = strip_inline_markdown(rest);
-            output.push_str(&stripped);
-            output.push('\n');
-            continue;
-        }
-        if trimmed == ">" {
-            output.push('\n');
-            continue;
-        }
-
-        // List markers (unordered)
-        if let Some(stripped_line) = strip_list_marker(line) {
-            let stripped = strip_inline_markdown(stripped_line);
-            output.push_str(&stripped);
-            output.push('\n');
-            continue;
-        }
-
-        // Numbered list markers
-        if let Some(stripped_line) = strip_numbered_list_marker(line) {
-            let stripped = strip_inline_markdown(stripped_line);
-            output.push_str(&stripped);
-            output.push('\n');
-            continue;
-        }
-
-        // Regular line — strip inline markdown
-        let stripped = strip_inline_markdown(line);
-        output.push_str(&stripped);
-        output.push('\n');
+        process_line(line, &mut output);
     }
 
-    // Remove trailing newline(s) to match expectations
     while output.ends_with('\n') {
         output.pop();
     }
 
     output
+}
+
+/// Ensures the output ends with a blank line (double newline), used before
+/// block-level separators like code fences and horizontal rules.
+fn ensure_blank_line(output: &mut String) {
+    if !output.is_empty() && !output.ends_with("\n\n") {
+        if output.ends_with('\n') {
+            output.push('\n');
+        } else {
+            output.push_str("\n\n");
+        }
+    }
+}
+
+/// Processes a single non-code-fence line and appends the result to `output`.
+fn process_line(line: &str, output: &mut String) {
+    let trimmed = line.trim();
+
+    if is_horizontal_rule(trimmed) {
+        ensure_blank_line(output);
+        return;
+    }
+
+    if let Some(content) = extract_line_content(line, trimmed) {
+        output.push_str(&strip_inline_markdown(content));
+    } else {
+        output.push_str(&strip_inline_markdown(line));
+    }
+    output.push('\n');
+}
+
+/// Extracts the text content from a markdown block-level construct.
+///
+/// Returns `Some` with the inner text for headings, blockquotes, and list items,
+/// or `None` for regular lines that need no block-level stripping.
+fn extract_line_content<'a>(line: &'a str, trimmed: &'a str) -> Option<&'a str> {
+    if let Some(heading_text) = strip_heading(trimmed) {
+        return Some(heading_text);
+    }
+
+    if let Some(rest) = trimmed.strip_prefix("> ") {
+        return Some(rest);
+    }
+    if trimmed == ">" {
+        return Some("");
+    }
+
+    if let Some(rest) = strip_list_marker(line) {
+        return Some(rest);
+    }
+    if let Some(rest) = strip_numbered_list_marker(line) {
+        return Some(rest);
+    }
+
+    None
 }
 
 /// Returns true if the line is a horizontal rule (---, ***, ___).
