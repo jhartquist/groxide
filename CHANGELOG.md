@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2025-01-01
+## [0.1.0] - Unreleased
 
 ### Added
 
@@ -28,3 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Single-segment query reinterpretation (e.g., `grox Mutex` searches current crate).
 - Multi-crate search fallback across cached dependency indices.
 - Token-efficient output (~200-800 tokens per query).
+
+### Fixed
+
+- Fixed MSRV declaration (1.75 -> 1.85) to match actual dependency requirements.
+- Fixed repository URLs in Cargo.toml and README.
+- Fixed outdated clippy command references in documentation.
+
+### Changed
+
+- Removed mise task runner dependency; pre-commit checks are now documented as plain cargo commands.
+- Added project context documentation to README (in-project vs outside behavior).
+- Added security considerations section to README.
