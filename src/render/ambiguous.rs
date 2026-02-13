@@ -306,49 +306,74 @@ fn extract_first_paragraph(docs: &str) -> String {
         return String::new();
     }
 
-    // Find first blank line
-    if let Some(pos) = docs.find("\n\n") {
-        return docs[..pos].to_string();
+    if let Some(para) = take_until_blank_line(docs) {
+        return para;
     }
 
-    // Extract first 3 sentences
-    let mut sentence_count = 0;
+    if let Some(sentences) = take_first_sentences(docs, 3) {
+        return sentences;
+    }
+
+    truncate_at_boundary(docs, 200)
+}
+
+/// Returns text before the first blank line, if one exists.
+fn take_until_blank_line(docs: &str) -> Option<String> {
+    docs.find("\n\n").map(|pos| docs[..pos].to_string())
+}
+
+/// Extracts up to `max` sentences from the text.
+///
+/// A sentence boundary is a `.`, `!`, or `?` followed by a space, or at end of text.
+/// Returns `Some` if the text contains at most `max` sentences; `None` if it
+/// exceeds `max` without fitting.
+fn take_first_sentences(docs: &str, max: usize) -> Option<String> {
     let bytes = docs.as_bytes();
+    let mut count = 0;
+
     for i in 0..bytes.len().saturating_sub(1) {
-        if (bytes[i] == b'.' || bytes[i] == b'!' || bytes[i] == b'?') && bytes[i + 1] == b' ' {
-            sentence_count += 1;
-            if sentence_count >= 3 {
-                return docs[..=i].to_string();
-            }
-        }
-    }
-    // Check last char for sentence end
-    if let Some(last) = bytes.last() {
-        if *last == b'.' || *last == b'!' || *last == b'?' {
-            sentence_count += 1;
-            if sentence_count <= 3 {
-                return docs.to_string();
+        if is_sentence_end(bytes[i]) && bytes[i + 1] == b' ' {
+            count += 1;
+            if count >= max {
+                return Some(docs[..=i].to_string());
             }
         }
     }
 
-    // Truncate at ~200 chars at word boundary
-    if docs.len() <= 200 {
+    // Check if final char is a sentence terminator
+    if bytes.last().is_some_and(|&b| is_sentence_end(b)) {
+        count += 1;
+        if count <= max {
+            return Some(docs.to_string());
+        }
+    }
+
+    None
+}
+
+/// Returns whether a byte is a sentence-ending punctuation mark.
+fn is_sentence_end(b: u8) -> bool {
+    b == b'.' || b == b'!' || b == b'?'
+}
+
+/// Truncates text to approximately `limit` characters at a word or line boundary.
+fn truncate_at_boundary(docs: &str, limit: usize) -> String {
+    if docs.len() <= limit {
         return docs.to_string();
     }
 
-    // Find first newline if <= 200 chars
+    // Prefer breaking at the first newline if it falls within the limit
     if let Some(nl) = docs.find('\n') {
-        if nl <= 200 {
+        if nl <= limit {
             return docs[..nl].to_string();
         }
     }
 
-    let search = &docs[..200];
+    let search = &docs[..limit];
     if let Some(pos) = search.rfind(' ') {
         format!("{}...", &docs[..pos])
     } else {
-        format!("{}...", &docs[..200])
+        format!("{}...", &docs[..limit])
     }
 }
 
@@ -792,5 +817,68 @@ mod tests {
             result.len()
         );
         assert!(result.ends_with("..."));
+    }
+
+    // ---- Helper: take_until_blank_line ----
+
+    #[test]
+    fn take_until_blank_line_returns_first_paragraph() {
+        assert_eq!(
+            take_until_blank_line("Hello world.\n\nMore text."),
+            Some("Hello world.".to_string())
+        );
+    }
+
+    #[test]
+    fn take_until_blank_line_returns_none_when_no_blank() {
+        assert_eq!(take_until_blank_line("Single paragraph only."), None);
+    }
+
+    // ---- Helper: take_first_sentences ----
+
+    #[test]
+    fn take_first_sentences_returns_up_to_max() {
+        let text = "First. Second. Third. Fourth.";
+        assert_eq!(
+            take_first_sentences(text, 3),
+            Some("First. Second. Third.".to_string())
+        );
+    }
+
+    #[test]
+    fn take_first_sentences_returns_all_when_under_max() {
+        let text = "One sentence.";
+        assert_eq!(
+            take_first_sentences(text, 3),
+            Some("One sentence.".to_string())
+        );
+    }
+
+    #[test]
+    fn take_first_sentences_returns_none_when_no_sentences() {
+        assert_eq!(take_first_sentences("no punctuation here", 3), None);
+    }
+
+    // ---- Helper: truncate_at_boundary ----
+
+    #[test]
+    fn truncate_at_boundary_returns_short_text_unchanged() {
+        assert_eq!(truncate_at_boundary("short text", 200), "short text");
+    }
+
+    #[test]
+    fn truncate_at_boundary_breaks_at_newline_within_limit() {
+        // Total text > 50 chars, but first newline at position 10 (within limit)
+        let text = format!("First line\n{}", "x".repeat(50));
+        assert_eq!(truncate_at_boundary(&text, 50), "First line");
+    }
+
+    #[test]
+    fn truncate_at_boundary_breaks_at_word_with_ellipsis() {
+        let long = "word ".repeat(100);
+        let result = truncate_at_boundary(&long, 200);
+        assert!(result.ends_with("..."));
+        // The part before "..." should be at most 200 chars (minus a word break)
+        assert!(result.len() <= 204);
     }
 }
