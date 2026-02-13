@@ -964,7 +964,7 @@ Default flags produce no suffix, so the common case uses the clean filename.
 | Binary name | `grox` |
 | Crate name | `groxide` |
 | Edition | 2021 |
-| MSRV | 1.75 |
+| MSRV | 1.85 |
 | License | MIT OR Apache-2.0 |
 
 ### Dependencies

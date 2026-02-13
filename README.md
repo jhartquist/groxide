@@ -25,7 +25,7 @@ LLM coding agents and humans both need fast, token-efficient access to crate doc
 
 ## Requirements
 
-- Rust stable (MSRV 1.75)
+- Rust stable (MSRV 1.85)
 - Rust nightly toolchain (for rustdoc JSON generation): `rustup toolchain install nightly`
 
 ## Installation

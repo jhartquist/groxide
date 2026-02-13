@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Rust stable** (MSRV 1.75): `rustup toolchain install stable`
+- **Rust stable** (MSRV 1.85): `rustup toolchain install stable`
 - **Rust nightly**: Required for rustdoc JSON generation. Install with `rustup toolchain install nightly`
 - **mise** (optional): Task runner for `mise run check`. Install from [mise.jdx.dev](https://mise.jdx.dev/)
 

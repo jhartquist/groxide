@@ -507,7 +507,7 @@ pub(crate) fn lookup_method(
                 .iter()
                 .filter(|child| {
                     child.name.to_lowercase() == method_lower
-                        && kind_filter.map_or(true, |kf| child.kind.matches_filter(kf))
+                        && kind_filter.is_none_or(|kf| child.kind.matches_filter(kf))
                 })
                 .map(|child| child.index)
                 .collect();

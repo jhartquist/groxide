@@ -674,7 +674,7 @@ fn extract_summary(docs: &str) -> String {
     let mut chars = docs.char_indices().peekable();
 
     while let Some((byte_pos, ch)) = chars.next() {
-        if (ch == '!' || ch == '?') && chars.peek().map_or(true, |(_, c)| c.is_whitespace()) {
+        if (ch == '!' || ch == '?') && chars.peek().is_none_or(|(_, c)| c.is_whitespace()) {
             return docs[..byte_pos + ch.len_utf8()].to_string();
         }
 
@@ -688,7 +688,7 @@ fn extract_summary(docs: &str) -> String {
                 if next_ch.is_whitespace() {
                     let remaining = &docs[byte_pos + 1..];
                     let next_non_ws = remaining.chars().find(|c| !c.is_whitespace());
-                    if next_non_ws.map_or(true, char::is_uppercase) {
+                    if next_non_ws.is_none_or(char::is_uppercase) {
                         return docs[..=byte_pos].to_string();
                     }
                 }
