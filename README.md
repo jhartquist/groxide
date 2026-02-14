@@ -7,6 +7,82 @@
 
 Query Rust crate documentation from the terminal. Inspired by `go doc` — the path is the query, smart defaults by item kind.
 
+## What it looks like
+
+Inside a Rust project, query any dependency by path. Here's a project that depends on `tokio`:
+
+**Method lookup** — get signature, docs, and examples instantly:
+
+```
+$ grox tokio::sync::Mutex::lock
+
+fn tokio::sync::mutex::Mutex::lock
+
+pub async fn lock(&self) -> MutexGuard<'_, T>
+
+Locks this mutex, causing the current task to yield until the lock has
+been acquired.  When the lock has been acquired, function returns a
+[MutexGuard].
+
+If the mutex is available to be acquired immediately, then this call
+will typically not yield to the runtime. However, this is not guaranteed
+under all circumstances.
+
+Cancel safety
+
+This method uses a queue to fairly distribute locks in the order they
+were requested. Cancelling a call to lock makes you lose your place in
+the queue.
+
+Examples
+
+  use tokio::sync::Mutex;
+
+  let mutex = Mutex::new(1);
+
+  let mut n = mutex.lock().await;
+  *n = 2;
+```
+
+**Module listing** — discover what's in a module:
+
+```
+$ grox tokio::sync -l
+
+mod     tokio::sync::broadcast                    A multi-producer, multi-consumer broadcast queue.
+mod     tokio::sync::futures                      Named future types.
+mod     tokio::sync::mpsc                         A multi-producer, single-consumer queue for sending ...
+mod     tokio::sync::oneshot                      A one-shot channel is used for sending a single message ...
+mod     tokio::sync::watch                        A multi-producer, multi-consumer channel that only retains ...
+struct  tokio::sync::AcquireError                 Re-exported from `tokio::sync::batch_semaphore::AcquireError`.
+struct  tokio::sync::Barrier                      Re-exported from `tokio::sync::barrier::Barrier`.
+struct  tokio::sync::Mutex                        Re-exported from `tokio::sync::mutex::Mutex`.
+# ... (29 items total)
+```
+
+**Works from anywhere** — query the standard library or auto-fetch from crates.io with no project needed:
+
+```
+$ grox std::collections::HashMap
+
+struct std::collections::hash_map::HashMap
+
+pub struct HashMap<K, V, S = crate::hash::RandomState, A: Allocator = crate::alloc::Global>
+
+A [hash map] implemented with quadratic probing and SIMD lookup.
+
+By default, HashMap uses a hashing algorithm selected to provide
+resistance against HashDoS attacks. ...
+
+Methods: (showing 15 of 38, use --all to expand)
+  pub fn capacity(&self) -> usize
+  pub fn clear(&mut self)
+  pub fn contains_key<Q>(&self, k: &Q) -> bool
+  pub fn get<Q>(&self, k: &Q) -> Option<&V>
+  pub fn insert(&mut self, k: K, v: V) -> Option<V>
+  ...
+```
+
 ## Why
 
 LLM coding agents and humans both need fast, token-efficient access to crate docs without leaving the terminal. `groxide` resolves paths like `tokio::sync::Mutex`, auto-builds a queryable index from rustdoc JSON, and renders plain text output tuned for ~200-800 tokens per query.
@@ -18,9 +94,9 @@ LLM coding agents and humans both need fast, token-efficient access to crate doc
 - **Progressive disclosure.** Crate -> module -> type -> method drill-down.
 - **Token-efficient.** Truncation by default, `--all` to expand.
 - **Zero setup.** Auto-builds and caches index on first use.
-- **Auto-fetch.** Unknown crates are fetched from crates.io automatically.
-- **Standard library.** Query `std`, `core`, and `alloc` directly.
-- **Full-text search.** `grox -S "async file"` searches across docs.
+- **Auto-fetch.** Unknown crates are fetched from crates.io automatically — works outside a project.
+- **Standard library.** Query `std`, `core`, and `alloc` directly — works anywhere.
+- **Full-text search.** `grox tokio -S "spawn"` searches across a crate's docs.
 - **Multiple output formats.** Plain text (default), JSON (`--json`), list (`--list`).
 
 ## Requirements
@@ -64,8 +140,10 @@ npx skills add jhartquist/groxide
 
 ## Quick start
 
+**Inside a Rust project** — queries your dependencies automatically:
+
 ```sh
-# Query a struct — shows signature, docs, methods, trait impls
+# Query a dependency's type (serde is in your Cargo.toml)
 grox serde::Deserialize
 
 # List module contents
@@ -74,20 +152,24 @@ grox tokio::sync -l
 # Full method documentation
 grox tokio::sync::Mutex::lock
 
-# Search across documentation
-grox -S "async file"
+# Search across a crate's documentation
+grox tokio -S "spawn"
 
 # View source code
 grox -s tokio::sync::Mutex::new
 
-# Auto-fetch an external crate from crates.io
-grox axum::Router
+# JSON output for programmatic use
+grox --json serde::Serialize
+```
 
+**Works anywhere** — no Cargo.toml needed:
+
+```sh
 # Query standard library
 grox std::collections::HashMap
 
-# JSON output for programmatic use
-grox --json serde::Serialize
+# Auto-fetch any crate from crates.io
+grox axum::Router
 
 # Pin to a specific version
 grox serde@1.0.210::Deserialize

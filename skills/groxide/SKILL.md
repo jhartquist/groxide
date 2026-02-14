@@ -22,7 +22,15 @@ The path is the query. No subcommands — just `grox <path>`.
 Output goes to stdout (documentation content) and stderr (status messages).
 Agents should capture stdout only. Exit codes: 0 = success, 1 = not found, 2 = error.
 
+## Where it works
+
+**Inside a Rust project** (directory with `Cargo.toml`): query your current crate, any dependency, workspace members, transitive deps, stdlib, or auto-fetch from crates.io. Run `grox` with no arguments to see the current crate's docs.
+
+**Outside a Rust project**: query the standard library (`grox std::collections::HashMap`) or auto-fetch any crate from crates.io (`grox axum::Router`). No Cargo.toml needed for these.
+
 ## Common Patterns
+
+The examples below assume you are inside a Rust project that depends on the queried crates (e.g., `serde`, `tokio`). For stdlib and auto-fetch, see the dedicated sections below — those work anywhere.
 
 ### Look up a type
 
@@ -53,7 +61,7 @@ what a module offers before drilling into specific items.
 ### Search documentation
 
 ```sh
-grox -S "async read" tokio
+grox tokio -S "spawn"
 ```
 
 Full-text search across all items in a crate. Returns up to 20 results with
@@ -76,14 +84,14 @@ grox --json serde::Serialize
 JSON Lines format with structured fields: path, kind, signature, doc, methods,
 trait_impls. Useful when you need to parse the output programmatically.
 
-### Query standard library
+### Query standard library (works anywhere)
 
 ```sh
 grox std::collections::HashMap
 grox std::fs::File::open
 ```
 
-Works with `std`, `core`, and `alloc`.
+Works with `std`, `core`, and `alloc`. No Cargo.toml needed.
 
 ### Show trait implementations
 
@@ -99,14 +107,15 @@ Lists all trait implementations on a type, or all known implementors of a trait.
 grox --readme tokio
 ```
 
-### Auto-fetch external crates
+### Auto-fetch external crates (works anywhere)
 
 ```sh
 grox axum::Router
 ```
 
 Crates not in your project's dependencies are automatically fetched from
-crates.io, documented, and indexed. No manual setup needed.
+crates.io, documented, and indexed. No manual setup needed. Works outside
+a Rust project.
 
 ### Pin to a specific version
 
@@ -143,13 +152,13 @@ User asks: "How does the `tower` middleware system work?"
 2. List the main exports: `grox tower -l`
 3. Drill into the key trait: `grox tower::Service`
 4. Read the core method: `grox tower::Service::call`
-5. Search for patterns: `grox -S "middleware" tower`
+5. Search for patterns: `grox tower -S "middleware"`
 
 ### Finding the right function
 
 User asks: "How do I read a file asynchronously with tokio?"
 
-1. Search the crate: `grox -S "read file" tokio`
+1. Search the crate: `grox tokio -S "read file"`
 2. Check the result: `grox tokio::fs::File::open`
 3. Browse related items: `grox tokio::fs -l`
 
@@ -162,7 +171,7 @@ User asks: "How do I read a file asynchronously with tokio?"
 - **Use `--json` for structured data.** When you need to extract specific fields
   (signatures, method lists), JSON is more reliable to parse than plain text.
 - **Search before guessing paths.** If you're not sure of the exact path,
-  `grox -S "keyword" crate_name` finds items by documentation content.
+  `grox crate_name -S "keyword"` finds items by documentation content.
 - **Check exit codes.** Exit 1 means the item doesn't exist — don't retry, try
   a different path or use search. Exit 2 means a tooling error.
 - **Don't use `--all` by default.** The truncated output is designed to fit
@@ -188,7 +197,7 @@ index and are fast. Do not interrupt the process.
 
 The path does not match any item in the crate's public API.
 - Check spelling (paths are case-insensitive but must match item names)
-- Use `grox -S "keyword" crate_name` to search by documentation content
+- Use `grox crate_name -S "keyword"` to search by documentation content
 - Use `grox crate_name -l` to list what's available
 - The item may be behind a feature flag — try `--all-features`
 
