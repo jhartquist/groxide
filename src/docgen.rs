@@ -1,9 +1,43 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use serde::Deserialize;
+
 use crate::cli::FeatureFlags;
 use crate::error::{GroxError, Result};
 use crate::resolve::CrateSource;
+
+/// Metadata from `[package.metadata.docs.rs]` in a crate's Cargo.toml.
+///
+/// This is a well-established convention used by docs.rs to configure how
+/// documentation is built. Crates like tokio use this to specify features,
+/// rustdoc args, and cfg flags needed to build complete documentation.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "kebab-case")]
+struct DocsRsMetadata {
+    all_features: bool,
+    no_default_features: bool,
+    features: Vec<String>,
+    rustdoc_args: Vec<String>,
+    rustc_args: Vec<String>,
+}
+
+/// Reads `[package.metadata.docs.rs]` from a crate's Cargo.toml.
+///
+/// Returns `None` if the metadata is absent or cannot be parsed. This provides
+/// graceful degradation — callers fall back to their default build strategy.
+fn read_docsrs_metadata(crate_dir: &Path) -> Option<DocsRsMetadata> {
+    let manifest_path = crate_dir.join("Cargo.toml");
+    let metadata = cargo_metadata::MetadataCommand::new()
+        .manifest_path(&manifest_path)
+        .no_deps()
+        .exec()
+        .ok()?;
+
+    let package = metadata.packages.first()?;
+    let docs_rs = package.metadata.get("docs")?.get("rs")?;
+    serde_json::from_value(docs_rs.clone()).ok()
+}
 
 /// Patterns in stderr that indicate a platform-specific build failure.
 ///
@@ -120,6 +154,8 @@ fn generate_for_current_crate(
             features,
             private,
             false, // no --lib for workspace crate (uses -p)
+            &[],
+            &[],
         );
         return run_rustdoc_command(cmd);
     }
@@ -138,6 +174,8 @@ fn generate_for_current_crate(
         &all_features,
         private,
         false,
+        &[],
+        &[],
     );
 
     match run_rustdoc_command_with_output(cmd) {
@@ -160,6 +198,8 @@ fn generate_for_current_crate(
                     &default_features,
                     private,
                     false,
+                    &[],
+                    &[],
                 );
                 run_rustdoc_command(retry_cmd)
             } else {
@@ -203,6 +243,8 @@ fn generate_for_dependency(
         effective_features,
         private,
         false,
+        &[],
+        &[],
     );
     run_rustdoc_command(cmd)
 }
@@ -221,6 +263,10 @@ fn generate_for_stdlib(
 
 /// Generates rustdoc JSON for an external crate in its extracted source directory.
 ///
+/// Uses `--all-features` with fallback unless the user specified explicit feature
+/// flags. Falls back on any build failure since external crates may have features
+/// that require platform-specific deps or unstable cfg flags.
+///
 /// Called by the external crate fetching module after extraction.
 pub(crate) fn generate_rustdoc_json_external(
     source_dir: &Path,
@@ -232,17 +278,100 @@ pub(crate) fn generate_rustdoc_json_external(
 
     let target_dir = source_dir.join("target");
 
-    let cmd = build_rustdoc_command(
+    if !features.is_default() {
+        // User specified explicit flags — use them directly, no fallback
+        let cmd = build_rustdoc_command(
+            Some(source_dir),
+            None,
+            None,
+            Some(&target_dir),
+            features,
+            private,
+            true, // --lib for non-workspace crates
+            &[],
+            &[],
+        );
+        run_rustdoc_command(cmd)?;
+        return Ok(json_output_path(&target_dir, crate_name));
+    }
+
+    // Try docs.rs metadata first, then fall back to --all-features, then default features
+    let docsrs_meta = read_docsrs_metadata(source_dir);
+
+    if let Some(ref meta) = docsrs_meta {
+        eprintln!("[grox] Using docs.rs metadata for {crate_name}");
+        let meta_features = FeatureFlags {
+            all_features: meta.all_features,
+            no_default_features: meta.no_default_features,
+            features: meta.features.clone(),
+        };
+        let cmd = build_rustdoc_command(
+            Some(source_dir),
+            None,
+            None,
+            Some(&target_dir),
+            &meta_features,
+            private,
+            true,
+            &meta.rustdoc_args,
+            &meta.rustc_args,
+        );
+
+        match run_rustdoc_command_with_output(cmd) {
+            Ok(()) => return Ok(json_output_path(&target_dir, crate_name)),
+            Err(_stderr) => {
+                eprintln!(
+                    "[grox] Build with docs.rs metadata failed, retrying with default features..."
+                );
+            }
+        }
+    } else {
+        // No docs.rs metadata: try --all-features, fallback on any build failure.
+        let all_features = FeatureFlags {
+            all_features: true,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let cmd = build_rustdoc_command(
+            Some(source_dir),
+            None,
+            None,
+            Some(&target_dir),
+            &all_features,
+            private,
+            true,
+            &[],
+            &[],
+        );
+
+        match run_rustdoc_command_with_output(cmd) {
+            Ok(()) => return Ok(json_output_path(&target_dir, crate_name)),
+            Err(_stderr) => {
+                eprintln!(
+                    "[grox] Build with --all-features failed, retrying with default features..."
+                );
+            }
+        }
+    }
+
+    // Final fallback: default features
+    let default_features = FeatureFlags {
+        all_features: false,
+        no_default_features: false,
+        features: Vec::new(),
+    };
+    let retry_cmd = build_rustdoc_command(
         Some(source_dir),
         None,
         None,
         Some(&target_dir),
-        features,
+        &default_features,
         private,
-        true, // --lib for non-workspace crates
+        true,
+        &[],
+        &[],
     );
-    run_rustdoc_command(cmd)?;
-
+    run_rustdoc_command(retry_cmd)?;
     Ok(json_output_path(&target_dir, crate_name))
 }
 
@@ -257,6 +386,9 @@ pub(crate) fn generate_rustdoc_json_external(
 /// * `features` - Feature flags to forward.
 /// * `private` - Whether to include `--document-private-items`.
 /// * `use_lib_flag` - Whether to include `--lib`.
+/// * `extra_rustdoc_args` - Additional args passed after `--` (e.g. from docs.rs metadata).
+/// * `rustc_env_args` - Args set as `RUSTFLAGS` env var (e.g. `--cfg` flags).
+#[allow(clippy::too_many_arguments)]
 fn build_rustdoc_command(
     working_dir: Option<&Path>,
     package: Option<&str>,
@@ -265,6 +397,8 @@ fn build_rustdoc_command(
     features: &FeatureFlags,
     private: bool,
     use_lib_flag: bool,
+    extra_rustdoc_args: &[String],
+    rustc_env_args: &[String],
 ) -> Command {
     let mut cmd = Command::new("cargo");
     cmd.arg("+nightly").arg("rustdoc");
@@ -299,8 +433,21 @@ fn build_rustdoc_command(
     cmd.arg("--output-format").arg("json");
     cmd.arg("-Z").arg("unstable-options");
 
-    if private {
-        cmd.arg("--").arg("--document-private-items");
+    // Rustdoc-specific args go after `--`
+    let needs_separator = private || !extra_rustdoc_args.is_empty();
+    if needs_separator {
+        cmd.arg("--");
+        if private {
+            cmd.arg("--document-private-items");
+        }
+        for arg in extra_rustdoc_args {
+            cmd.arg(arg);
+        }
+    }
+
+    // rustc args passed via RUSTFLAGS env var
+    if !rustc_env_args.is_empty() {
+        cmd.env("RUSTFLAGS", rustc_env_args.join(" "));
     }
 
     if let Some(dir) = working_dir {
@@ -431,7 +578,7 @@ mod tests {
             no_default_features: false,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "+nightly"));
         assert!(has_arg(&args, "rustdoc"));
@@ -448,7 +595,7 @@ mod tests {
             no_default_features: false,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, false, true);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, true, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--lib"));
     }
@@ -460,7 +607,7 @@ mod tests {
             no_default_features: false,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(!has_arg(&args, "--lib"));
     }
@@ -472,7 +619,17 @@ mod tests {
             no_default_features: false,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, Some("serde"), None, None, &features, false, false);
+        let cmd = build_rustdoc_command(
+            None,
+            Some("serde"),
+            None,
+            None,
+            &features,
+            false,
+            false,
+            &[],
+            &[],
+        );
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "-p"));
         assert!(has_arg(&args, "serde"));
@@ -493,6 +650,8 @@ mod tests {
             &features,
             false,
             true,
+            &[],
+            &[],
         );
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--manifest-path"));
@@ -514,6 +673,8 @@ mod tests {
             &features,
             false,
             false,
+            &[],
+            &[],
         );
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--target-dir"));
@@ -527,7 +688,7 @@ mod tests {
             no_default_features: false,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--all-features"));
     }
@@ -539,7 +700,7 @@ mod tests {
             no_default_features: true,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--no-default-features"));
     }
@@ -551,7 +712,7 @@ mod tests {
             no_default_features: false,
             features: vec!["fs".to_string(), "net".to_string()],
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--features"));
         assert!(has_arg(&args, "fs,net"));
@@ -564,7 +725,7 @@ mod tests {
             no_default_features: false,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, true, false);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, true, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--"));
         assert!(has_arg(&args, "--document-private-items"));
@@ -577,7 +738,7 @@ mod tests {
             no_default_features: false,
             features: Vec::new(),
         };
-        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false);
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(!has_arg(&args, "--document-private-items"));
     }
@@ -598,6 +759,8 @@ mod tests {
             &features,
             false,
             false,
+            &[],
+            &[],
         );
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "-p"));
@@ -621,6 +784,8 @@ mod tests {
             &features,
             false,
             true,
+            &[],
+            &[],
         );
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--lib"));
@@ -644,6 +809,8 @@ mod tests {
             &features,
             false,
             true,
+            &[],
+            &[],
         );
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--manifest-path"));
@@ -716,6 +883,155 @@ mod tests {
     #[test]
     fn is_platform_failure_case_insensitive() {
         assert!(is_platform_failure("FAILED TO RUN CUSTOM BUILD COMMAND"));
+    }
+
+    // ---- DocsRsMetadata deserialization ----
+
+    #[test]
+    fn docsrs_metadata_deserializes_all_fields() {
+        let json = serde_json::json!({
+            "all-features": true,
+            "no-default-features": false,
+            "features": ["sync", "fs"],
+            "rustdoc-args": ["--cfg", "docsrs"],
+            "rustc-args": ["--cfg", "tokio_unstable"]
+        });
+        let meta: DocsRsMetadata = serde_json::from_value(json).unwrap();
+        assert!(meta.all_features);
+        assert!(!meta.no_default_features);
+        assert_eq!(meta.features, vec!["sync", "fs"]);
+        assert_eq!(meta.rustdoc_args, vec!["--cfg", "docsrs"]);
+        assert_eq!(meta.rustc_args, vec!["--cfg", "tokio_unstable"]);
+    }
+
+    #[test]
+    fn docsrs_metadata_defaults_missing_fields() {
+        let json = serde_json::json!({});
+        let meta: DocsRsMetadata = serde_json::from_value(json).unwrap();
+        assert!(!meta.all_features);
+        assert!(!meta.no_default_features);
+        assert!(meta.features.is_empty());
+        assert!(meta.rustdoc_args.is_empty());
+        assert!(meta.rustc_args.is_empty());
+    }
+
+    #[test]
+    fn docsrs_metadata_ignores_unknown_fields() {
+        let json = serde_json::json!({
+            "all-features": true,
+            "default-target": "x86_64-unknown-linux-gnu",
+            "targets": ["x86_64-unknown-linux-gnu"]
+        });
+        let meta: DocsRsMetadata = serde_json::from_value(json).unwrap();
+        assert!(meta.all_features);
+    }
+
+    #[test]
+    fn docsrs_metadata_partial_fields() {
+        let json = serde_json::json!({
+            "features": ["full"],
+            "rustdoc-args": ["--cfg", "docsrs"]
+        });
+        let meta: DocsRsMetadata = serde_json::from_value(json).unwrap();
+        assert!(!meta.all_features);
+        assert_eq!(meta.features, vec!["full"]);
+        assert_eq!(meta.rustdoc_args, vec!["--cfg", "docsrs"]);
+        assert!(meta.rustc_args.is_empty());
+    }
+
+    #[test]
+    fn docsrs_metadata_tokio_style() {
+        // Tokio's actual docs.rs metadata configuration
+        let json = serde_json::json!({
+            "all-features": true,
+            "rustdoc-args": ["--cfg", "docsrs"],
+            "rustc-args": ["--cfg", "tokio_unstable"]
+        });
+        let meta: DocsRsMetadata = serde_json::from_value(json).unwrap();
+        assert!(meta.all_features);
+        assert_eq!(meta.rustdoc_args, vec!["--cfg", "docsrs"]);
+        assert_eq!(meta.rustc_args, vec!["--cfg", "tokio_unstable"]);
+    }
+
+    // ---- Extra rustdoc args and RUSTFLAGS ----
+
+    #[test]
+    fn build_command_includes_extra_rustdoc_args_after_separator() {
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let extra_args = vec!["--cfg".to_string(), "docsrs".to_string()];
+        let cmd = build_rustdoc_command(
+            None,
+            None,
+            None,
+            None,
+            &features,
+            false,
+            false,
+            &extra_args,
+            &[],
+        );
+        let args = format_command_args(&cmd);
+        assert!(has_arg(&args, "--"));
+        assert!(has_arg(&args, "--cfg"));
+        assert!(has_arg(&args, "docsrs"));
+    }
+
+    #[test]
+    fn build_command_combines_private_and_extra_rustdoc_args() {
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let extra_args = vec!["--cfg".to_string(), "docsrs".to_string()];
+        let cmd = build_rustdoc_command(
+            None,
+            None,
+            None,
+            None,
+            &features,
+            true,
+            false,
+            &extra_args,
+            &[],
+        );
+        let args = format_command_args(&cmd);
+        // Should have exactly one -- separator with both args after it
+        let separator_count = args.iter().filter(|a| *a == "--").count();
+        assert_eq!(separator_count, 1);
+        assert!(has_arg(&args, "--document-private-items"));
+        assert!(has_arg(&args, "--cfg"));
+        assert!(has_arg(&args, "docsrs"));
+    }
+
+    #[test]
+    fn build_command_sets_rustflags_env_var() {
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let rustc_args = vec!["--cfg".to_string(), "tokio_unstable".to_string()];
+        let cmd = build_rustdoc_command(
+            None,
+            None,
+            None,
+            None,
+            &features,
+            false,
+            false,
+            &[],
+            &rustc_args,
+        );
+        let envs: Vec<_> = cmd.get_envs().collect();
+        let rustflags = envs.iter().find(|(k, _)| k == &"RUSTFLAGS");
+        assert!(rustflags.is_some());
+        let (_, val) = rustflags.unwrap();
+        assert_eq!(val.unwrap().to_str().unwrap(), "--cfg tokio_unstable");
     }
 
     /// Extracts command arguments as a list of strings from the Command's debug output.
