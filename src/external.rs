@@ -25,6 +25,8 @@ struct CratesIoResponse {
 /// Top-level crate info from crates.io.
 #[derive(Debug, serde::Deserialize)]
 struct CrateInfo {
+    /// Canonical crate name (hyphens preserved, as registered on crates.io).
+    name: String,
     max_version: String,
 }
 
@@ -37,7 +39,8 @@ struct VersionInfo {
 
 /// Fetches an external crate from crates.io, extracts it, and generates rustdoc JSON.
 ///
-/// Returns `(json_path, resolved_version)` on success.
+/// Returns `(json_path, canonical_name, resolved_version)` on success. The canonical
+/// name is the crate name as registered on crates.io (hyphens preserved).
 ///
 /// # Errors
 ///
@@ -49,30 +52,40 @@ pub(crate) fn fetch_external_crate(
     version_opt: Option<&str>,
     features: &FeatureFlags,
     private: bool,
-) -> Result<(PathBuf, String)> {
-    let exact_version = resolve_crate_version(name, version_opt)?;
+) -> Result<(PathBuf, String, String)> {
+    let (canonical_name, exact_version) = resolve_crate_name_and_version(name, version_opt)?;
     let cache_dir = external_cache_dir()?;
-    let crate_dir = cache_dir.join(format!("{name}-{exact_version}"));
-    let json_path = compute_json_path(&crate_dir, name, features);
+    let crate_dir = cache_dir.join(format!("{canonical_name}-{exact_version}"));
+    let json_path = compute_json_path(&crate_dir, &canonical_name, features);
 
-    if let Some(cached) = check_json_cache(&json_path, name, &exact_version) {
-        return Ok((cached, exact_version));
+    if let Some(cached) = check_json_cache(&json_path, &canonical_name, &exact_version) {
+        return Ok((cached, canonical_name, exact_version));
     }
 
-    ensure_source_available(name, &exact_version, &crate_dir)?;
-    let generated_path = generate_rustdoc_json_external(&crate_dir, name, features, private)?;
-    cache_feature_json(name, features, &generated_path, &json_path)?;
-    let final_path = select_output_path(name, &json_path, &generated_path)?;
+    ensure_source_available(&canonical_name, &exact_version, &crate_dir)?;
+    let generated_path =
+        generate_rustdoc_json_external(&crate_dir, &canonical_name, features, private)?;
+    cache_feature_json(&canonical_name, features, &generated_path, &json_path)?;
+    let final_path = select_output_path(&canonical_name, &json_path, &generated_path)?;
 
-    Ok((final_path, exact_version))
+    Ok((final_path, canonical_name, exact_version))
 }
 
-/// Resolves the exact crate version, querying crates.io if no version is specified.
-fn resolve_crate_version(name: &str, version_opt: Option<&str>) -> Result<String> {
-    match version_opt {
-        Some(v) => resolve_version(name, v),
-        None => query_latest_version(name),
-    }
+/// Resolves the canonical crate name and exact version, querying crates.io.
+///
+/// Returns `(canonical_name, exact_version)`. The canonical name comes from the
+/// crates.io API response, ensuring correct casing and hyphenation.
+fn resolve_crate_name_and_version(
+    name: &str,
+    version_opt: Option<&str>,
+) -> Result<(String, String)> {
+    let response = query_crates_io(name)?;
+    let canonical_name = response.crate_info.name.clone();
+    let exact_version = match version_opt {
+        Some(v) => resolve_version(&response, name, v)?,
+        None => response.crate_info.max_version,
+    };
+    Ok((canonical_name, exact_version))
 }
 
 /// Returns the cached JSON path if it already exists, or `None` if a rebuild is needed.
@@ -132,7 +145,7 @@ fn select_output_path(name: &str, json_path: &Path, generated_path: &Path) -> Re
 }
 
 /// Resolves a version string, handling exact, partial, and pre-release versions.
-fn resolve_version(name: &str, version_input: &str) -> Result<String> {
+fn resolve_version(response: &CratesIoResponse, name: &str, version_input: &str) -> Result<String> {
     // Case 1: Complete semver
     if semver::Version::parse(version_input).is_ok() {
         return Ok(version_input.to_string());
@@ -140,7 +153,6 @@ fn resolve_version(name: &str, version_input: &str) -> Result<String> {
 
     // Case 2: Partial semver (e.g., "1.40" or "1")
     if is_partial_version(version_input) {
-        let response = query_crates_io(name)?;
         let parts: Vec<&str> = version_input.split('.').collect();
 
         let mut matching: Vec<semver::Version> = response
@@ -166,12 +178,6 @@ fn resolve_version(name: &str, version_input: &str) -> Result<String> {
 
     // Case 3: Other (pre-release, etc.) — use as-is
     Ok(version_input.to_string())
-}
-
-/// Queries the latest non-yanked version from crates.io.
-fn query_latest_version(name: &str) -> Result<String> {
-    let response = query_crates_io(name)?;
-    Ok(response.crate_info.max_version)
 }
 
 /// Queries crates.io API for crate information.
@@ -710,7 +716,7 @@ mod tests {
         assert!(!response.crate_info.max_version.is_empty());
         assert!(!response.versions.is_empty());
 
-        let resolved = resolve_version("itoa", "1").expect("should resolve");
+        let resolved = resolve_version(&response, "itoa", "1").expect("should resolve");
         let v = semver::Version::parse(&resolved).expect("valid semver");
         assert_eq!(v.major, 1);
     }
@@ -731,9 +737,10 @@ mod tests {
     #[test]
     #[ignore = "requires network access"]
     fn latest_version_query_returns_valid_semver() {
-        let version = query_latest_version("itoa").expect("should get latest version");
+        let response = query_crates_io("itoa").expect("should query crates.io");
+        let version = &response.crate_info.max_version;
         assert!(
-            semver::Version::parse(&version).is_ok(),
+            semver::Version::parse(version).is_ok(),
             "should be valid semver: {version}"
         );
     }
@@ -741,7 +748,8 @@ mod tests {
     #[test]
     #[ignore = "requires network access"]
     fn partial_version_resolves_to_latest_matching() {
-        let resolved = resolve_version("itoa", "1").expect("should resolve");
+        let response = query_crates_io("itoa").expect("should query crates.io");
+        let resolved = resolve_version(&response, "itoa", "1").expect("should resolve");
         let v = semver::Version::parse(&resolved).expect("valid semver");
         assert_eq!(v.major, 1);
     }
@@ -757,8 +765,9 @@ mod tests {
 
         let result = fetch_external_crate("itoa", None, &features, false);
         match result {
-            Ok((path, version)) => {
+            Ok((path, canonical_name, version)) => {
                 assert!(path.exists(), "JSON path should exist: {path:?}");
+                assert_eq!(canonical_name, "itoa");
                 assert!(!version.is_empty());
                 eprintln!("Successfully fetched itoa {version} at {path:?}");
             }

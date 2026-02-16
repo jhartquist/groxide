@@ -180,10 +180,10 @@ fn load_or_build_index(
         version: version_opt,
     } = source
     {
-        let (json_path, resolved_version) =
+        let (json_path, canonical_name, resolved_version) =
             external::fetch_external_crate(&ext_name, version_opt.as_deref(), features, private)?;
         let source = CrateSource::External {
-            name: ext_name,
+            name: canonical_name,
             version: Some(resolved_version),
         };
         (json_path, source)
@@ -199,10 +199,10 @@ fn load_or_build_index(
     })?;
     let krate = index_builder::parse_rustdoc_json(&json_str)?;
 
-    // Build index
-    let crate_name = source.name();
+    // Build index — normalize crate name (hyphens -> underscores) for Rust module paths
+    let crate_name = resolve::normalize_crate_name(source.name());
     let crate_version = source.version().unwrap_or("");
-    let index = index_builder::build_index(&krate, crate_name, crate_version);
+    let index = index_builder::build_index(&krate, &crate_name, crate_version);
 
     // Save to cache (best-effort)
     if let Some(ref path) = cache_file {

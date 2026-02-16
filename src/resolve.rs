@@ -15,7 +15,7 @@ pub(crate) enum CrateSource {
     CurrentCrate {
         /// Absolute path to the crate's Cargo.toml.
         manifest_path: PathBuf,
-        /// Crate name (normalized: hyphens -> underscores).
+        /// Package name (hyphens preserved, as declared in Cargo.toml).
         name: String,
         /// Crate version string.
         version: String,
@@ -24,7 +24,7 @@ pub(crate) enum CrateSource {
     Dependency {
         /// Absolute path to the dependency's Cargo.toml.
         manifest_path: PathBuf,
-        /// Crate name (normalized: hyphens -> underscores).
+        /// Package name (hyphens preserved, as declared in Cargo.toml).
         name: String,
         /// Crate version string.
         version: String,
@@ -44,7 +44,7 @@ pub(crate) enum CrateSource {
 }
 
 impl CrateSource {
-    /// Returns the normalized crate name (hyphens replaced with underscores).
+    /// Returns the package name (hyphens preserved).
     pub(crate) fn name(&self) -> &str {
         match self {
             Self::CurrentCrate { name, .. }
@@ -121,7 +121,7 @@ impl ProjectContext {
                 let pkg = &self.metadata[&self.current_package_id];
                 CrateSource::CurrentCrate {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: normalize_crate_name(&pkg.name),
+                    name: pkg.name.clone(),
                     version: pkg.version.to_string(),
                 }
             }
@@ -190,7 +190,7 @@ impl ProjectContext {
                 let pkg = &self.metadata[&dep.pkg];
                 return Some(CrateSource::Dependency {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: normalize_crate_name(&pkg.name),
+                    name: pkg.name.clone(),
                     version: pkg.version.to_string(),
                 });
             }
@@ -208,7 +208,7 @@ impl ProjectContext {
             if crate_names_match(query, &pkg.name) {
                 return Some(CrateSource::Dependency {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: normalize_crate_name(&pkg.name),
+                    name: pkg.name.clone(),
                     version: pkg.version.to_string(),
                 });
             }
@@ -225,7 +225,7 @@ impl ProjectContext {
             if crate_names_match(query, &pkg.name) {
                 return Some(CrateSource::Dependency {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: normalize_crate_name(&pkg.name),
+                    name: pkg.name.clone(),
                     version: pkg.version.to_string(),
                 });
             }
@@ -313,7 +313,7 @@ fn crate_names_match(query: &str, package_name: &str) -> bool {
 }
 
 /// Normalizes a crate name: replaces hyphens with underscores.
-fn normalize_crate_name(name: &str) -> String {
+pub(crate) fn normalize_crate_name(name: &str) -> String {
     name.replace('-', "_")
 }
 
@@ -500,11 +500,11 @@ mod tests {
     // ---- Hyphen normalization in resolution ----
 
     #[test]
-    fn resolve_crate_normalizes_hyphens_in_dep_lookup() {
+    fn resolve_crate_preserves_hyphens_in_dep_lookup() {
         let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
-        // rmp-serde is a hyphenated dependency
+        // rmp-serde is a hyphenated dependency — package name preserved
         let source = ctx.resolve_crate(&CrateSpec::Named("rmp-serde".to_string()));
-        assert_eq!(source.name(), "rmp_serde");
+        assert_eq!(source.name(), "rmp-serde");
     }
 
     #[test]
