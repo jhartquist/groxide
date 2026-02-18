@@ -424,7 +424,7 @@ for same-crate re-exports.
 3. Fallback: `ItemKind::Struct` (most common re-export target)
 
 **Synthetic fields:**
-- `docs`: item's own docs, or `"Re-exported from \`{source}\`."` as fallback
+- `docs`: item's own docs, or empty string as fallback
 - `signature`: `"pub use {source} as {name}"`
 - `is_public`: always `true`
 - `has_body`: always `false`

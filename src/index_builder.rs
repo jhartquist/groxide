@@ -430,10 +430,7 @@ impl IndexBuilder<'_> {
                 let docs = if item.docs.is_some() {
                     item.docs.clone().unwrap_or_default()
                 } else {
-                    ref_item
-                        .docs
-                        .clone()
-                        .unwrap_or_else(|| format!("Re-exported from `{source}`."))
+                    ref_item.docs.clone().unwrap_or_default()
                 };
 
                 let summary = extract_summary(&docs);
@@ -441,10 +438,7 @@ impl IndexBuilder<'_> {
                 (sig, docs, summary, has_body)
             } else {
                 // Cross-crate re-export: keep stub signature
-                let docs = item
-                    .docs
-                    .clone()
-                    .unwrap_or_else(|| format!("Re-exported from `{source}`."));
+                let docs = item.docs.clone().unwrap_or_default();
                 let summary = extract_summary(&docs);
                 let signature = format!("pub use {source} as {name}");
                 (signature, docs, summary, false)
