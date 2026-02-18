@@ -96,7 +96,7 @@ Works with `std`, `core`, and `alloc`. No Cargo.toml needed.
 ### Show trait implementations
 
 ```sh
-grox --impls std::sync::Arc
+grox --impls std::collections::HashMap
 ```
 
 Lists all trait implementations on a type, or all known implementors of a trait.

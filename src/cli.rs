@@ -10,7 +10,7 @@ EXAMPLES:
     grox serde::Deserialize          Struct docs with methods
     grox tokio::sync -l              List module contents
     grox tokio::sync::Mutex::lock    Full method documentation
-    grox -S \"async file\"             Search across documentation
+    grox tokio -S \"spawn\"            Search across crate documentation
     grox -s tokio::sync::Mutex::new  View source code
     grox axum::Router                Auto-fetch external crate from crates.io
     grox std::collections::HashMap   Query standard library

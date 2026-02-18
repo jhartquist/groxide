@@ -130,6 +130,11 @@ pub(crate) fn strip_markdown(input: &str) -> String {
         if in_code_fence {
             in_code_fence = !line.trim_start().starts_with("```");
             if in_code_fence {
+                // Skip rustdoc hidden lines (prefixed with `# ` or exactly `#`)
+                let trimmed = line.trim_start();
+                if trimmed == "#" || trimmed.starts_with("# ") {
+                    continue;
+                }
                 output.push_str("  ");
                 output.push_str(line);
                 output.push('\n');
@@ -655,6 +660,26 @@ mod tests {
         assert!(output.contains("  let x = 42;"));
         assert!(output.contains("  let y = x + 1;"));
         assert!(!output.contains("```"));
+    }
+
+    #[test]
+    fn strip_markdown_strips_rustdoc_hidden_lines() {
+        let input =
+            "Example:\n\n```rust\n# #[tokio::main]\n# async fn main() {\nlet x = 42;\n# }\n```";
+        let output = strip_markdown(input);
+        assert!(!output.contains("#[tokio::main]"));
+        assert!(!output.contains("async fn main()"));
+        assert!(!output.contains("# }"));
+        assert!(output.contains("  let x = 42;"));
+    }
+
+    #[test]
+    fn strip_markdown_keeps_hash_comments_in_code() {
+        // Lines starting with `#` followed by non-space (like `#[derive]`) are NOT hidden lines
+        let input = "```rust\n#[derive(Debug)]\nstruct Foo;\n```";
+        let output = strip_markdown(input);
+        assert!(output.contains("#[derive(Debug)]"));
+        assert!(output.contains("struct Foo;"));
     }
 
     #[test]
