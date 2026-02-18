@@ -675,33 +675,26 @@ fn handle_output(
         QueryResult::Found { index: idx } => {
             let item = index.get(*idx);
 
-            // Check if this is a cross-crate re-export stub that we should follow
-            if query::is_reexport_stub(item) && !cli.json && !cli.list && !cli.impls {
+            // Follow cross-crate re-export stubs to the canonical item in the
+            // source crate. This gives all output modes (text, json, list, impls)
+            // access to real docs, methods, and trait implementations.
+            let (effective_index, effective_idx) = if query::is_reexport_stub(item) {
                 if let Some((source_index, canonical_idx)) =
                     try_follow_reexport(item, ctx, features, feature_suffix, cli.private)
                 {
-                    let source_path = parse_reexport_source(item).unwrap_or_default();
-                    let canonical_display =
-                        render::build_display_item(&source_index, canonical_idx, cli.private);
-                    let limits = if cli.all {
-                        DisplayLimits {
-                            expand_all: true,
-                            ..DisplayLimits::default()
-                        }
-                    } else {
-                        DisplayLimits::default()
-                    };
-                    let canonical_output = render::text::render_text(&canonical_display, &limits);
-                    let output = annotate_reexport(&canonical_output, &item.path, &source_path);
-                    writeln!(w, "{output}").map_err(GroxError::Io)?;
-                    return Ok(());
+                    (Some(source_index), canonical_idx)
+                } else {
+                    (None, *idx)
                 }
-            }
+            } else {
+                (None, *idx)
+            };
 
-            let display = render::build_display_item(index, *idx, cli.private);
+            let using_index = effective_index.as_ref().unwrap_or(index);
+            let display = render::build_display_item(using_index, effective_idx, cli.private);
 
             if cli.impls {
-                let output = render_impls(&display, index, *idx);
+                let output = render_impls(&display, using_index, effective_idx);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.list {
                 let output = render::list::render_list(&display);
@@ -718,7 +711,14 @@ fn handle_output(
                 } else {
                     DisplayLimits::default()
                 };
-                let output = render::text::render_text(&display, &limits);
+                let canonical_output = render::text::render_text(&display, &limits);
+                // For followed re-exports, annotate with the stub path and source note
+                let output = if effective_index.is_some() {
+                    let source_path = parse_reexport_source(item).unwrap_or_default();
+                    annotate_reexport(&canonical_output, &item.path, &source_path)
+                } else {
+                    canonical_output
+                };
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             }
             Ok(())
