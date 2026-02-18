@@ -202,6 +202,9 @@ pub(crate) struct IndexItem {
     pub(crate) has_body: bool,
     /// Feature gate, e.g., "fs" from `#[cfg(feature = "fs")]`.
     pub(crate) feature_gate: Option<String>,
+    /// Original source path for re-exported items, e.g., `"inner::Helper"`.
+    #[serde(default)]
+    pub(crate) reexport_source: Option<String>,
 }
 
 /// References a child item within a [`DocIndex`].

@@ -25,4 +25,5 @@ Trait Implementations:
   impl Send
   impl Sync
   impl Unpin
+  impl UnsafeUnpin
   impl UnwindSafe

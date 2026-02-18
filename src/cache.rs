@@ -336,6 +336,7 @@ mod tests {
             is_public: true,
             has_body: false,
             feature_gate: None,
+            reexport_source: None,
         });
         index
     }

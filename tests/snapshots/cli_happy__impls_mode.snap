@@ -12,4 +12,5 @@ Trait Implementations:
   impl Send (synthetic)
   impl Sync (synthetic)
   impl Unpin (synthetic)
+  impl UnsafeUnpin (synthetic)
   impl UnwindSafe (synthetic)

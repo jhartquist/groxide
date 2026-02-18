@@ -1,12 +1,12 @@
 ---
-source: tests/cli_errors.rs
+source: tests/cli_happy.rs
 expression: stdout
 ---
-struct groxide_test_api::deeply::nested::InnerItem
+struct groxide_test_api::reexports::Helper
 
-pub struct InnerItem { pub label: String }
+pub struct Helper { pub id: u32 }
 
-A struct at 3 levels of nesting.
+Re-exported Helper from the private inner module.
 
 Trait Implementations: (showing 5 of 7, use --impls to expand)
   impl Freeze

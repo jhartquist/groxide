@@ -16,6 +16,7 @@ pub(crate) fn make_item(name: &str, path: &str, kind: ItemKind) -> IndexItem {
         is_public: true,
         has_body: false,
         feature_gate: None,
+        reexport_source: None,
     }
 }
 
@@ -40,6 +41,7 @@ pub(crate) fn make_item_full(
         is_public: true,
         has_body: false,
         feature_gate: None,
+        reexport_source: None,
     }
 }
 

@@ -532,13 +532,18 @@ fn read_source_content(item: &types::IndexItem, source: &CrateSource) -> Option<
     Some(lines[start..end].join("\n"))
 }
 
-/// Extracts the source path from a re-export signature.
+/// Extracts the source path from a re-exported item.
 ///
-/// Parses `"pub use {source}"` or `"pub use {source} as {name}"` and returns
-/// the source path (e.g., `"serde_core::de::Deserialize"`).
-fn parse_reexport_source(signature: &str) -> Option<String> {
-    let rest = signature.strip_prefix("pub use ")?;
-    // Handle "pub use source as name"
+/// Checks the `reexport_source` field first (populated at index build time),
+/// then falls back to parsing `"pub use {source}"` from the signature for
+/// old-cache compatibility.
+fn parse_reexport_source(item: &types::IndexItem) -> Option<String> {
+    // Prefer the structured field
+    if let Some(ref source) = item.reexport_source {
+        return Some(source.clone());
+    }
+    // Fallback: parse from signature for old cached indices
+    let rest = item.signature.strip_prefix("pub use ")?;
     let source = if let Some(pos) = rest.find(" as ") {
         &rest[..pos]
     } else {
@@ -561,7 +566,7 @@ fn try_follow_reexport(
     feature_suffix: &str,
     private: bool,
 ) -> Option<(DocIndex, usize)> {
-    let source_path = parse_reexport_source(&stub.signature)?;
+    let source_path = parse_reexport_source(stub)?;
 
     // Split into crate name + item path on first `::`
     let (crate_name, item_path) = source_path.split_once("::")?;
@@ -675,7 +680,7 @@ fn handle_output(
                 if let Some((source_index, canonical_idx)) =
                     try_follow_reexport(item, ctx, features, feature_suffix, cli.private)
                 {
-                    let source_path = parse_reexport_source(&item.signature).unwrap_or_default();
+                    let source_path = parse_reexport_source(item).unwrap_or_default();
                     let canonical_display =
                         render::build_display_item(&source_index, canonical_idx, cli.private);
                     let limits = if cli.all {

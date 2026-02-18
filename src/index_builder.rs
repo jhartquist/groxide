@@ -357,6 +357,7 @@ impl IndexBuilder<'_> {
             is_public,
             has_body,
             feature_gate,
+            reexport_source: None,
         })
     }
 
@@ -418,13 +419,37 @@ impl IndexBuilder<'_> {
             .cloned()
             .unwrap_or_else(|| use_item.source.clone());
 
-        let docs = item
-            .docs
-            .clone()
-            .unwrap_or_else(|| format!("Re-exported from `{source}`."));
+        // Try to get real signature/docs from the referenced item (in-crate re-export)
+        let (signature, docs, summary, has_body) =
+            if let Some(ref_item) = use_item.id.as_ref().and_then(|id| self.krate.index.get(id)) {
+                // In-crate re-export: use the real signature and docs
+                let sig = render_signature(ref_item, self.krate)
+                    .unwrap_or_else(|| fallback_signature(&ref_item.visibility, kind, &name));
 
-        let summary = extract_summary(&docs);
-        let signature = format!("pub use {source} as {name}");
+                // Use the pub use item's own docs if present, otherwise the referenced item's docs
+                let docs = if item.docs.is_some() {
+                    item.docs.clone().unwrap_or_default()
+                } else {
+                    ref_item
+                        .docs
+                        .clone()
+                        .unwrap_or_else(|| format!("Re-exported from `{source}`."))
+                };
+
+                let summary = extract_summary(&docs);
+                let has_body = matches!(&ref_item.inner, ItemEnum::Function(f) if f.has_body);
+                (sig, docs, summary, has_body)
+            } else {
+                // Cross-crate re-export: keep stub signature
+                let docs = item
+                    .docs
+                    .clone()
+                    .unwrap_or_else(|| format!("Re-exported from `{source}`."));
+                let summary = extract_summary(&docs);
+                let signature = format!("pub use {source} as {name}");
+                (signature, docs, summary, false)
+            };
+
         let feature_gate = extract_feature_gate(item);
 
         Some(IndexItem {
@@ -437,8 +462,9 @@ impl IndexBuilder<'_> {
             span: extract_span(item),
             children: Vec::new(),
             is_public: true,
-            has_body: false,
+            has_body,
             feature_gate,
+            reexport_source: Some(source),
         })
     }
 
@@ -482,6 +508,11 @@ impl IndexBuilder<'_> {
                 }
                 ItemEnum::Union(u) => self.resolve_inherent_impl_items(&u.impls),
                 ItemEnum::Trait(t) => t.items.clone(),
+                ItemEnum::Use(use_item) => {
+                    // For in-crate re-exports, copy children from the referenced item
+                    self.resolve_use_children(use_item, parent_idx);
+                    continue;
+                }
                 _ => Vec::new(),
             };
 
@@ -530,6 +561,56 @@ impl IndexBuilder<'_> {
             result.push(*child_id);
         }
         result
+    }
+
+    /// Copies children and trait impls from a referenced item to a `Use` re-export.
+    fn resolve_use_children(&mut self, use_item: &rustdoc_types::Use, parent_idx: usize) {
+        let Some(ref_id) = &use_item.id else {
+            return;
+        };
+        let Some(ref_item) = self.krate.index.get(ref_id) else {
+            return;
+        };
+
+        // Collect child IDs from the referenced item (struct fields, enum variants, impl methods)
+        let child_ids = match &ref_item.inner {
+            ItemEnum::Struct(s) => {
+                let mut ids = struct_field_ids(s);
+                ids.extend(self.resolve_inherent_impl_items(&s.impls));
+                ids
+            }
+            ItemEnum::Enum(e) => {
+                let mut ids = e.variants.clone();
+                ids.extend(self.resolve_inherent_impl_items(&e.impls));
+                ids
+            }
+            ItemEnum::Union(u) => self.resolve_inherent_impl_items(&u.impls),
+            ItemEnum::Trait(t) => t.items.clone(),
+            _ => Vec::new(),
+        };
+
+        let mut children = Vec::new();
+        for cid in &child_ids {
+            let Some(&cidx) = self.id_to_index.get(cid) else {
+                continue;
+            };
+            let child_item = &self.index.items[cidx];
+            children.push(ChildRef {
+                index: cidx,
+                kind: child_item.kind,
+                name: child_item.name.clone(),
+            });
+        }
+
+        if !children.is_empty() {
+            self.index.items[parent_idx].children = children;
+        }
+
+        // Also copy trait impls from the referenced item
+        let trait_impls = self.extract_trait_impls(ref_item);
+        if !trait_impls.is_empty() {
+            self.index.trait_impls.insert(parent_idx, trait_impls);
+        }
     }
 
     fn resolve_inherent_impl_items(&self, impl_ids: &[Id]) -> Vec<Id> {

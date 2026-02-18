@@ -572,3 +572,51 @@ fn enum_with_variants() {
 
     insta::assert_snapshot!("enum_with_data_variants", stdout);
 }
+
+// ── Re-exports module shows real signatures ──────────────────────────
+
+#[test]
+fn reexports_module_shows_real_signatures() {
+    let output = grox()
+        .arg("groxide_test_api::reexports")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // In-crate re-exports should show real signatures, not "pub use ... as ..." stubs
+    assert!(
+        !stdout.contains("pub use inner::"),
+        "should not show 'pub use' stubs for in-crate re-exports: {stdout}"
+    );
+    assert!(
+        stdout.contains("pub fn inner_fn() -> i32"),
+        "should show real function signature: {stdout}"
+    );
+    assert!(
+        stdout.contains("pub fn glob_fn() -> bool"),
+        "should show real glob-reexported function signature: {stdout}"
+    );
+
+    insta::assert_snapshot!("reexports_module", stdout);
+}
+
+#[test]
+fn reexported_struct_shows_fields_and_impls() {
+    let output = grox()
+        .arg("groxide_test_api::reexports::Helper")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("pub struct Helper"),
+        "should show real struct signature: {stdout}"
+    );
+    assert!(stdout.contains("id"), "should show struct fields: {stdout}");
+
+    insta::assert_snapshot!("reexported_struct", stdout);
+}
