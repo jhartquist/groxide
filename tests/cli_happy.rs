@@ -578,3 +578,78 @@ fn reexported_struct_shows_fields_and_impls() {
 
     insta::assert_snapshot!("reexported_struct", stdout);
 }
+
+// ── --recursive mode ──────────────────────────────────────────────────
+
+#[test]
+fn recursive_lists_all_items() {
+    let output = grox()
+        .arg("--recursive")
+        .arg("groxide_test_api")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should contain items from nested modules
+    assert!(
+        stdout.contains("groxide_test_api::containers::Stack"),
+        "should list nested struct: {stdout}"
+    );
+    assert!(
+        stdout.contains("groxide_test_api::traits::Stringify"),
+        "should list nested trait: {stdout}"
+    );
+
+    insta::assert_snapshot!("recursive_crate_root", stdout);
+}
+
+#[test]
+fn recursive_with_json() {
+    let output = grox()
+        .arg("--recursive")
+        .arg("--json")
+        .arg("groxide_test_api")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Each line should be valid JSON
+    for line in stdout.lines() {
+        let parsed: serde_json::Value =
+            serde_json::from_str(line).expect("each line should be valid JSON");
+        assert!(
+            parsed.get("path").is_some(),
+            "should have path field: {line}"
+        );
+    }
+
+    insta::assert_snapshot!("recursive_json", stdout);
+}
+
+#[test]
+fn recursive_with_kind_filter() {
+    let output = grox()
+        .arg("--recursive")
+        .arg("--kind")
+        .arg("fn")
+        .arg("groxide_test_api")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should only contain functions
+    for line in stdout.lines() {
+        if line.ends_with(':') || line.is_empty() {
+            continue; // skip section headers and blank lines
+        }
+        assert!(line.contains("fn"), "all items should be functions: {line}");
+    }
+
+    insta::assert_snapshot!("recursive_kind_filter", stdout);
+}

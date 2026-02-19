@@ -1,0 +1,16 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+groxide_test_api:
+  fn  groxide_test_api::add                      Adds two numbers together.
+  fn  groxide_test_api::generic_fn               A function with multiple generic parameters.
+  fn  groxide_test_api::unicode_docs             A function demonstrating unicode in documentation.
+  fn  groxide_test_api::unstable_api             An item only available with the `unstable` feature.
+
+groxide_test_api::deeply::nested:
+  fn  groxide_test_api::deeply::nested::deep_fn  A function at the deepest nesting level.
+
+groxide_test_api::reexports:
+  fn  groxide_test_api::reexports::glob_fn       Another item for glob re-export.
+  fn  groxide_test_api::reexports::inner_fn      Re-exported `inner_fn` from the private inner module.

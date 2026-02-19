@@ -60,7 +60,13 @@ pub fn run(cli: &Cli) -> Result<()> {
         handle_search(&mut out, &index, search_query, cli)?;
     } else {
         // Step 7: Resolve item in index
-        let kind_filter = cli.kind.map(ItemKind::from);
+        // When --recursive is set, don't filter by kind during resolution —
+        // the kind filter is applied to the recursive listing instead.
+        let kind_filter = if cli.recursive {
+            None
+        } else {
+            cli.kind.map(ItemKind::from)
+        };
         let result = resolve_item(
             &query_path,
             &index,
@@ -691,6 +697,25 @@ fn handle_output(
             };
 
             let using_index = effective_index.as_ref().unwrap_or(index);
+
+            // --recursive: collect all items recursively and render
+            if cli.recursive {
+                let kind_filter = cli.kind.map(ItemKind::from);
+                let mut items =
+                    render::collect_children_recursive(using_index, effective_idx, cli.private);
+                if let Some(filter) = kind_filter {
+                    items.retain(|item| item.kind.matches_filter(filter));
+                }
+                let root_path = &using_index.get(effective_idx).path;
+                let output = if cli.json {
+                    render::json::render_json_recursive(&items)
+                } else {
+                    render::list::render_list_recursive(&items, root_path)
+                };
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
+                return Ok(());
+            }
+
             let display = render::build_display_item(using_index, effective_idx, cli.private);
 
             if cli.impls {

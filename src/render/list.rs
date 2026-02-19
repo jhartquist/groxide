@@ -78,6 +78,71 @@ fn collect_grouped_items<'a>(groups: &'a GroupedItems<'a>) -> Vec<&'a IndexItem>
     items
 }
 
+/// Renders a recursive listing of items grouped by parent module.
+///
+/// Items are grouped by their parent module path, with each module shown as a
+/// section header. Within each module, items are grouped by kind category and
+/// rendered with kind/path/summary columns.
+pub(crate) fn render_list_recursive(items: &[&IndexItem], root_path: &str) -> String {
+    use std::collections::BTreeMap;
+
+    if items.is_empty() {
+        return String::new();
+    }
+
+    // Group items by parent module path
+    let mut by_module: BTreeMap<&str, Vec<&IndexItem>> = BTreeMap::new();
+    for &item in items {
+        let parent = item
+            .path
+            .rsplit_once("::")
+            .map_or(root_path, |(parent, _)| parent);
+        by_module.entry(parent).or_default().push(item);
+    }
+
+    // Compute global column widths
+    let max_kind_width = items
+        .iter()
+        .map(|i| i.kind.short_name().len())
+        .max()
+        .unwrap_or(0);
+    let max_path_width = items.iter().map(|i| i.path.len()).max().unwrap_or(0);
+
+    let mut out = String::new();
+    let mut first = true;
+    for (module_path, module_items) in &by_module {
+        if !first {
+            out.push('\n');
+        }
+        first = false;
+        let _ = writeln!(out, "{module_path}:");
+        for item in module_items {
+            let kind = item.kind.short_name();
+            let path = &item.path;
+            let summary = &item.summary;
+            let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
+            if summary.is_empty() && gate_suffix.is_empty() {
+                let _ = writeln!(out, "  {kind:<max_kind_width$}  {path:<max_path_width$}");
+            } else {
+                let display_summary = if gate_suffix.is_empty() {
+                    summary.clone()
+                } else if summary.is_empty() {
+                    gate_suffix
+                } else {
+                    format!("{summary}{gate_suffix}")
+                };
+                let _ = writeln!(
+                    out,
+                    "  {kind:<max_kind_width$}  {path:<max_path_width$}  {display_summary}"
+                );
+            }
+        }
+    }
+
+    trim_trailing_newlines(&mut out);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -281,6 +346,40 @@ mod tests {
         );
         let di = DisplayItem::Leaf { item: &item };
         let output = render_list(&di);
+
+        insta::assert_snapshot!(output);
+    }
+
+    #[test]
+    fn render_list_recursive_groups_by_module() {
+        let items = [
+            make_item_full(
+                "bar",
+                "mycrate::bar",
+                ItemKind::Function,
+                "pub fn bar()",
+                "Does bar.",
+                "Does bar.",
+            ),
+            make_item_full(
+                "sub",
+                "mycrate::sub",
+                ItemKind::Module,
+                "",
+                "A submodule.",
+                "A submodule.",
+            ),
+            make_item_full(
+                "Foo",
+                "mycrate::sub::Foo",
+                ItemKind::Struct,
+                "pub struct Foo",
+                "A struct.",
+                "A struct.",
+            ),
+        ];
+        let refs: Vec<&IndexItem> = items.iter().collect();
+        let output = render_list_recursive(&refs, "mycrate");
 
         insta::assert_snapshot!(output);
     }

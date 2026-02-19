@@ -76,6 +76,47 @@ fn collect_children<'a>(
     group_items(&children)
 }
 
+/// Collects all public items reachable from a module/crate item via BFS.
+///
+/// Descends into Module-kind children, collecting all non-Module items along the way.
+/// Deduplicates by `(path, kind)` to avoid showing the same item twice.
+pub(crate) fn collect_children_recursive(
+    index: &DocIndex,
+    item_index: usize,
+    include_private: bool,
+) -> Vec<&IndexItem> {
+    use std::collections::{HashSet, VecDeque};
+
+    let mut result: Vec<&IndexItem> = Vec::new();
+    let mut seen: HashSet<(String, ItemKind)> = HashSet::new();
+    let mut queue: VecDeque<usize> = VecDeque::new();
+    let mut visited_modules: HashSet<usize> = HashSet::new();
+
+    queue.push_back(item_index);
+    visited_modules.insert(item_index);
+
+    while let Some(mod_idx) = queue.pop_front() {
+        let mod_item = index.get(mod_idx);
+        for child_ref in &mod_item.children {
+            let child = index.get(child_ref.index);
+            if !include_private && !child.is_public {
+                continue;
+            }
+            let key = (child.path.clone(), child.kind);
+            if !seen.insert(key) {
+                continue;
+            }
+            if child.kind == ItemKind::Module && visited_modules.insert(child_ref.index) {
+                queue.push_back(child_ref.index);
+            }
+            result.push(child);
+        }
+    }
+
+    result.sort_by(|a, b| a.path.cmp(&b.path));
+    result
+}
+
 /// Collects methods and variants for a type item (struct/enum/union).
 fn collect_type_children<'a>(
     index: &'a DocIndex,
@@ -824,5 +865,81 @@ mod tests {
     fn feature_gate_suffix_some_returns_annotation() {
         let gate = "fs".to_string();
         assert_eq!(feature_gate_suffix(Some(&gate)), "  [feature: fs]");
+    }
+
+    // ---- collect_children_recursive ----
+
+    #[test]
+    fn collect_children_recursive_traverses_nested_modules() {
+        let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
+        // 0: crate root
+        let mut root = make_item("mycrate", "mycrate", ItemKind::Module);
+        // 1: sub module
+        let mut sub = make_item("sub", "mycrate::sub", ItemKind::Module);
+        // 2: struct in sub
+        let st = make_item("Foo", "mycrate::sub::Foo", ItemKind::Struct);
+        // 3: fn at root
+        let f = make_item("bar", "mycrate::bar", ItemKind::Function);
+
+        index.add_item(root.clone()); // placeholder, will overwrite
+        index.add_item(sub.clone());
+        index.add_item(st);
+        index.add_item(f);
+
+        sub.children = vec![ChildRef {
+            index: 2,
+            kind: ItemKind::Struct,
+            name: "Foo".to_string(),
+        }];
+        index.items[1] = sub;
+
+        root.children = vec![
+            ChildRef {
+                index: 1,
+                kind: ItemKind::Module,
+                name: "sub".to_string(),
+            },
+            ChildRef {
+                index: 3,
+                kind: ItemKind::Function,
+                name: "bar".to_string(),
+            },
+        ];
+        index.items[0] = root;
+
+        let items = collect_children_recursive(&index, 0, false);
+        let paths: Vec<&str> = items.iter().map(|i| i.path.as_str()).collect();
+        assert!(paths.contains(&"mycrate::bar"), "should include root fn");
+        assert!(paths.contains(&"mycrate::sub"), "should include sub module");
+        assert!(
+            paths.contains(&"mycrate::sub::Foo"),
+            "should include nested struct"
+        );
+    }
+
+    #[test]
+    fn collect_children_recursive_deduplicates() {
+        let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
+        let mut root = make_item("mycrate", "mycrate", ItemKind::Module);
+        let st = make_item("Foo", "mycrate::Foo", ItemKind::Struct);
+        index.add_item(root.clone());
+        index.add_item(st);
+        // Add same child twice
+        root.children = vec![
+            ChildRef {
+                index: 1,
+                kind: ItemKind::Struct,
+                name: "Foo".to_string(),
+            },
+            ChildRef {
+                index: 1,
+                kind: ItemKind::Struct,
+                name: "Foo".to_string(),
+            },
+        ];
+        index.items[0] = root;
+
+        let items = collect_children_recursive(&index, 0, false);
+        assert_eq!(items.len(), 1, "should dedup same item");
     }
 }

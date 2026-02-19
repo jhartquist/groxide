@@ -260,6 +260,25 @@ fn render_json_leaf(item: &IndexItem) -> String {
     serde_json::to_string(&doc_item).expect("invariant: JsonDocItem serializes")
 }
 
+/// Renders a recursive listing as JSON Lines.
+///
+/// Each item becomes one `JsonListItem` per line. Flat list, no grouping.
+pub(crate) fn render_json_recursive(items: &[&IndexItem]) -> String {
+    let mut out = String::new();
+    for item in items {
+        let list_item = JsonListItem {
+            path: item.path.clone(),
+            kind: item.kind.short_name().to_string(),
+            signature: item.signature.clone(),
+            summary: item.summary.clone(),
+        };
+        let json = serde_json::to_string(&list_item).expect("invariant: JsonListItem serializes");
+        let _ = writeln!(out, "{json}");
+    }
+    trim_trailing_newlines(&mut out);
+    out
+}
+
 /// Removes trailing newlines from output.
 fn trim_trailing_newlines(s: &mut String) {
     while s.ends_with('\n') {

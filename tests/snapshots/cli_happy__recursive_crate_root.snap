@@ -1,0 +1,57 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+groxide_test_api:
+  type    groxide_test_api::Callback                   A type alias for a callback function.
+  const   groxide_test_api::DEFAULT_GREETING           The default greeting string.
+  enum    groxide_test_api::Direction                  An enum representing cardinal directions.
+  static  groxide_test_api::GLOBAL_COUNTER             A global counter for testing static items.
+  struct  groxide_test_api::GenericStruct              A generic container holding a single value.
+  union   groxide_test_api::IntOrFloat                 A union for testing union item rendering.
+
+# Safety
+
+Accessing union fields requires `unsafe` since the compiler cannot guarantee
+which field was last written.
+  const   groxide_test_api::MAX_BUFFER_SIZE            The maximum buffer size in bytes.
+  type    groxide_test_api::Result                     A type alias for results in this crate.
+  enum    groxide_test_api::Shape                      An enum with data-carrying variants.
+  struct  groxide_test_api::SimpleStruct               A simple struct with no generics.
+  struct  groxide_test_api::UnstableStruct             A feature-gated struct.
+  static  groxide_test_api::VERSION                    A simple static string.
+  fn      groxide_test_api::add                        Adds two numbers together.
+  mod     groxide_test_api::containers                 Container types for testing module-level items.
+  mod     groxide_test_api::deeply                     A module for testing deeply nested paths.
+  fn      groxide_test_api::generic_fn                 A function with multiple generic parameters.
+  macro   groxide_test_api::greet                      Generates a greeting string.
+  mod     groxide_test_api::reexports                  Module for testing re-export handling.
+  mod     groxide_test_api::traits                     Trait definitions for testing trait rendering.
+  fn      groxide_test_api::unicode_docs               A function demonstrating unicode in documentation.
+  fn      groxide_test_api::unstable_api               An item only available with the `unstable` feature.
+
+groxide_test_api::containers:
+  const   groxide_test_api::containers::MAX_CAPACITY   The maximum capacity for a fixed-size container.
+  struct  groxide_test_api::containers::Pair           A pair of two values, possibly of different types.
+  struct  groxide_test_api::containers::Stack          A stack data structure backed by a `Vec`.
+
+groxide_test_api::deeply:
+  struct  groxide_test_api::deeply::DeepMarker         A marker type at the `deeply` module level.
+  mod     groxide_test_api::deeply::nested             The deepest level of nesting for path resolution tests.
+
+groxide_test_api::deeply::nested:
+  const   groxide_test_api::deeply::nested::DEPTH      A constant at the deepest level.
+  struct  groxide_test_api::deeply::nested::InnerItem  A struct at 3 levels of nesting.
+  fn      groxide_test_api::deeply::nested::deep_fn    A function at the deepest nesting level.
+
+groxide_test_api::reexports:
+  type    groxide_test_api::reexports::GlobAlias       A type alias in the glob source.
+  struct  groxide_test_api::reexports::GlobItem        An item that will be glob-reexported.
+  struct  groxide_test_api::reexports::Helper          Re-exported `Helper` from the private inner module.
+  fn      groxide_test_api::reexports::glob_fn         Another item for glob re-export.
+  fn      groxide_test_api::reexports::inner_fn        Re-exported `inner_fn` from the private inner module.
+
+groxide_test_api::traits:
+  trait   groxide_test_api::traits::Describable        A trait that extends both `Stringify` and `std::fmt::Debug`.
+  trait   groxide_test_api::traits::Processor          A trait with an associated type and constant.
+  trait   groxide_test_api::traits::Stringify          A trait for items that can be serialized to a string representation.

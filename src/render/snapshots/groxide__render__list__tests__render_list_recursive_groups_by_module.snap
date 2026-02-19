@@ -1,0 +1,10 @@
+---
+source: src/render/list.rs
+expression: output
+---
+mycrate:
+  fn      mycrate::bar       Does bar.
+  mod     mycrate::sub       A submodule.
+
+mycrate::sub:
+  struct  mycrate::sub::Foo  A struct.

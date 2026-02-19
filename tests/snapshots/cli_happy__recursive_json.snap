@@ -1,0 +1,41 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+{"path":"groxide_test_api::Callback","kind":"type","signature":"pub type Callback = fn(i32) -> bool","summary":"A type alias for a callback function."}
+{"path":"groxide_test_api::DEFAULT_GREETING","kind":"const","signature":"pub const DEFAULT_GREETING: &str","summary":"The default greeting string."}
+{"path":"groxide_test_api::Direction","kind":"enum","signature":"pub enum Direction","summary":"An enum representing cardinal directions."}
+{"path":"groxide_test_api::GLOBAL_COUNTER","kind":"static","signature":"pub static GLOBAL_COUNTER: std::sync::atomic::AtomicUsize","summary":"A global counter for testing static items."}
+{"path":"groxide_test_api::GenericStruct","kind":"struct","signature":"pub struct GenericStruct<T: Clone>","summary":"A generic container holding a single value."}
+{"path":"groxide_test_api::IntOrFloat","kind":"union","signature":"pub union IntOrFloat { pub i: i32, pub f: f32 }","summary":"A union for testing union item rendering.\n\n# Safety\n\nAccessing union fields requires `unsafe` since the compiler cannot guarantee\nwhich field was last written."}
+{"path":"groxide_test_api::MAX_BUFFER_SIZE","kind":"const","signature":"pub const MAX_BUFFER_SIZE: usize","summary":"The maximum buffer size in bytes."}
+{"path":"groxide_test_api::Result","kind":"type","signature":"pub type Result<T> = std::result::Result<T, String>","summary":"A type alias for results in this crate."}
+{"path":"groxide_test_api::Shape","kind":"enum","signature":"pub enum Shape","summary":"An enum with data-carrying variants."}
+{"path":"groxide_test_api::SimpleStruct","kind":"struct","signature":"pub struct SimpleStruct { pub name: String, pub count: u32 }","summary":"A simple struct with no generics."}
+{"path":"groxide_test_api::UnstableStruct","kind":"struct","signature":"pub struct UnstableStruct { pub experimental: bool }","summary":"A feature-gated struct."}
+{"path":"groxide_test_api::VERSION","kind":"static","signature":"pub static VERSION: &str","summary":"A simple static string."}
+{"path":"groxide_test_api::add","kind":"fn","signature":"pub fn add(a: i32, b: i32) -> i32","summary":"Adds two numbers together."}
+{"path":"groxide_test_api::containers","kind":"mod","signature":"pub mod containers","summary":"Container types for testing module-level items."}
+{"path":"groxide_test_api::containers::MAX_CAPACITY","kind":"const","signature":"pub const MAX_CAPACITY: usize","summary":"The maximum capacity for a fixed-size container."}
+{"path":"groxide_test_api::containers::Pair","kind":"struct","signature":"pub struct Pair<A, B>","summary":"A pair of two values, possibly of different types."}
+{"path":"groxide_test_api::containers::Stack","kind":"struct","signature":"pub struct Stack<T>","summary":"A stack data structure backed by a `Vec`."}
+{"path":"groxide_test_api::deeply","kind":"mod","signature":"pub mod deeply","summary":"A module for testing deeply nested paths."}
+{"path":"groxide_test_api::deeply::DeepMarker","kind":"struct","signature":"pub struct DeepMarker","summary":"A marker type at the `deeply` module level."}
+{"path":"groxide_test_api::deeply::nested","kind":"mod","signature":"pub mod nested","summary":"The deepest level of nesting for path resolution tests."}
+{"path":"groxide_test_api::deeply::nested::DEPTH","kind":"const","signature":"pub const DEPTH: u32","summary":"A constant at the deepest level."}
+{"path":"groxide_test_api::deeply::nested::InnerItem","kind":"struct","signature":"pub struct InnerItem { pub label: String }","summary":"A struct at 3 levels of nesting."}
+{"path":"groxide_test_api::deeply::nested::deep_fn","kind":"fn","signature":"pub fn deep_fn() -> &'static str","summary":"A function at the deepest nesting level."}
+{"path":"groxide_test_api::generic_fn","kind":"fn","signature":"pub fn generic_fn<T: std::fmt::Display, U: Into<String>>(value: T, _label: U) -> String","summary":"A function with multiple generic parameters."}
+{"path":"groxide_test_api::greet","kind":"macro","signature":"macro_rules! greet","summary":"Generates a greeting string."}
+{"path":"groxide_test_api::reexports","kind":"mod","signature":"pub mod reexports","summary":"Module for testing re-export handling."}
+{"path":"groxide_test_api::reexports::GlobAlias","kind":"type","signature":"pub type GlobAlias = Vec<String>","summary":"A type alias in the glob source."}
+{"path":"groxide_test_api::reexports::GlobItem","kind":"struct","signature":"pub struct GlobItem { pub value: i32 }","summary":"An item that will be glob-reexported."}
+{"path":"groxide_test_api::reexports::Helper","kind":"struct","signature":"pub struct Helper { pub id: u32 }","summary":"Re-exported `Helper` from the private inner module."}
+{"path":"groxide_test_api::reexports::glob_fn","kind":"fn","signature":"pub fn glob_fn() -> bool","summary":"Another item for glob re-export."}
+{"path":"groxide_test_api::reexports::inner_fn","kind":"fn","signature":"pub fn inner_fn() -> i32","summary":"Re-exported `inner_fn` from the private inner module."}
+{"path":"groxide_test_api::traits","kind":"mod","signature":"pub mod traits","summary":"Trait definitions for testing trait rendering."}
+{"path":"groxide_test_api::traits::Describable","kind":"trait","signature":"pub trait Describable: Stringify + std::fmt::Debug","summary":"A trait that extends both `Stringify` and `std::fmt::Debug`."}
+{"path":"groxide_test_api::traits::Processor","kind":"trait","signature":"pub trait Processor","summary":"A trait with an associated type and constant."}
+{"path":"groxide_test_api::traits::Stringify","kind":"trait","signature":"pub trait Stringify","summary":"A trait for items that can be serialized to a string representation."}
+{"path":"groxide_test_api::unicode_docs","kind":"fn","signature":"pub fn unicode_docs() -> &'static str","summary":"A function demonstrating unicode in documentation."}
+{"path":"groxide_test_api::unstable_api","kind":"fn","signature":"pub fn unstable_api() -> &'static str","summary":"An item only available with the `unstable` feature."}

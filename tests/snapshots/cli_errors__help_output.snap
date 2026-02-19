@@ -42,6 +42,9 @@ Options:
   -i, --impls
           Show trait implementations (on types) or implementors (on traits)
 
+  -R, --recursive
+          List all public items recursively in a crate or module tree
+
       --readme
           Show the crate's README
 

@@ -56,8 +56,12 @@ pub struct Cli {
     #[arg(short = 'i', long, conflicts_with_all = ["source", "list"])]
     pub impls: bool,
 
+    /// List all public items recursively in a crate or module tree
+    #[arg(short = 'R', long, conflicts_with_all = ["source", "impls", "search"])]
+    pub recursive: bool,
+
     /// Show the crate's README
-    #[arg(long, conflicts_with_all = ["source", "list", "search", "impls"])]
+    #[arg(long, conflicts_with_all = ["source", "list", "search", "impls", "recursive"])]
     pub readme: bool,
 
     /// Path to Cargo.toml
