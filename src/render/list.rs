@@ -7,45 +7,14 @@ use super::{feature_gate_suffix, trim_trailing_newlines};
 /// Renders a `DisplayItem` in list mode (`--list`).
 ///
 /// Produces one line per child item with dynamically-aligned columns:
-/// `{kind}  {path}  {summary}`
+/// `{kind}  {path}  {signature}  {summary}`
 pub(crate) fn render_list(display: &DisplayItem<'_>) -> String {
     let items = collect_list_items(display);
     if items.is_empty() {
         return String::new();
     }
 
-    let max_kind_width = items
-        .iter()
-        .map(|i| i.kind.short_name().len())
-        .max()
-        .unwrap_or(0);
-    let max_path_width = items.iter().map(|i| i.path.len()).max().unwrap_or(0);
-
-    let mut out = String::new();
-    for item in &items {
-        let kind = item.kind.short_name();
-        let path = &item.path;
-        let summary = &item.summary;
-        let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
-        if summary.is_empty() && gate_suffix.is_empty() {
-            let _ = writeln!(out, "{kind:<max_kind_width$}  {path:<max_path_width$}");
-        } else {
-            let display_summary = if gate_suffix.is_empty() {
-                summary.clone()
-            } else if summary.is_empty() {
-                gate_suffix
-            } else {
-                format!("{summary}{gate_suffix}")
-            };
-            let _ = writeln!(
-                out,
-                "{kind:<max_kind_width$}  {path:<max_path_width$}  {display_summary}"
-            );
-        }
-    }
-
-    trim_trailing_newlines(&mut out);
-    out
+    render_item_table(&items, "")
 }
 
 /// Collects the items to list based on the `DisplayItem` variant.
@@ -81,8 +50,8 @@ fn collect_grouped_items<'a>(groups: &'a GroupedItems<'a>) -> Vec<&'a IndexItem>
 /// Renders a recursive listing of items grouped by parent module.
 ///
 /// Items are grouped by their parent module path, with each module shown as a
-/// section header. Within each module, items are grouped by kind category and
-/// rendered with kind/path/summary columns.
+/// section header. Within each module, items are rendered with
+/// kind/path/signature/summary columns.
 pub(crate) fn render_list_recursive(items: &[&IndexItem], root_path: &str) -> String {
     use std::collections::BTreeMap;
 
@@ -100,13 +69,8 @@ pub(crate) fn render_list_recursive(items: &[&IndexItem], root_path: &str) -> St
         by_module.entry(parent).or_default().push(item);
     }
 
-    // Compute global column widths
-    let max_kind_width = items
-        .iter()
-        .map(|i| i.kind.short_name().len())
-        .max()
-        .unwrap_or(0);
-    let max_path_width = items.iter().map(|i| i.path.len()).max().unwrap_or(0);
+    // Compute global column widths across all items
+    let widths = column_widths(items);
 
     let mut out = String::new();
     let mut first = true;
@@ -117,28 +81,93 @@ pub(crate) fn render_list_recursive(items: &[&IndexItem], root_path: &str) -> St
         first = false;
         let _ = writeln!(out, "{module_path}:");
         for item in module_items {
-            let kind = item.kind.short_name();
-            let path = &item.path;
-            let summary = &item.summary;
-            let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
-            if summary.is_empty() && gate_suffix.is_empty() {
-                let _ = writeln!(out, "  {kind:<max_kind_width$}  {path:<max_path_width$}");
-            } else {
-                let display_summary = if gate_suffix.is_empty() {
-                    summary.clone()
-                } else if summary.is_empty() {
-                    gate_suffix
-                } else {
-                    format!("{summary}{gate_suffix}")
-                };
-                let _ = writeln!(
-                    out,
-                    "  {kind:<max_kind_width$}  {path:<max_path_width$}  {display_summary}"
-                );
-            }
+            render_item_line(&mut out, item, &widths, "  ");
         }
     }
 
+    trim_trailing_newlines(&mut out);
+    out
+}
+
+/// Column widths for aligned table output.
+struct ColumnWidths {
+    kind: usize,
+    path: usize,
+    signature: usize,
+}
+
+/// Computes column widths from a slice of items.
+fn column_widths(items: &[&IndexItem]) -> ColumnWidths {
+    ColumnWidths {
+        kind: items
+            .iter()
+            .map(|i| i.kind.short_name().len())
+            .max()
+            .unwrap_or(0),
+        path: items.iter().map(|i| i.path.len()).max().unwrap_or(0),
+        signature: items.iter().map(|i| i.signature.len()).max().unwrap_or(0),
+    }
+}
+
+/// Renders one item as a table row: `{prefix}{kind}  {path}  {signature}  {summary}`.
+fn render_item_line(out: &mut String, item: &IndexItem, widths: &ColumnWidths, prefix: &str) {
+    let kind = item.kind.short_name();
+    let path = &item.path;
+    let sig = &item.signature;
+    let summary = &item.summary;
+    let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
+    let max_kind = widths.kind;
+    let max_path = widths.path;
+    let max_sig = widths.signature;
+
+    // Build the trailing part: signature + summary + gate suffix
+    let has_sig = !sig.is_empty();
+    let has_summary = !summary.is_empty() || !gate_suffix.is_empty();
+
+    if !has_sig && !has_summary {
+        let _ = writeln!(out, "{prefix}{kind:<max_kind$}  {path:<max_path$}");
+    } else if !has_sig {
+        // No signature (e.g., modules) — skip sig column, show summary
+        let display_summary = build_display_summary(summary, &gate_suffix);
+        let _ = writeln!(
+            out,
+            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {:<max_sig$}  {display_summary}",
+            ""
+        );
+    } else if !has_summary {
+        let _ = writeln!(
+            out,
+            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {sig:<max_sig$}"
+        );
+    } else {
+        let display_summary = build_display_summary(summary, &gate_suffix);
+        let _ = writeln!(
+            out,
+            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {sig:<max_sig$}  {display_summary}"
+        );
+    }
+}
+
+/// Combines summary and feature gate suffix into one display string.
+fn build_display_summary(summary: &str, gate_suffix: &str) -> String {
+    if gate_suffix.is_empty() {
+        summary.to_string()
+    } else if summary.is_empty() {
+        gate_suffix.to_string()
+    } else {
+        format!("{summary}{gate_suffix}")
+    }
+}
+
+/// Renders a table of items with aligned columns.
+///
+/// Used by both `render_list` and could be used by other table-style renderers.
+fn render_item_table(items: &[&IndexItem], prefix: &str) -> String {
+    let widths = column_widths(items);
+    let mut out = String::new();
+    for item in items {
+        render_item_line(&mut out, item, &widths, prefix);
+    }
     trim_trailing_newlines(&mut out);
     out
 }

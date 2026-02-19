@@ -57,7 +57,7 @@ pub struct Cli {
     pub impls: bool,
 
     /// List all public items recursively in a crate or module tree
-    #[arg(short = 'R', long, conflicts_with_all = ["source", "impls", "search"])]
+    #[arg(short = 'r', long, conflicts_with_all = ["source", "impls", "search"])]
     pub recursive: bool,
 
     /// Show the crate's README

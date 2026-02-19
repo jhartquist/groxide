@@ -1,0 +1,5 @@
+---
+source: src/render/json.rs
+expression: output
+---
+{"path":"mycrate::Helper","kind":"struct","signature":"pub struct Helper","doc":"A helper struct.","feature_gate":null,"reexported_from":"mycrate::inner::Helper"}

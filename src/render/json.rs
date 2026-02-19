@@ -17,6 +17,9 @@ pub(crate) struct JsonDocItem {
     pub(crate) doc: String,
     /// Feature gate name, or null.
     pub(crate) feature_gate: Option<String>,
+    /// Original source path for re-exported items.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) reexported_from: Option<String>,
     /// Methods (for Type and Trait items).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) methods: Option<Vec<JsonMethod>>,
@@ -64,6 +67,9 @@ pub(crate) struct JsonListItem {
     pub(crate) signature: String,
     /// First sentence of docs.
     pub(crate) summary: String,
+    /// Original source path for re-exported items.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) reexported_from: Option<String>,
 }
 
 /// Renders a `DisplayItem` as JSON doc view (`--json`).
@@ -101,6 +107,7 @@ pub(crate) fn render_json_ambiguous(items: &[&IndexItem]) -> String {
             kind: item.kind.short_name().to_string(),
             signature: item.signature.clone(),
             summary: item.summary.clone(),
+            reexported_from: item.reexport_source.clone(),
         };
         let json = serde_json::to_string(&list_item).expect("invariant: JsonListItem serializes");
         let _ = writeln!(out, "{json}");
@@ -120,6 +127,7 @@ fn render_json_container(item: &IndexItem, children: &GroupedItems<'_>) -> Strin
         signature: item.signature.clone(),
         doc: item.docs.clone(),
         feature_gate: item.feature_gate.clone(),
+        reexported_from: item.reexport_source.clone(),
         methods: None,
         trait_impls: None,
         variants: None,
@@ -135,6 +143,7 @@ fn render_json_container(item: &IndexItem, children: &GroupedItems<'_>) -> Strin
                 kind: child.kind.short_name().to_string(),
                 signature: child.signature.clone(),
                 summary: child.summary.clone(),
+                reexported_from: child.reexport_source.clone(),
             };
             let json =
                 serde_json::to_string(&list_item).expect("invariant: JsonListItem serializes");
@@ -181,6 +190,7 @@ fn render_json_type(
         signature: item.signature.clone(),
         doc: item.docs.clone(),
         feature_gate: item.feature_gate.clone(),
+        reexported_from: item.reexport_source.clone(),
         methods: if json_methods.is_empty() {
             None
         } else {
@@ -232,6 +242,7 @@ fn render_json_trait(
         signature: item.signature.clone(),
         doc: item.docs.clone(),
         feature_gate: item.feature_gate.clone(),
+        reexported_from: item.reexport_source.clone(),
         methods: if json_methods.is_empty() {
             None
         } else {
@@ -252,6 +263,7 @@ fn render_json_leaf(item: &IndexItem) -> String {
         signature: item.signature.clone(),
         doc: item.docs.clone(),
         feature_gate: item.feature_gate.clone(),
+        reexported_from: item.reexport_source.clone(),
         methods: None,
         trait_impls: None,
         variants: None,
@@ -271,6 +283,7 @@ pub(crate) fn render_json_recursive(items: &[&IndexItem]) -> String {
             kind: item.kind.short_name().to_string(),
             signature: item.signature.clone(),
             summary: item.summary.clone(),
+            reexported_from: item.reexport_source.clone(),
         };
         let json = serde_json::to_string(&list_item).expect("invariant: JsonListItem serializes");
         let _ = writeln!(out, "{json}");
@@ -557,5 +570,51 @@ mod tests {
         assert_eq!(second["path"], "mycrate::ser::Error");
 
         insta::assert_snapshot!(output);
+    }
+
+    // ---- JSON reexported_from field ----
+
+    #[test]
+    fn render_json_leaf_includes_reexported_from() {
+        let mut item = make_item_full(
+            "Helper",
+            "mycrate::Helper",
+            ItemKind::Struct,
+            "pub struct Helper",
+            "A helper struct.",
+            "A helper struct.",
+        );
+        item.reexport_source = Some("mycrate::inner::Helper".to_string());
+
+        let di = DisplayItem::Leaf { item: &item };
+        let output = render_json(&di);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&output).expect("should be valid JSON");
+        assert_eq!(parsed["reexported_from"], "mycrate::inner::Helper");
+
+        insta::assert_snapshot!(output);
+    }
+
+    #[test]
+    fn render_json_leaf_omits_reexported_from_when_none() {
+        let item = make_item_full(
+            "Widget",
+            "mycrate::Widget",
+            ItemKind::Struct,
+            "pub struct Widget",
+            "A widget.",
+            "A widget.",
+        );
+
+        let di = DisplayItem::Leaf { item: &item };
+        let output = render_json(&di);
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&output).expect("should be valid JSON");
+        assert!(
+            parsed.get("reexported_from").is_none(),
+            "reexported_from should be omitted when None"
+        );
     }
 }

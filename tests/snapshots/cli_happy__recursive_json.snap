@@ -30,9 +30,9 @@ expression: stdout
 {"path":"groxide_test_api::reexports","kind":"mod","signature":"pub mod reexports","summary":"Module for testing re-export handling."}
 {"path":"groxide_test_api::reexports::GlobAlias","kind":"type","signature":"pub type GlobAlias = Vec<String>","summary":"A type alias in the glob source."}
 {"path":"groxide_test_api::reexports::GlobItem","kind":"struct","signature":"pub struct GlobItem { pub value: i32 }","summary":"An item that will be glob-reexported."}
-{"path":"groxide_test_api::reexports::Helper","kind":"struct","signature":"pub struct Helper { pub id: u32 }","summary":"Re-exported `Helper` from the private inner module."}
+{"path":"groxide_test_api::reexports::Helper","kind":"struct","signature":"pub struct Helper { pub id: u32 }","summary":"Re-exported `Helper` from the private inner module.","reexported_from":"groxide_test_api::reexports::inner::Helper"}
 {"path":"groxide_test_api::reexports::glob_fn","kind":"fn","signature":"pub fn glob_fn() -> bool","summary":"Another item for glob re-export."}
-{"path":"groxide_test_api::reexports::inner_fn","kind":"fn","signature":"pub fn inner_fn() -> i32","summary":"Re-exported `inner_fn` from the private inner module."}
+{"path":"groxide_test_api::reexports::inner_fn","kind":"fn","signature":"pub fn inner_fn() -> i32","summary":"Re-exported `inner_fn` from the private inner module.","reexported_from":"groxide_test_api::reexports::inner::inner_fn"}
 {"path":"groxide_test_api::traits","kind":"mod","signature":"pub mod traits","summary":"Trait definitions for testing trait rendering."}
 {"path":"groxide_test_api::traits::Describable","kind":"trait","signature":"pub trait Describable: Stringify + std::fmt::Debug","summary":"A trait that extends both `Stringify` and `std::fmt::Debug`."}
 {"path":"groxide_test_api::traits::Processor","kind":"trait","signature":"pub trait Processor","summary":"A trait with an associated type and constant."}

@@ -3,14 +3,14 @@ source: tests/cli_happy.rs
 expression: stdout
 ---
 groxide_test_api:
-  fn  groxide_test_api::add                      Adds two numbers together.
-  fn  groxide_test_api::generic_fn               A function with multiple generic parameters.
-  fn  groxide_test_api::unicode_docs             A function demonstrating unicode in documentation.
-  fn  groxide_test_api::unstable_api             An item only available with the `unstable` feature.
+  fn  groxide_test_api::add                      pub fn add(a: i32, b: i32) -> i32                                                        Adds two numbers together.
+  fn  groxide_test_api::generic_fn               pub fn generic_fn<T: std::fmt::Display, U: Into<String>>(value: T, _label: U) -> String  A function with multiple generic parameters.
+  fn  groxide_test_api::unicode_docs             pub fn unicode_docs() -> &'static str                                                    A function demonstrating unicode in documentation.
+  fn  groxide_test_api::unstable_api             pub fn unstable_api() -> &'static str                                                    An item only available with the `unstable` feature.
 
 groxide_test_api::deeply::nested:
-  fn  groxide_test_api::deeply::nested::deep_fn  A function at the deepest nesting level.
+  fn  groxide_test_api::deeply::nested::deep_fn  pub fn deep_fn() -> &'static str                                                         A function at the deepest nesting level.
 
 groxide_test_api::reexports:
-  fn  groxide_test_api::reexports::glob_fn       Another item for glob re-export.
-  fn  groxide_test_api::reexports::inner_fn      Re-exported `inner_fn` from the private inner module.
+  fn  groxide_test_api::reexports::glob_fn       pub fn glob_fn() -> bool                                                                 Another item for glob re-export.
+  fn  groxide_test_api::reexports::inner_fn      pub fn inner_fn() -> i32                                                                 Re-exported `inner_fn` from the private inner module.
