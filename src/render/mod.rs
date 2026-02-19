@@ -739,7 +739,7 @@ mod tests {
     fn truncate_doc_at_paragraph_boundary() {
         let limits = DisplayLimits {
             max_doc_length: 50,
-            ..DisplayLimits::default()
+            expand_all: false,
         };
         let text = "First paragraph here.\n\nSecond paragraph that goes over the limit by a lot.";
         let result = truncate_doc(text, &limits);
@@ -751,7 +751,7 @@ mod tests {
     fn truncate_doc_at_sentence_boundary() {
         let limits = DisplayLimits {
             max_doc_length: 40,
-            ..DisplayLimits::default()
+            expand_all: false,
         };
         let text = "First sentence. Second sentence goes on and on past the limit here.";
         let result = truncate_doc(text, &limits);
@@ -762,7 +762,7 @@ mod tests {
     fn truncate_doc_at_word_boundary() {
         let limits = DisplayLimits {
             max_doc_length: 20,
-            ..DisplayLimits::default()
+            expand_all: false,
         };
         let text = "Oneword anotherword yetanother";
         let result = truncate_doc(text, &limits);
@@ -774,7 +774,7 @@ mod tests {
     fn truncate_doc_hard_truncate() {
         let limits = DisplayLimits {
             max_doc_length: 10,
-            ..DisplayLimits::default()
+            expand_all: false,
         };
         let text = "abcdefghijklmnop";
         let result = truncate_doc(text, &limits);
@@ -786,7 +786,7 @@ mod tests {
     fn truncate_doc_respects_utf8_boundaries() {
         let limits = DisplayLimits {
             max_doc_length: 5,
-            ..DisplayLimits::default()
+            expand_all: false,
         };
         // Each CJK char is 3 bytes. 5 bytes can hold 1 CJK char (3 bytes) but not 2.
         let text = "日本語テスト";
@@ -799,7 +799,10 @@ mod tests {
 
     #[test]
     fn truncate_doc_at_1500_chars() {
-        let limits = DisplayLimits::default();
+        let limits = DisplayLimits {
+            expand_all: false,
+            ..DisplayLimits::default()
+        };
         // Create text that exceeds 1500 chars
         let paragraph1 = "x".repeat(1000);
         let paragraph2 = "y".repeat(600);

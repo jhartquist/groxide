@@ -397,23 +397,17 @@ pub(crate) enum DisplayItem<'a> {
 /// Controls truncation limits for display output.
 #[derive(Debug)]
 pub(crate) struct DisplayLimits {
-    /// Maximum number of methods to display. Default: 15.
-    pub(crate) max_methods: usize,
-    /// Maximum number of trait impls to display. Default: 5.
-    pub(crate) max_trait_impls: usize,
     /// Maximum doc text length in characters. Default: 1500.
     pub(crate) max_doc_length: usize,
-    /// `--all` flag disables all truncation.
+    /// Whether to expand all output (no truncation). Default: true.
     pub(crate) expand_all: bool,
 }
 
 impl Default for DisplayLimits {
     fn default() -> Self {
         Self {
-            max_methods: 15,
-            max_trait_impls: 5,
             max_doc_length: 1500,
-            expand_all: false,
+            expand_all: true,
         }
     }
 }
@@ -773,9 +767,7 @@ mod tests {
     #[test]
     fn display_limits_default_values() {
         let limits = DisplayLimits::default();
-        assert_eq!(limits.max_methods, 15);
-        assert_eq!(limits.max_trait_impls, 5);
         assert_eq!(limits.max_doc_length, 1500);
-        assert!(!limits.expand_all);
+        assert!(limits.expand_all);
     }
 }

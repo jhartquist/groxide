@@ -13,9 +13,11 @@ Variants:
   Point                                                       A point with no data.
   Rectangle { width: f64, height: f64 }                       A rectangle with width and height.
 
-Trait Implementations: (showing 5 of 7, use --impls to expand)
+Trait Implementations:
   impl Freeze
   impl RefUnwindSafe
   impl Send
   impl Sync
   impl Unpin
+  impl UnsafeUnpin
+  impl UnwindSafe

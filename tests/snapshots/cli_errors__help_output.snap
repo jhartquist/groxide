@@ -17,9 +17,6 @@ Options:
   -l, --list
           List children only (names + one-line summaries)
 
-  -a, --all
-          Expand everything (full docs for all children, no truncation)
-
   -S, --search <SEARCH>
           Full-text search across documentation
 

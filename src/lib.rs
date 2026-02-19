@@ -703,14 +703,7 @@ fn handle_output(
                 let output = render::json::render_json(&display);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else {
-                let limits = if cli.all {
-                    DisplayLimits {
-                        expand_all: true,
-                        ..DisplayLimits::default()
-                    }
-                } else {
-                    DisplayLimits::default()
-                };
+                let limits = DisplayLimits::default();
                 let canonical_output = render::text::render_text(&display, &limits);
                 // For followed re-exports, annotate with the stub path and source note
                 let output = if effective_index.is_some() {

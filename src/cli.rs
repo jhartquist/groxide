@@ -36,10 +36,6 @@ pub struct Cli {
     #[arg(short = 'l', long, conflicts_with_all = ["source", "impls"])]
     pub list: bool,
 
-    /// Expand everything (full docs for all children, no truncation)
-    #[arg(short = 'a', long)]
-    pub all: bool,
-
     /// Full-text search across documentation
     #[arg(short = 'S', long, conflicts_with_all = ["source", "list", "impls"])]
     pub search: Option<String>,
@@ -627,19 +623,6 @@ mod tests {
     #[test]
     fn clap_kind_is_case_insensitive() {
         let result = Cli::try_parse_from(["grox", "--kind", "FN", "something"]);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn clap_allows_all_with_any_mode() {
-        // --all with --list
-        let result = Cli::try_parse_from(["grox", "--all", "--list", "foo"]);
-        assert!(result.is_ok());
-        // --all with --source
-        let result = Cli::try_parse_from(["grox", "--all", "--source", "foo"]);
-        assert!(result.is_ok());
-        // --all with --json
-        let result = Cli::try_parse_from(["grox", "--all", "--json", "foo"]);
         assert!(result.is_ok());
     }
 

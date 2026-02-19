@@ -19,9 +19,11 @@ Methods:
   pub fn new(value: T) -> Self                                Creates a new `GenericStruct` with the given value.
   pub fn value(&self) -> &T                                   Returns a reference to the inner value.
 
-Trait Implementations: (showing 5 of 7, use --impls to expand)
+Trait Implementations:
   impl Freeze
   impl RefUnwindSafe
   impl Send
   impl Sync
   impl Unpin
+  impl UnsafeUnpin
+  impl UnwindSafe

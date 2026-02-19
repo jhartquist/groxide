@@ -113,35 +113,15 @@ fn render_type(
 
     // Methods
     if !methods.is_empty() {
-        let max_methods = if limits.expand_all {
-            usize::MAX
-        } else {
-            limits.max_methods
-        };
-        let total = methods.len();
         out.push('\n');
-        if total > max_methods {
-            let _ = writeln!(
-                out,
-                "Methods: (showing {max_methods} of {total}, use --all to expand)"
-            );
-        } else {
-            out.push_str("Methods:\n");
-        }
-        for m in methods.iter().take(max_methods) {
+        out.push_str("Methods:\n");
+        for m in methods {
             render_signature_line(&mut out, m);
         }
     }
 
     // Trait implementations
     if !trait_impls.is_empty() {
-        let max_impls = if limits.expand_all {
-            usize::MAX
-        } else {
-            limits.max_trait_impls
-        };
-        let total = trait_impls.len();
-
         // Sort: non-synthetic first (alphabetically), then synthetic (alphabetically)
         let mut sorted_impls: Vec<&TraitImplInfo> = trait_impls.iter().collect();
         sorted_impls.sort_by(|a, b| {
@@ -151,15 +131,8 @@ fn render_type(
         });
 
         out.push('\n');
-        if total > max_impls {
-            let _ = writeln!(
-                out,
-                "Trait Implementations: (showing {max_impls} of {total}, use --impls to expand)"
-            );
-        } else {
-            out.push_str("Trait Implementations:\n");
-        }
-        for ti in sorted_impls.iter().take(max_impls) {
+        out.push_str("Trait Implementations:\n");
+        for ti in &sorted_impls {
             let _ = writeln!(out, "  impl {}", ti.trait_path);
         }
     }
@@ -204,37 +177,15 @@ fn render_trait(
         out.push_str("(no methods)");
     } else if has_required && has_provided {
         // Both: use distinct headers
-        let max_methods = if limits.expand_all {
-            usize::MAX
-        } else {
-            limits.max_methods
-        };
-
         out.push('\n');
-        let total_required = required_methods.len();
-        if total_required > max_methods {
-            let _ = writeln!(
-                out,
-                "Required Methods: (showing {max_methods} of {total_required}, use --all to expand)"
-            );
-        } else {
-            out.push_str("Required Methods:\n");
-        }
-        for m in required_methods.iter().take(max_methods) {
+        out.push_str("Required Methods:\n");
+        for m in required_methods {
             render_signature_line(&mut out, m);
         }
 
         out.push('\n');
-        let total_provided = provided_methods.len();
-        if total_provided > max_methods {
-            let _ = writeln!(
-                out,
-                "Provided Methods: (showing {max_methods} of {total_provided}, use --all to expand)"
-            );
-        } else {
-            out.push_str("Provided Methods:\n");
-        }
-        for m in provided_methods.iter().take(max_methods) {
+        out.push_str("Provided Methods:\n");
+        for m in provided_methods {
             render_signature_line(&mut out, m);
         }
     } else {
@@ -244,23 +195,10 @@ fn render_trait(
         } else {
             provided_methods
         };
-        let max_methods = if limits.expand_all {
-            usize::MAX
-        } else {
-            limits.max_methods
-        };
-        let total = methods.len();
 
         out.push('\n');
-        if total > max_methods {
-            let _ = writeln!(
-                out,
-                "Methods: (showing {max_methods} of {total}, use --all to expand)"
-            );
-        } else {
-            out.push_str("Methods:\n");
-        }
-        for m in methods.iter().take(max_methods) {
+        out.push_str("Methods:\n");
+        for m in methods {
             render_signature_line(&mut out, m);
         }
     }
@@ -784,7 +722,7 @@ mod tests {
         insta::assert_snapshot!(output);
     }
 
-    // ---- Truncation at ~1500 chars ----
+    // ---- Truncation at ~1500 chars (with expand_all disabled) ----
 
     #[test]
     fn render_truncation_at_1500_chars() {
@@ -801,7 +739,10 @@ mod tests {
             "First paragraph of documentation.",
         );
         let di = DisplayItem::Leaf { item: &item };
-        let limits = DisplayLimits::default();
+        let limits = DisplayLimits {
+            expand_all: false,
+            ..DisplayLimits::default()
+        };
         let output = render_text(&di, &limits);
 
         // Verify truncation happened
@@ -834,46 +775,16 @@ mod tests {
             "Japanese test text.",
         );
         let di = DisplayItem::Leaf { item: &item };
-        let limits = DisplayLimits::default();
+        let limits = DisplayLimits {
+            expand_all: false,
+            ..DisplayLimits::default()
+        };
         let output = render_text(&di, &limits);
 
         // Should not panic (proving UTF-8 safety) and should contain truncation marker
         assert!(output.contains("..."), "output should be truncated");
         // Verify output is valid UTF-8
         assert!(std::str::from_utf8(output.as_bytes()).is_ok());
-    }
-
-    // ---- --all disables truncation ----
-
-    #[test]
-    fn render_all_disables_truncation() {
-        let long_docs = "A very long paragraph. ".repeat(200);
-        let item = make_item_full(
-            "big_fn",
-            "mycrate::big_fn",
-            ItemKind::Function,
-            "pub fn big_fn()",
-            &long_docs,
-            "A very long paragraph.",
-        );
-        let di = DisplayItem::Leaf { item: &item };
-        let limits = DisplayLimits {
-            expand_all: true,
-            ..DisplayLimits::default()
-        };
-        let output = render_text(&di, &limits);
-
-        // Should NOT contain truncation marker
-        assert!(
-            !output.contains("..."),
-            "output should not be truncated with --all"
-        );
-        // Should contain the full text
-        assert!(
-            output.len() > 2000,
-            "output should be long without truncation, got {} bytes",
-            output.len()
-        );
     }
 
     // ---- Trait with only required methods uses generic "Methods:" header ----

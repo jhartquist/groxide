@@ -8,9 +8,11 @@ pub struct Helper { pub id: u32 }
 
 Re-exported Helper from the private inner module.
 
-Trait Implementations: (showing 5 of 7, use --impls to expand)
+Trait Implementations:
   impl Freeze
   impl RefUnwindSafe
   impl Send
   impl Sync
   impl Unpin
+  impl UnsafeUnpin
+  impl UnwindSafe

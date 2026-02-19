@@ -248,48 +248,6 @@ fn impls_mode() {
     insta::assert_snapshot!("impls_mode", stdout);
 }
 
-// ── --all expands truncation ─────────────────────────────────────────
-
-#[test]
-fn all_expands_truncation() {
-    // Without --all: trait impls may be truncated
-    let without_all = grox()
-        .arg("groxide_test_api::GenericStruct")
-        .output()
-        .expect("command runs");
-    assert!(without_all.status.success());
-    let without_all_stdout = String::from_utf8_lossy(&without_all.stdout);
-
-    // With --all: no truncation
-    let with_all = grox()
-        .arg("--all")
-        .arg("groxide_test_api::GenericStruct")
-        .output()
-        .expect("command runs");
-    assert!(with_all.status.success());
-    let with_all_stdout = String::from_utf8_lossy(&with_all.stdout);
-
-    // --all version should show all trait impls without truncation notice
-    assert!(
-        !with_all_stdout.contains("use --impls to expand"),
-        "--all should expand trait impls"
-    );
-    assert!(
-        !with_all_stdout.contains("use --all to expand"),
-        "--all should expand methods"
-    );
-    // If the default was truncated, --all should show all items
-    if without_all_stdout.contains("use --impls to expand") {
-        // --all removes the truncation notice but shows all impls
-        assert!(
-            with_all_stdout.contains("Trait Implementations:\n"),
-            "--all should have untruncated Trait Implementations header"
-        );
-    }
-
-    insta::assert_snapshot!("all_expanded", with_all_stdout);
-}
-
 // ── --kind fn filters to functions ───────────────────────────────────
 
 #[test]
