@@ -262,8 +262,9 @@ fn apply_case_sensitivity(index: &DocIndex, indices: &[usize], query: &str) -> V
 
 /// Converts a list of matching indices into a [`QueryResult`].
 ///
-/// Runs the dedup sequence: re-export stub resolution, crate-root auto-selection,
-/// then (path, kind) dedup. If more than one item remains, returns `Ambiguous`.
+/// Runs the dedup sequence: re-export stub resolution, identity dedup,
+/// (path, kind) dedup, crate-root auto-selection.
+/// If more than one item remains, returns `Ambiguous`.
 fn classify_results(index: &DocIndex, indices: &[usize], query: &str) -> QueryResult {
     if indices.is_empty() {
         return QueryResult::NotFound {
@@ -275,14 +276,17 @@ fn classify_results(index: &DocIndex, indices: &[usize], query: &str) -> QueryRe
     // Stage 1: Re-export stub resolution
     let resolved = resolve_reexport_stubs(index, indices);
 
-    // Stage 2: (path, kind) dedup
-    let deduped = deduplicate_by_path_kind(index, &resolved);
+    // Stage 2: Identity dedup (same underlying item at multiple paths)
+    let identity_deduped = deduplicate_by_identity(index, &resolved);
+
+    // Stage 3: (path, kind) dedup
+    let deduped = deduplicate_by_path_kind(index, &identity_deduped);
 
     if deduped.len() == 1 {
         return QueryResult::Found { index: deduped[0] };
     }
 
-    // Stage 3: Crate-root auto-selection
+    // Stage 4: Crate-root auto-selection
     if let Some(selected) = try_auto_select(index, &deduped) {
         return QueryResult::Found { index: selected };
     }
@@ -344,6 +348,71 @@ fn resolve_reexport_stubs(index: &DocIndex, indices: &[usize]) -> Vec<usize> {
 /// Returns whether an item is a re-export stub (`pub use` with no children).
 pub(crate) fn is_reexport_stub(item: &crate::types::IndexItem) -> bool {
     item.signature.starts_with("pub use ") && item.children.is_empty()
+}
+
+/// Deduplicates items that refer to the same underlying entity.
+///
+/// Groups items by their canonical identity: items with a `reexport_source` share
+/// identity with items whose path matches that source. Within each group, keeps
+/// the item with the fewest `::` segments (shallowest path). Preserves original
+/// ordering for deterministic results.
+fn deduplicate_by_identity(index: &DocIndex, indices: &[usize]) -> Vec<usize> {
+    if indices.len() <= 1 {
+        return indices.to_vec();
+    }
+
+    // Collect all reexport_source values in the candidate set
+    let reexport_sources: std::collections::HashSet<String> = indices
+        .iter()
+        .filter_map(|&idx| {
+            index.items[idx]
+                .reexport_source
+                .as_ref()
+                .map(|s| s.to_lowercase())
+        })
+        .collect();
+
+    // Group by canonical identity key: (lowercased_source_or_path, kind)
+    let mut groups: std::collections::HashMap<(String, ItemKind), Vec<usize>> =
+        std::collections::HashMap::new();
+    let mut ungrouped: Vec<usize> = Vec::new();
+
+    for &idx in indices {
+        let item = &index.items[idx];
+
+        if let Some(ref source) = item.reexport_source {
+            // This is a re-export: canonical key is (source, kind)
+            let key = (source.to_lowercase(), item.kind);
+            groups.entry(key).or_default().push(idx);
+        } else if reexport_sources.contains(&item.path.to_lowercase()) {
+            // This item's path is a reexport target — same group
+            let key = (item.path.to_lowercase(), item.kind);
+            groups.entry(key).or_default().push(idx);
+        } else {
+            ungrouped.push(idx);
+        }
+    }
+
+    // For each group, keep the item with the fewest :: segments (shallowest)
+    let mut kept: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    for members in groups.values() {
+        let best = members
+            .iter()
+            .copied()
+            .min_by_key(|&idx| index.items[idx].path.matches("::").count())
+            .expect("invariant: group is non-empty");
+        kept.insert(best);
+    }
+    for &idx in &ungrouped {
+        kept.insert(idx);
+    }
+
+    // Preserve original ordering
+    indices
+        .iter()
+        .copied()
+        .filter(|idx| kept.contains(idx))
+        .collect()
 }
 
 /// Removes entries with duplicate (path, kind) pairs.
@@ -1371,5 +1440,73 @@ mod tests {
     #[test]
     fn looks_like_item_name_complex_snake_case_returns_true() {
         assert!(looks_like_item_name("my_longer_function_name"));
+    }
+
+    // ---- deduplicate_by_identity ----
+
+    #[test]
+    fn dedup_by_identity_keeps_shallowest_reexport() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Canonical item at deeper path
+        let mut canonical = make_item("Helper", "mycrate::inner::Helper", ItemKind::Struct);
+        canonical.children.push(ChildRef {
+            index: 999,
+            kind: ItemKind::Function,
+            name: "new".to_string(),
+        });
+        index.add_item(canonical);
+        // Re-export at shallow path
+        let mut reexport = make_item("Helper", "mycrate::Helper", ItemKind::Struct);
+        reexport.reexport_source = Some("mycrate::inner::Helper".to_string());
+        index.add_item(reexport);
+
+        // Both match "Helper" — should resolve to shallowest (mycrate::Helper)
+        let result = lookup(&index, "Helper", None);
+        match result {
+            QueryResult::Found { index: idx } => {
+                assert_eq!(index.items[idx].path, "mycrate::Helper");
+            }
+            other => panic!("expected Found at shallow path, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dedup_by_identity_handles_two_reexports_same_source() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Deep canonical item
+        let canonical = make_item("Foo", "mycrate::a::b::Foo", ItemKind::Struct);
+        index.add_item(canonical);
+        // Two re-exports at different depths
+        let mut re1 = make_item("Foo", "mycrate::a::Foo", ItemKind::Struct);
+        re1.reexport_source = Some("mycrate::a::b::Foo".to_string());
+        index.add_item(re1);
+        let mut re2 = make_item("Foo", "mycrate::Foo", ItemKind::Struct);
+        re2.reexport_source = Some("mycrate::a::b::Foo".to_string());
+        index.add_item(re2);
+
+        let result = lookup(&index, "Foo", None);
+        match result {
+            QueryResult::Found { index: idx } => {
+                assert_eq!(
+                    index.items[idx].path, "mycrate::Foo",
+                    "should keep shallowest"
+                );
+            }
+            other => panic!("expected Found, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn dedup_by_identity_passes_through_unrelated() {
+        let mut index = DocIndex::new("mycrate".to_string(), "1.0.0".to_string());
+        // Two genuinely different items with the same name
+        index.add_item(make_item("Error", "mycrate::de::Error", ItemKind::Trait));
+        index.add_item(make_item("Error", "mycrate::ser::Error", ItemKind::Trait));
+
+        let result = lookup(&index, "Error", None);
+        assert!(
+            matches!(result, QueryResult::Ambiguous { .. }),
+            "different items should remain Ambiguous, got {result:?}"
+        );
     }
 }
