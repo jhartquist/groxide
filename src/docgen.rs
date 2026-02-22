@@ -133,10 +133,95 @@ fn check_nightly_available() -> Result<()> {
     }
 }
 
+/// Runs the feature cascade strategy for generating rustdoc JSON.
+///
+/// The cascade tries strategies in order until one succeeds:
+/// 1. If the user specified explicit feature flags, use them directly (no fallback).
+/// 2. Try `[package.metadata.docs.rs]` settings if present.
+/// 3. Try `--all-features`.
+/// 4. Final fallback: default features.
+///
+/// Steps 2-4 each fall back on **any** build failure — not just platform failures.
+/// `is_platform_failure()` is only used to choose the log message wording.
+fn generate_with_feature_cascade(
+    crate_dir: &Path,
+    crate_name: &str,
+    features: &FeatureFlags,
+    build_cmd: impl Fn(&FeatureFlags, &[String], &[String]) -> Command,
+) -> Result<()> {
+    // User specified explicit flags — use them directly, no fallback
+    if !features.is_default() {
+        let cmd = build_cmd(features, &[], &[]);
+        return run_rustdoc_command(cmd);
+    }
+
+    // Try docs.rs metadata first
+    if let Some(meta) = read_docsrs_metadata(crate_dir) {
+        eprintln!("[grox] Using docs.rs metadata for {crate_name}");
+        let meta_features = FeatureFlags {
+            all_features: meta.all_features,
+            no_default_features: meta.no_default_features,
+            features: meta.features.clone(),
+        };
+        let cmd = build_cmd(&meta_features, &meta.rustdoc_args, &meta.rustc_args);
+
+        match run_rustdoc_command_with_output(cmd) {
+            Ok(()) => return Ok(()),
+            Err(stderr) => {
+                if is_platform_failure(&stderr) {
+                    eprintln!(
+                        "[grox] Build with docs.rs metadata failed (platform issue), \
+                         retrying with default features..."
+                    );
+                } else {
+                    eprintln!(
+                        "[grox] Build with docs.rs metadata failed, \
+                         retrying with default features..."
+                    );
+                }
+            }
+        }
+    } else {
+        // No docs.rs metadata: try --all-features
+        let all_features = FeatureFlags {
+            all_features: true,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let cmd = build_cmd(&all_features, &[], &[]);
+
+        match run_rustdoc_command_with_output(cmd) {
+            Ok(()) => return Ok(()),
+            Err(stderr) => {
+                if is_platform_failure(&stderr) {
+                    eprintln!(
+                        "[grox] Build with --all-features failed (platform issue), \
+                         retrying with default features..."
+                    );
+                } else {
+                    eprintln!(
+                        "[grox] Build with --all-features failed, \
+                         retrying with default features..."
+                    );
+                }
+            }
+        }
+    }
+
+    // Final fallback: default features
+    let default_features = FeatureFlags {
+        all_features: false,
+        no_default_features: false,
+        features: Vec::new(),
+    };
+    let cmd = build_cmd(&default_features, &[], &[]);
+    run_rustdoc_command(cmd)
+}
+
 /// Generates rustdoc JSON for the current workspace crate.
 ///
-/// Uses `--all-features` with platform failure fallback unless the user
-/// specified explicit feature flags.
+/// Uses the shared feature cascade unless the user specified explicit feature
+/// flags.
 fn generate_for_current_crate(
     workspace_root: &Path,
     crate_name: &str,
@@ -144,69 +229,24 @@ fn generate_for_current_crate(
     features: &FeatureFlags,
     private: bool,
 ) -> Result<()> {
-    if !features.is_default() {
-        // User specified explicit flags — use them directly, no fallback
-        let cmd = build_rustdoc_command(
-            Some(workspace_root),
-            Some(crate_name),
-            None,
-            Some(target_dir),
-            features,
-            private,
-            false, // no --lib for workspace crate (uses -p)
-            &[],
-            &[],
-        );
-        return run_rustdoc_command(cmd);
-    }
-
-    // Default: try with --all-features, fallback on platform failure
-    let all_features = FeatureFlags {
-        all_features: true,
-        no_default_features: false,
-        features: Vec::new(),
-    };
-    let cmd = build_rustdoc_command(
-        Some(workspace_root),
-        Some(crate_name),
-        None,
-        Some(target_dir),
-        &all_features,
-        private,
-        false,
-        &[],
-        &[],
-    );
-
-    match run_rustdoc_command_with_output(cmd) {
-        Ok(()) => Ok(()),
-        Err(stderr) => {
-            if is_platform_failure(&stderr) {
-                eprintln!(
-                    "[grox] Build with --all-features failed, retrying with default features..."
-                );
-                let default_features = FeatureFlags {
-                    all_features: false,
-                    no_default_features: false,
-                    features: Vec::new(),
-                };
-                let retry_cmd = build_rustdoc_command(
-                    Some(workspace_root),
-                    Some(crate_name),
-                    None,
-                    Some(target_dir),
-                    &default_features,
-                    private,
-                    false,
-                    &[],
-                    &[],
-                );
-                run_rustdoc_command(retry_cmd)
-            } else {
-                Err(GroxError::RustdocFailed { stderr })
-            }
-        }
-    }
+    generate_with_feature_cascade(
+        workspace_root,
+        crate_name,
+        features,
+        |f, rustdoc_args, rustc_args| {
+            build_rustdoc_command(
+                Some(workspace_root),
+                Some(crate_name),
+                None,
+                Some(target_dir),
+                f,
+                private,
+                false, // no --lib for workspace crate (uses -p)
+                rustdoc_args,
+                rustc_args,
+            )
+        },
+    )
 }
 
 /// Generates rustdoc JSON for a dependency crate.
@@ -263,7 +303,7 @@ fn generate_for_stdlib(
 
 /// Generates rustdoc JSON for an external crate in its extracted source directory.
 ///
-/// Uses `--all-features` with fallback unless the user specified explicit feature
+/// Uses the shared feature cascade unless the user specified explicit feature
 /// flags. Falls back on any build failure since external crates may have features
 /// that require platform-specific deps or unstable cfg flags.
 ///
@@ -278,100 +318,25 @@ pub(crate) fn generate_rustdoc_json_external(
 
     let target_dir = source_dir.join("target");
 
-    if !features.is_default() {
-        // User specified explicit flags — use them directly, no fallback
-        let cmd = build_rustdoc_command(
-            Some(source_dir),
-            None,
-            None,
-            Some(&target_dir),
-            features,
-            private,
-            true, // --lib for non-workspace crates
-            &[],
-            &[],
-        );
-        run_rustdoc_command(cmd)?;
-        return Ok(json_output_path(&target_dir, crate_name));
-    }
+    generate_with_feature_cascade(
+        source_dir,
+        crate_name,
+        features,
+        |f, rustdoc_args, rustc_args| {
+            build_rustdoc_command(
+                Some(source_dir),
+                None,
+                None,
+                Some(&target_dir),
+                f,
+                private,
+                true, // --lib for non-workspace crates
+                rustdoc_args,
+                rustc_args,
+            )
+        },
+    )?;
 
-    // Try docs.rs metadata first, then fall back to --all-features, then default features
-    let docsrs_meta = read_docsrs_metadata(source_dir);
-
-    if let Some(ref meta) = docsrs_meta {
-        eprintln!("[grox] Using docs.rs metadata for {crate_name}");
-        let meta_features = FeatureFlags {
-            all_features: meta.all_features,
-            no_default_features: meta.no_default_features,
-            features: meta.features.clone(),
-        };
-        let cmd = build_rustdoc_command(
-            Some(source_dir),
-            None,
-            None,
-            Some(&target_dir),
-            &meta_features,
-            private,
-            true,
-            &meta.rustdoc_args,
-            &meta.rustc_args,
-        );
-
-        match run_rustdoc_command_with_output(cmd) {
-            Ok(()) => return Ok(json_output_path(&target_dir, crate_name)),
-            Err(_stderr) => {
-                eprintln!(
-                    "[grox] Build with docs.rs metadata failed, retrying with default features..."
-                );
-            }
-        }
-    } else {
-        // No docs.rs metadata: try --all-features, fallback on any build failure.
-        let all_features = FeatureFlags {
-            all_features: true,
-            no_default_features: false,
-            features: Vec::new(),
-        };
-        let cmd = build_rustdoc_command(
-            Some(source_dir),
-            None,
-            None,
-            Some(&target_dir),
-            &all_features,
-            private,
-            true,
-            &[],
-            &[],
-        );
-
-        match run_rustdoc_command_with_output(cmd) {
-            Ok(()) => return Ok(json_output_path(&target_dir, crate_name)),
-            Err(_stderr) => {
-                eprintln!(
-                    "[grox] Build with --all-features failed, retrying with default features..."
-                );
-            }
-        }
-    }
-
-    // Final fallback: default features
-    let default_features = FeatureFlags {
-        all_features: false,
-        no_default_features: false,
-        features: Vec::new(),
-    };
-    let retry_cmd = build_rustdoc_command(
-        Some(source_dir),
-        None,
-        None,
-        Some(&target_dir),
-        &default_features,
-        private,
-        true,
-        &[],
-        &[],
-    );
-    run_rustdoc_command(retry_cmd)?;
     Ok(json_output_path(&target_dir, crate_name))
 }
 
