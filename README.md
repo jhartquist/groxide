@@ -74,7 +74,7 @@ A [hash map] implemented with quadratic probing and SIMD lookup.
 By default, HashMap uses a hashing algorithm selected to provide
 resistance against HashDoS attacks. ...
 
-Methods: (showing 15 of 38, use --all to expand)
+Methods:
   pub fn capacity(&self) -> usize              Returns the number of elements the map can hold ...
   pub fn clear(&mut self)                      Clears the map, removing all key-value pairs.
   pub fn contains_key<Q>(&self, k: &Q) -> bool Returns `true` if the map contains a value for ...
@@ -92,7 +92,7 @@ LLM coding agents and humans both need fast, token-efficient access to crate doc
 - **Path is the query.** `grox serde::Deserialize` — no subcommands.
 - **Smart defaults.** Output adapts by item kind (struct, module, function, etc.).
 - **Progressive disclosure.** Crate -> module -> type -> method drill-down.
-- **Token-efficient.** Truncation by default, `--all` to expand.
+- **Token-efficient.** Output adapted per item kind for concise results.
 - **Zero setup.** Auto-builds and caches index on first use.
 - **Auto-fetch.** Unknown crates are fetched from crates.io automatically — works outside a project.
 - **Standard library.** Query `std`, `core`, and `alloc` directly — works anywhere.
@@ -193,12 +193,12 @@ grox [OPTIONS] [PATH]
 |------|-------|-------------|
 | `--source` | `-s` | Show source code instead of docs |
 | `--list` | `-l` | List children only (names + one-line summaries) |
-| `--all` | `-a` | Expand everything (full docs, no truncation) |
 | `--search <QUERY>` | `-S` | Full-text search across documentation |
 | `--kind <KIND>` | `-k` | Filter by item kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
 | `--private` | `-p` | Include non-public items |
 | `--json` | `-j` | JSON Lines output |
 | `--impls` | `-i` | Show trait implementations (on types) or implementors (on traits) |
+| `--recursive` | `-r` | List all public items recursively in a crate or module tree |
 | `--readme` | | Show the crate's README |
 | `--manifest-path <PATH>` | | Path to Cargo.toml |
 | `--features <FEATURES>` | | Comma-separated list of features to activate |

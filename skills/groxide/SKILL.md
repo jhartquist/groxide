@@ -39,7 +39,6 @@ grox serde::Deserialize
 ```
 
 Shows the type signature, doc comments, methods, and trait implementations.
-Truncated by default (~200-800 tokens). Use `--all` to expand everything.
 
 ### Look up a method
 
@@ -130,17 +129,19 @@ dependency resolution.
 
 | Flag | Short | Purpose |
 |------|-------|---------|
-| `--all` | `-a` | Disable truncation, expand everything |
 | `--list` | `-l` | List children (names + one-line summaries) |
 | `--source` | `-s` | Show source code |
 | `--search <Q>` | `-S` | Full-text search |
 | `--json` | `-j` | JSON Lines output |
 | `--kind <K>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
 | `--impls` | `-i` | Show trait implementations or implementors |
+| `--recursive` | `-r` | List all public items recursively in a crate or module tree |
 | `--private` | `-p` | Include non-public items |
 | `--readme` | | Show crate README |
-| `--features` | | Activate specific features |
+| `--features <F>` | | Comma-separated list of features to activate |
 | `--all-features` | | Activate all features |
+| `--no-default-features` | | Do not activate the `default` feature |
+| `--manifest-path <P>` | | Path to Cargo.toml |
 
 ## Example Workflows
 
@@ -174,8 +175,6 @@ User asks: "How do I read a file asynchronously with tokio?"
   `grox crate_name -S "keyword"` finds items by documentation content.
 - **Check exit codes.** Exit 1 means the item doesn't exist — don't retry, try
   a different path or use search. Exit 2 means a tooling error.
-- **Don't use `--all` by default.** The truncated output is designed to fit
-  agent context windows. Only expand when you need the full picture.
 - **Run from a Rust project directory** when possible. This gives groxide access
   to the full dependency graph and enables queries like `grox` (current crate)
   with no arguments.
