@@ -507,6 +507,83 @@ fn search_zero_results_exits_0() {
     );
 }
 
+// ── Detail tier flag conflicts (exit code 2) ─────────────────────────
+
+#[test]
+fn conflicting_brief_and_docs_exits_2() {
+    let output = grox_bare()
+        .arg("--brief")
+        .arg("--docs")
+        .output()
+        .expect("command runs");
+
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "--brief --docs should exit with code 2"
+    );
+}
+
+#[test]
+fn conflicting_brief_and_source_exits_2() {
+    let output = grox_bare()
+        .arg("--brief")
+        .arg("--source")
+        .output()
+        .expect("command runs");
+
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "--brief --source should exit with code 2"
+    );
+}
+
+#[test]
+fn conflicting_docs_and_source_exits_2() {
+    let output = grox_bare()
+        .arg("--docs")
+        .arg("--source")
+        .output()
+        .expect("command runs");
+
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "--docs --source should exit with code 2"
+    );
+}
+
+#[test]
+fn brief_alone_succeeds() {
+    let output = grox()
+        .arg("--brief")
+        .arg("groxide_test_api")
+        .output()
+        .expect("command runs");
+
+    assert!(
+        output.status.success(),
+        "--brief alone should succeed, got exit code {:?}",
+        output.status.code()
+    );
+}
+
+#[test]
+fn docs_alone_succeeds() {
+    let output = grox()
+        .arg("--docs")
+        .arg("groxide_test_api")
+        .output()
+        .expect("command runs");
+
+    assert!(
+        output.status.success(),
+        "--docs alone should succeed, got exit code {:?}",
+        output.status.code()
+    );
+}
+
 // ── Missing path without manifest exits 2 (ManifestNotFound) ─────────
 
 #[test]

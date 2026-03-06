@@ -27,12 +27,20 @@ pub struct Cli {
     /// Rust path to query (e.g., `tokio::sync::Mutex`, `serde@1.0`)
     pub path: Option<String>,
 
+    /// Show only item names (compact output)
+    #[arg(short = 'b', long, conflicts_with_all = ["docs", "source", "search", "impls"])]
+    pub brief: bool,
+
+    /// Show full rendered documentation per item
+    #[arg(short = 'd', long, conflicts_with_all = ["brief", "source", "search", "impls"])]
+    pub docs: bool,
+
     /// Show source code instead of docs
-    #[arg(short = 's', long, conflicts_with_all = ["impls"])]
+    #[arg(short = 's', long, conflicts_with_all = ["brief", "docs", "impls"])]
     pub source: bool,
 
     /// Full-text search across documentation
-    #[arg(short = 'S', long, conflicts_with_all = ["source", "impls"])]
+    #[arg(short = 'S', long, conflicts_with_all = ["brief", "docs", "source", "impls"])]
     pub search: Option<String>,
 
     /// Filter by item kind
@@ -48,7 +56,7 @@ pub struct Cli {
     pub json: bool,
 
     /// Show trait implementations (on types) or implementors (on traits)
-    #[arg(short = 'i', long, conflicts_with_all = ["source"])]
+    #[arg(short = 'i', long, conflicts_with_all = ["brief", "docs", "source"])]
     pub impls: bool,
 
     /// List all public items recursively in a crate or module tree
@@ -569,6 +577,46 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn clap_rejects_brief_with_docs() {
+        let result = Cli::try_parse_from(["grox", "--brief", "--docs"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn clap_rejects_brief_with_source() {
+        let result = Cli::try_parse_from(["grox", "--brief", "--source"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn clap_rejects_docs_with_source() {
+        let result = Cli::try_parse_from(["grox", "--docs", "--source"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn clap_accepts_brief_alone() {
+        let cli = Cli::try_parse_from(["grox", "--brief", "something"]).unwrap();
+        assert!(cli.brief);
+        assert!(!cli.docs);
+        assert!(!cli.source);
+    }
+
+    #[test]
+    fn clap_accepts_docs_alone() {
+        let cli = Cli::try_parse_from(["grox", "--docs", "something"]).unwrap();
+        assert!(cli.docs);
+        assert!(!cli.brief);
+        assert!(!cli.source);
     }
 
     #[test]

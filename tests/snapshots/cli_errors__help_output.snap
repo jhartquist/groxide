@@ -11,6 +11,12 @@ Arguments:
           Rust path to query (e.g., `tokio::sync::Mutex`, `serde@1.0`)
 
 Options:
+  -b, --brief
+          Show only item names (compact output)
+
+  -d, --docs
+          Show full rendered documentation per item
+
   -s, --source
           Show source code instead of docs
 
