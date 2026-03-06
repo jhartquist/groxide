@@ -361,7 +361,7 @@ fn source_mode_struct() {
 }
 
 #[test]
-fn source_mode_includes_docs() {
+fn source_mode_shows_source_instead_of_docs() {
     let output = grox()
         .arg("--source")
         .arg("groxide_test_api::add")
@@ -371,10 +371,10 @@ fn source_mode_includes_docs() {
     assert!(output.status.success(), "exit code should be 0");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Should include rendered docs
+    // Should NOT include rendered docs (source replaces docs)
     assert!(
-        stdout.contains("Adds two numbers"),
-        "should contain doc text: {stdout}"
+        !stdout.contains("Adds two numbers"),
+        "should not contain doc text in source mode: {stdout}"
     );
     // Should include source code
     assert!(

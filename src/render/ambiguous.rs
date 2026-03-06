@@ -147,9 +147,13 @@ pub(crate) fn render_impls_other(item: &IndexItem) -> String {
 
 /// Renders the source view (`--source`) for a single item.
 ///
-/// Includes rendered documentation above the source code, making source mode
-/// a strict superset of docs mode.
-pub(crate) fn render_source(item: &IndexItem, source_content: Option<&str>) -> String {
+/// Shows header, signature, then source block. When `include_docs` is true
+/// (i.e. `-d -s` combined), rendered documentation is included before the source.
+pub(crate) fn render_source(
+    item: &IndexItem,
+    source_content: Option<&str>,
+    include_docs: bool,
+) -> String {
     let span = &item.span;
 
     // Check if source is available
@@ -170,8 +174,8 @@ pub(crate) fn render_source(item: &IndexItem, source_content: Option<&str>) -> S
                 let _ = writeln!(out, "{}", item.signature);
             }
 
-            // Rendered docs
-            if !item.docs.is_empty() {
+            // Docs (only when -d is also set)
+            if include_docs && !item.docs.is_empty() {
                 out.push('\n');
                 let stripped = strip_markdown(&item.docs);
                 for line in stripped.lines() {
@@ -207,8 +211,11 @@ pub(crate) fn render_source(item: &IndexItem, source_content: Option<&str>) -> S
 
 /// Renders the source view for multiple ambiguous matches.
 ///
-/// Each item includes its rendered documentation above the source code.
-pub(crate) fn render_source_ambiguous(items_with_source: &[(&IndexItem, Option<&str>)]) -> String {
+/// Each item shows source code with separators between matches.
+pub(crate) fn render_source_ambiguous(
+    items_with_source: &[(&IndexItem, Option<&str>)],
+    include_docs: bool,
+) -> String {
     let mut out = String::new();
     for (i, (_, source)) in items_with_source.iter().enumerate() {
         let item = items_with_source[i].0;
@@ -216,7 +223,7 @@ pub(crate) fn render_source_ambiguous(items_with_source: &[(&IndexItem, Option<&
             out.push('\n');
         }
         let _ = writeln!(out, "--- {} ---", item.path);
-        out.push_str(&render_source(item, *source));
+        out.push_str(&render_source(item, *source, include_docs));
         out.push('\n');
     }
     trim_trailing_newlines(&mut out);
@@ -766,7 +773,7 @@ mod tests {
 
         let source =
             "pub struct Mutex<T: ?Sized> {\n    s: semaphore::Semaphore,\n    c: UnsafeCell<T>,\n}";
-        let output = render_source(&item, Some(source));
+        let output = render_source(&item, Some(source), false);
         insta::assert_snapshot!(output);
     }
 
@@ -789,7 +796,7 @@ mod tests {
         );
 
         let source = "pub const MAX_SIZE: usize = 1024;";
-        let output = render_source(&item, Some(source));
+        let output = render_source(&item, Some(source), false);
         insta::assert_snapshot!(output);
     }
 
@@ -806,7 +813,7 @@ mod tests {
             "",
         );
 
-        let output = render_source(&item, None);
+        let output = render_source(&item, None, false);
         assert_eq!(
             output,
             "// source not available (macro-generated or built-in)"
@@ -831,7 +838,7 @@ mod tests {
             10,
         );
 
-        let output = render_source(&item, None);
+        let output = render_source(&item, None, false);
         assert_eq!(
             output,
             "// source not available (Could not read src/foo.rs)"
@@ -875,7 +882,7 @@ mod tests {
         let items_with_source: Vec<(&IndexItem, Option<&str>)> =
             vec![(&item1, Some(source1)), (&item2, Some(source2))];
 
-        let output = render_source_ambiguous(&items_with_source);
+        let output = render_source_ambiguous(&items_with_source, false);
         insta::assert_snapshot!(output);
     }
 

@@ -10,7 +10,7 @@ EXAMPLES:
     grox serde::Deserialize          Struct docs with methods
     grox tokio::sync::Mutex::lock    Full method documentation
     grox tokio -S \"spawn\"            Search across crate docs
-    grox -s tokio::sync::Mutex::new  View docs + source code
+    grox -s tokio::sync::Mutex::new  View source code
     grox -r tokio::sync              List all items recursively
     grox -r -b tokio                 Structural skeleton (names only)
     grox -r -d tokio                 Recursive with full docs
@@ -37,11 +37,11 @@ pub struct Cli {
     pub brief: bool,
 
     /// Show full rendered documentation per item
-    #[arg(short = 'd', long, conflicts_with_all = ["brief", "source", "search", "impls"])]
+    #[arg(short = 'd', long, conflicts_with_all = ["brief", "search", "impls"])]
     pub docs: bool,
 
-    /// Show source code instead of docs
-    #[arg(short = 's', long, conflicts_with_all = ["brief", "docs", "impls"])]
+    /// Show source code with file path and line numbers
+    #[arg(short = 's', long, conflicts_with_all = ["brief", "impls"])]
     pub source: bool,
 
     /// Full-text search across documentation
@@ -609,11 +609,10 @@ mod tests {
     }
 
     #[test]
-    fn clap_rejects_docs_with_source() {
-        let result = Cli::try_parse_from(["grox", "--docs", "--source"]);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    fn clap_accepts_docs_with_source() {
+        let cli = Cli::try_parse_from(["grox", "--docs", "--source", "something"]).unwrap();
+        assert!(cli.docs);
+        assert!(cli.source);
     }
 
     #[test]

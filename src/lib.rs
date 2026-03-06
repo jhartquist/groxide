@@ -127,7 +127,7 @@ pub fn run(cli: &Cli) -> Result<()> {
             )?;
         } else if cli.source {
             // Step 8b: Handle --source
-            handle_source(&mut out, &result, &index, &source)?;
+            handle_source(&mut out, &result, &index, &source, cli.docs)?;
         } else {
             // Step 9: Render output
             handle_output(
@@ -547,12 +547,13 @@ fn handle_source(
     result: &QueryResult,
     index: &DocIndex,
     source: &CrateSource,
+    include_docs: bool,
 ) -> Result<()> {
     match result {
         QueryResult::Found { index: idx } => {
             let item = index.get(*idx);
             let content = read_source_content(item, source);
-            let output = render::ambiguous::render_source(item, content.as_deref());
+            let output = render::ambiguous::render_source(item, content.as_deref(), include_docs);
             writeln!(w, "{output}").map_err(GroxError::Io)?;
             Ok(())
         }
@@ -572,7 +573,7 @@ fn handle_source(
                 .map(|(item, content)| (*item, content.as_deref()))
                 .collect();
 
-            let output = render::ambiguous::render_source_ambiguous(&refs);
+            let output = render::ambiguous::render_source_ambiguous(&refs, include_docs);
             writeln!(w, "{output}").map_err(GroxError::Io)?;
             Ok(())
         }
@@ -635,7 +636,7 @@ fn handle_recursive_source(
                 .map(|(item, content)| (*item, content.as_deref()))
                 .collect();
 
-            let output = render::ambiguous::render_source_ambiguous(&refs);
+            let output = render::ambiguous::render_source_ambiguous(&refs, cli.docs);
             writeln!(w, "{output}").map_err(GroxError::Io)?;
             Ok(())
         }
@@ -911,7 +912,7 @@ fn render_recursive_source(
         }
         first = false;
         let content = read_source_content(child, source);
-        let rendered = render::ambiguous::render_source(child, content.as_deref());
+        let rendered = render::ambiguous::render_source(child, content.as_deref(), cli.docs);
         writeln!(w, "{rendered}").map_err(GroxError::Io)?;
     }
     Ok(())
@@ -1181,7 +1182,7 @@ mod tests {
                 name: "groxide_test_api".to_string(),
                 version: "0.1.0".to_string(),
             };
-            match handle_source(&mut stdout_buf, &result, index, &source) {
+            match handle_source(&mut stdout_buf, &result, index, &source, cli.docs) {
                 Ok(()) => {
                     let output = String::from_utf8(stdout_buf).expect("valid utf8");
                     return (Ok(output), String::new());

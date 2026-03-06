@@ -540,17 +540,30 @@ fn conflicting_brief_and_source_exits_2() {
 }
 
 #[test]
-fn conflicting_docs_and_source_exits_2() {
-    let output = grox_bare()
+fn docs_and_source_are_composable() {
+    let output = grox()
         .arg("--docs")
         .arg("--source")
+        .arg("groxide_test_api::add")
         .output()
         .expect("command runs");
 
-    assert_eq!(
-        output.status.code(),
-        Some(2),
-        "--docs --source should exit with code 2"
+    assert!(
+        output.status.success(),
+        "--docs --source should succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should include docs
+    assert!(
+        stdout.contains("Adds two numbers"),
+        "should contain docs with -ds: {stdout}"
+    );
+    // Should include source
+    assert!(
+        stdout.contains("Source: src/lib.rs:"),
+        "should contain source with -ds: {stdout}"
     );
 }
 

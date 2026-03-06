@@ -182,7 +182,7 @@ fn expect_json(output: &Output) -> Result<(), String> {
     Ok(())
 }
 
-/// Validates that --list mode produced tabular output.
+/// Validates that recursive mode produced tabular output.
 fn expect_list(output: &Output) -> Result<(), String> {
     expect_success(output)?;
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -360,13 +360,8 @@ fn stress_top20_crates_pass_rate() {
         ));
 
         // 3. List mode
-        eprintln!("  [list] {} --list", spec.name);
-        results.push(probe(
-            spec.name,
-            &["--list", spec.name],
-            "list",
-            expect_list,
-        ));
+        eprintln!("  [list] {} -r", spec.name);
+        results.push(probe(spec.name, &["-r", spec.name], "list", expect_list));
 
         // 4. Search mode
         eprintln!("  [search] --search {} {}", spec.search_term, spec.name);
@@ -485,7 +480,7 @@ fn stress_typenum_search_no_crash() {
 #[test]
 #[ignore = "requires nightly toolchain and network; typenum build is slow"]
 fn stress_typenum_list_no_crash() {
-    let result = probe("typenum", &["--list", "typenum"], "list", expect_no_crash);
+    let result = probe("typenum", &["-r", "typenum"], "list", expect_no_crash);
 
     eprintln!(
         "typenum list: passed={}, duration={:?}",
@@ -588,7 +583,7 @@ fn stress_large_crate_syn() {
     );
 
     // List mode on a large crate
-    let list = probe("syn", &["--list", "syn"], "list", |output| {
+    let list = probe("syn", &["-r", "syn"], "list", |output| {
         expect_success(output)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let line_count = stdout.lines().count();
@@ -622,7 +617,7 @@ fn stress_large_crate_futures() {
         root.error_detail
     );
 
-    let list = probe("futures", &["--list", "futures"], "list", expect_list);
+    let list = probe("futures", &["-r", "futures"], "list", expect_list);
     assert!(
         !list.crashed,
         "futures list must not crash: {}",
@@ -735,7 +730,7 @@ fn stress_output_quality_bytes() {
         }
 
         // Should have methods
-        if !stdout.contains("Methods:") && !stdout.contains("pub fn ") {
+        if !stdout.contains("methods:") && !stdout.contains("pub fn ") {
             return Err(format!("bytes::Bytes should show methods: {stdout}"));
         }
 

@@ -275,7 +275,12 @@ fn download_and_extract(name: &str, version: &str, target_dir: &Path) -> Result<
 
     // String append instead of with_extension: versioned dirs like "serde-1.0.0"
     // would lose the last segment ("serde-1.0.tmp") with Path::with_extension.
-    let temp_dir = PathBuf::from(format!("{}.tmp", target_dir.display()));
+    // Include process ID to avoid races between concurrent downloads of the same crate.
+    let temp_dir = PathBuf::from(format!(
+        "{}.{}.tmp",
+        target_dir.display(),
+        std::process::id()
+    ));
 
     if temp_dir.exists() {
         std::fs::remove_dir_all(&temp_dir).map_err(|e| GroxError::ExternalFetchFailed {
@@ -298,22 +303,28 @@ fn download_and_extract(name: &str, version: &str, target_dir: &Path) -> Result<
         });
     }
 
-    // Atomic rename
-    if target_dir.exists() {
-        std::fs::remove_dir_all(target_dir).map_err(|e| GroxError::ExternalFetchFailed {
-            name: name.to_string(),
-            details: format!("failed to remove old dir: {e}"),
-        })?;
-    }
-    std::fs::rename(&temp_dir, target_dir).map_err(|e| {
+    // If another process already placed a valid extraction, use it.
+    if target_dir.join("Cargo.toml").exists() {
         let _ = std::fs::remove_dir_all(&temp_dir);
-        GroxError::ExternalFetchFailed {
-            name: name.to_string(),
-            details: format!("rename failed: {e}"),
-        }
-    })?;
+        return Ok(());
+    }
 
-    Ok(())
+    // Atomic rename into place. If the target appeared between our check and
+    // the rename (race with another process), just use theirs.
+    match std::fs::rename(&temp_dir, target_dir) {
+        Ok(()) => Ok(()),
+        Err(_) if target_dir.join("Cargo.toml").exists() => {
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            Ok(())
+        }
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            Err(GroxError::ExternalFetchFailed {
+                name: name.to_string(),
+                details: format!("rename failed: {e}"),
+            })
+        }
+    }
 }
 
 /// Extracts a gzipped tarball into the target directory with security checks.

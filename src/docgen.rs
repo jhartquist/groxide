@@ -298,7 +298,7 @@ fn generate_for_current_crate(
                 Some(target_dir),
                 f,
                 private,
-                false, // no --lib for workspace crate (uses -p)
+                true, // --lib to disambiguate when crate has multiple targets
                 rustdoc_args,
                 rustc_args,
             )
@@ -768,13 +768,13 @@ mod tests {
     }
 
     #[test]
-    fn build_command_current_crate_uses_package_no_lib() {
+    fn build_command_current_crate_uses_package_and_lib() {
         let features = FeatureFlags {
             all_features: true,
             no_default_features: false,
             features: Vec::new(),
         };
-        // CurrentCrate: uses -p, no --lib
+        // CurrentCrate: uses -p and --lib to disambiguate multiple targets
         let cmd = build_rustdoc_command(
             Some(Path::new("/workspace")),
             Some("my_crate"),
@@ -782,14 +782,14 @@ mod tests {
             Some(Path::new("/workspace/target")),
             &features,
             false,
-            false,
+            true,
             &[],
             &[],
         );
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "-p"));
         assert!(has_arg(&args, "my_crate"));
-        assert!(!has_arg(&args, "--lib"));
+        assert!(has_arg(&args, "--lib"));
     }
 
     #[test]

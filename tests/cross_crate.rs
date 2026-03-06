@@ -30,8 +30,8 @@ fn serde_crate_root_produces_useful_output() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("mod serde"),
-        "should show crate root as module: {stdout}"
+        stdout.contains("crate serde"),
+        "should show crate root: {stdout}"
     );
     assert!(
         stdout.contains("Serde"),
@@ -116,21 +116,21 @@ fn serde_search_returns_results() {
 #[ignore = "requires nightly toolchain"]
 fn serde_list_mode_shows_items() {
     let output = grox()
-        .arg("--list")
+        .arg("-r")
         .arg("serde")
         .output()
         .expect("command runs");
 
     assert!(
         output.status.success(),
-        "serde --list should succeed: {}",
+        "serde -r should succeed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // serde should have some visible items in list mode
+    // serde should have some visible items in recursive mode
     // (may be re-exports, modules, etc.)
-    assert!(!stdout.is_empty(), "list output should not be empty");
+    assert!(!stdout.is_empty(), "recursive output should not be empty");
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -146,7 +146,7 @@ fn clap_crate_root_produces_useful_output() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("mod clap"),
+        stdout.contains("crate clap"),
         "should show crate root: {stdout}"
     );
     assert!(
@@ -244,7 +244,7 @@ fn semver_version_struct_shows_fields_and_methods() {
         "should show patch field: {stdout}"
     );
     assert!(
-        stdout.contains("Methods:"),
+        stdout.contains("methods:"),
         "should have methods section: {stdout}"
     );
     assert!(stdout.contains("new"), "should show new method: {stdout}");
@@ -302,14 +302,14 @@ fn semver_version_impls_shows_trait_implementations() {
 #[ignore = "requires nightly toolchain"]
 fn semver_list_mode_shows_types() {
     let output = grox()
-        .arg("--list")
+        .arg("-r")
         .arg("semver")
         .output()
         .expect("command runs");
 
     assert!(
         output.status.success(),
-        "semver --list should succeed: {}",
+        "semver -r should succeed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 
@@ -366,7 +366,7 @@ fn cargo_metadata_struct_shows_methods() {
         "should show struct header: {stdout}"
     );
     assert!(
-        stdout.contains("Methods:"),
+        stdout.contains("methods:"),
         "should have methods section: {stdout}"
     );
     assert!(stdout.contains("exec"), "should show exec method: {stdout}");
@@ -375,7 +375,7 @@ fn cargo_metadata_struct_shows_methods() {
         "should show manifest_path method: {stdout}"
     );
     assert!(
-        stdout.contains("Trait Implementations:"),
+        stdout.contains("trait implementations:"),
         "should show trait impls: {stdout}"
     );
 }
@@ -384,14 +384,14 @@ fn cargo_metadata_struct_shows_methods() {
 #[ignore = "requires nightly toolchain"]
 fn cargo_metadata_list_shows_many_items() {
     let output = grox()
-        .arg("--list")
+        .arg("-r")
         .arg("cargo_metadata")
         .output()
         .expect("command runs");
 
     assert!(
         output.status.success(),
-        "cargo_metadata --list should succeed: {}",
+        "cargo_metadata -r should succeed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
 
@@ -530,16 +530,13 @@ fn auto_fetch_itoa_search_works() {
 #[ignore = "requires nightly toolchain and network"]
 fn auto_fetch_itoa_list_mode_shows_items() {
     let output = grox_auto_fetch()
-        .arg("--list")
+        .arg("-r")
         .arg("itoa")
         .output()
         .expect("command runs");
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        output.status.success(),
-        "itoa --list should succeed: {stderr}"
-    );
+    assert!(output.status.success(), "itoa -r should succeed: {stderr}");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -691,8 +688,8 @@ fn progressive_disclosure_struct_shows_methods_summary() {
 
     // Should show methods as a table/list with summaries
     assert!(
-        stdout.contains("Methods:"),
-        "should have Methods section: {stdout}"
+        stdout.contains("methods:"),
+        "should have methods section: {stdout}"
     );
 
     // Methods should show one-line summaries, not full docs
@@ -713,10 +710,10 @@ fn progressive_disclosure_crate_root_shows_children() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Crate root should show child items (modules, structs, etc.)
-    let has_children = stdout.contains("Modules:")
-        || stdout.contains("Structs:")
-        || stdout.contains("mod ")
-        || stdout.contains("struct ");
+    let has_children = stdout.contains("modules:")
+        || stdout.contains("structs:")
+        || stdout.contains("enums:")
+        || stdout.contains("functions:");
 
     assert!(has_children, "crate root should list children: {stdout}");
 }

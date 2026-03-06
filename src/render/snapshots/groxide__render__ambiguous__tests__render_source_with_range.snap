@@ -5,10 +5,6 @@ expression: output
 struct mycrate::Mutex
 pub struct Mutex<T: ?Sized>
 
-An asynchronous Mutex-like type.
-
-Provides mutual exclusion.
-
 ── Source: src/sync/mutex.rs:42-147 ──
 pub struct Mutex<T: ?Sized> {
     s: semaphore::Semaphore,

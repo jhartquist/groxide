@@ -18,7 +18,7 @@ Options:
           Show full rendered documentation per item
 
   -s, --source
-          Show source code instead of docs
+          Show source code with file path and line numbers
 
   -S, --search <SEARCH>
           Full-text search across documentation
@@ -76,7 +76,7 @@ EXAMPLES:
     grox serde::Deserialize          Struct docs with methods
     grox tokio::sync::Mutex::lock    Full method documentation
     grox tokio -S "spawn"            Search across crate docs
-    grox -s tokio::sync::Mutex::new  View docs + source code
+    grox -s tokio::sync::Mutex::new  View source code
     grox -r tokio::sync              List all items recursively
     grox -r -b tokio                 Structural skeleton (names only)
     grox -r -d tokio                 Recursive with full docs

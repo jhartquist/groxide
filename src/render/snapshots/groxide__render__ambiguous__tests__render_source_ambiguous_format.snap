@@ -6,8 +6,6 @@ expression: output
 struct mycrate::sync::Mutex
 pub struct Mutex<T>
 
-A mutual exclusion primitive.
-
 ── Source: src/sync/mutex.rs:42-100 ──
 pub struct Mutex<T> {
     inner: T,
@@ -16,8 +14,6 @@ pub struct Mutex<T> {
 --- mycrate::sync::MutexGuard ---
 struct mycrate::sync::MutexGuard
 pub struct MutexGuard<'a, T>
-
-An RAII guard for a locked Mutex.
 
 ── Source: src/sync/mutex.rs:150-180 ──
 pub struct MutexGuard<'a, T> {
