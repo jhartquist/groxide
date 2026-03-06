@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::Write;
 use std::io;
 use std::path::PathBuf;
@@ -20,18 +21,14 @@ pub(crate) fn format_suggestions(suggestions: &[String]) -> String {
         return String::new();
     }
 
-    // Dedup while preserving order
-    let mut seen = Vec::new();
-    for s in suggestions {
-        if !seen.contains(&s) {
-            seen.push(s);
-        }
-    }
+    // Dedup while preserving insertion order
+    let mut seen = HashSet::new();
+    let unique: Vec<_> = suggestions.iter().filter(|s| seen.insert(*s)).collect();
 
-    let total = seen.len();
+    let total = unique.len();
     let display_count = total.min(5);
     let mut result = String::from("\n\nDid you mean:");
-    for s in &seen[..display_count] {
+    for s in &unique[..display_count] {
         result.push_str("\n  ");
         result.push_str(s);
     }
