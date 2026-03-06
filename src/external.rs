@@ -190,22 +190,24 @@ fn query_crates_io(name: &str) -> Result<CratesIoResponse> {
     let url = format!("https://crates.io/api/v1/crates/{name}");
     let agent = build_http_agent();
 
-    let response = agent.get(&url).call().map_err(|e| {
-        if let ureq::Error::Status(404, _) = e {
-            GroxError::CrateNotFound {
-                name: name.to_string(),
-                suggestions: vec![],
-            }
-        } else {
-            GroxError::ExternalFetchFailed {
-                name: name.to_string(),
-                details: format!("crates.io API error: {e}"),
-            }
-        }
-    })?;
+    let mut response = agent
+        .get(&url)
+        .call()
+        .map_err(|e| GroxError::ExternalFetchFailed {
+            name: name.to_string(),
+            details: format!("crates.io API error: {e}"),
+        })?;
+
+    if response.status() == 404 {
+        return Err(GroxError::CrateNotFound {
+            name: name.to_string(),
+            suggestions: vec![],
+        });
+    }
 
     response
-        .into_json::<CratesIoResponse>()
+        .body_mut()
+        .read_json::<CratesIoResponse>()
         .map_err(|e| GroxError::ExternalFetchFailed {
             name: name.to_string(),
             details: format!("failed to parse crates.io response: {e}"),
@@ -214,11 +216,12 @@ fn query_crates_io(name: &str) -> Result<CratesIoResponse> {
 
 /// Builds an HTTP agent with appropriate timeouts and user-agent.
 fn build_http_agent() -> ureq::Agent {
-    ureq::AgentBuilder::new()
-        .timeout_connect(std::time::Duration::from_secs(CONNECT_TIMEOUT_SECS))
-        .timeout_read(std::time::Duration::from_secs(READ_TIMEOUT_SECS))
-        .user_agent(&format!("grox/{}", env!("CARGO_PKG_VERSION")))
+    ureq::Agent::config_builder()
+        .timeout_connect(Some(std::time::Duration::from_secs(CONNECT_TIMEOUT_SECS)))
+        .timeout_recv_body(Some(std::time::Duration::from_secs(READ_TIMEOUT_SECS)))
+        .user_agent(format!("grox/{}", env!("CARGO_PKG_VERSION")))
         .build()
+        .new_agent()
 }
 
 /// Returns whether a version string is a partial semver (1 or 2 numeric components).
@@ -251,7 +254,7 @@ fn download_and_extract(name: &str, version: &str, target_dir: &Path) -> Result<
     let url = format!("https://crates.io/api/v1/crates/{name}/{version}/download");
     let agent = build_http_agent();
 
-    let response = agent
+    let mut response = agent
         .get(&url)
         .call()
         .map_err(|e| GroxError::ExternalFetchFailed {
@@ -262,7 +265,8 @@ fn download_and_extract(name: &str, version: &str, target_dir: &Path) -> Result<
     // Read body with size limit
     let mut body = Vec::new();
     response
-        .into_reader()
+        .body_mut()
+        .as_reader()
         .take(MAX_DOWNLOAD_BYTES)
         .read_to_end(&mut body)
         .map_err(|e| GroxError::ExternalFetchFailed {

@@ -1029,13 +1029,13 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
     for pkg in &lib_members {
         let source = CrateSource::CurrentCrate {
             manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-            name: pkg.name.clone(),
+            name: pkg.name.to_string(),
             version: pkg.version.to_string(),
         };
 
         match load_or_build_index(source, &features, &feature_suffix, cli.private, true) {
             Ok((index, source)) => built.push((pkg, index, source)),
-            Err(e) => errors.push((pkg.name.clone(), e)),
+            Err(e) => errors.push((pkg.name.to_string(), e)),
         }
     }
 

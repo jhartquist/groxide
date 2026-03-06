@@ -142,7 +142,7 @@ impl ProjectContext {
                 let pkg = &self.metadata[&self.current_package_id];
                 CrateSource::CurrentCrate {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: pkg.name.clone(),
+                    name: pkg.name.to_string(),
                     version: pkg.version.to_string(),
                 }
             }
@@ -211,7 +211,7 @@ impl ProjectContext {
                 let pkg = &self.metadata[&dep.pkg];
                 return Some(CrateSource::Dependency {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: pkg.name.clone(),
+                    name: pkg.name.to_string(),
                     version: pkg.version.to_string(),
                 });
             }
@@ -229,7 +229,7 @@ impl ProjectContext {
             if crate_names_match(query, &pkg.name) {
                 return Some(CrateSource::Dependency {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: pkg.name.clone(),
+                    name: pkg.name.to_string(),
                     version: pkg.version.to_string(),
                 });
             }
@@ -246,7 +246,7 @@ impl ProjectContext {
             if crate_names_match(query, &pkg.name) {
                 return Some(CrateSource::Dependency {
                     manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
-                    name: pkg.name.clone(),
+                    name: pkg.name.to_string(),
                     version: pkg.version.to_string(),
                 });
             }
