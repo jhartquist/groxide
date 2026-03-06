@@ -18,6 +18,7 @@ Modules:
 
 Structs:
   GenericStruct                   A generic container holding a single value.
+  PrivateStruct
   SimpleStruct                    A simple struct with no generics.
   UnstableStruct                  A feature-gated struct.
 
@@ -36,6 +37,7 @@ which field was last written.
 Functions:
   pub fn add(a: i32, b: i32) -> i32                           Adds two numbers together.
   pub fn generic_fn<T: std::fmt::Display, U: Into<String>>(value: T, _label: U) -> String  A function with multiple generic parameters.
+  fn private_helper() -> i32
   pub fn unicode_docs() -> &'static str                       A function demonstrating unicode in documentation.
   pub fn unstable_api() -> &'static str                       An item only available with the `unstable` feature.
 

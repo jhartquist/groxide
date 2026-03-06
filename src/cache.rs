@@ -34,7 +34,6 @@ struct CacheHeader {
 /// Source-specific invalidation metadata stored in the cache header.
 #[derive(Serialize, Deserialize)]
 enum CacheMetadata {
-    CurrentCrate { newest_source_mtime: u64 },
     Dependency { package_version: String },
     StdLib { toolchain_version: String },
     External { crate_version: String },
@@ -45,16 +44,7 @@ enum CacheMetadata {
 /// Project caches go under `target/groxide/`, global caches under `~/.cache/groxide/`.
 pub(crate) fn cache_path(source: &CrateSource, feature_suffix: &str) -> Option<PathBuf> {
     match source {
-        CrateSource::CurrentCrate {
-            manifest_path,
-            name,
-            version,
-            ..
-        } => {
-            let workspace_root = manifest_path.parent()?;
-            let filename = format!("{name}-{version}{feature_suffix}.groxide");
-            Some(workspace_root.join("target").join("groxide").join(filename))
-        }
+        CrateSource::CurrentCrate { .. } => None,
         CrateSource::Dependency {
             manifest_path,
             name,
@@ -173,12 +163,8 @@ fn create_header(source: &CrateSource) -> CacheHeader {
         .map_or(0, |d| d.as_secs());
 
     let metadata = match source {
-        CrateSource::CurrentCrate { manifest_path, .. } => {
-            let manifest_dir = manifest_path.parent().unwrap_or(Path::new("."));
-            let mtime = get_newest_source_mtime(manifest_dir);
-            CacheMetadata::CurrentCrate {
-                newest_source_mtime: mtime,
-            }
+        CrateSource::CurrentCrate { .. } => {
+            unreachable!("CurrentCrate should never be cached")
         }
         CrateSource::Dependency { version, .. } => CacheMetadata::Dependency {
             package_version: version.clone(),
@@ -215,16 +201,6 @@ fn is_cache_valid(header: &CacheHeader, source: &CrateSource) -> bool {
 
     match (&header.metadata, source) {
         (
-            CacheMetadata::CurrentCrate {
-                newest_source_mtime: cached_mtime,
-            },
-            CrateSource::CurrentCrate { manifest_path, .. },
-        ) => {
-            let manifest_dir = manifest_path.parent().unwrap_or(Path::new("."));
-            let current_mtime = get_newest_source_mtime(manifest_dir);
-            current_mtime <= *cached_mtime
-        }
-        (
             CacheMetadata::Dependency {
                 package_version: cached_version,
             },
@@ -252,43 +228,6 @@ fn is_cache_valid(header: &CacheHeader, source: &CrateSource) -> bool {
         // Source type mismatch — cache is invalid
         _ => false,
     }
-}
-
-/// Scans `src/` for the newest `.rs` file modification time (UNIX epoch seconds).
-pub(crate) fn get_newest_source_mtime(manifest_dir: &Path) -> u64 {
-    let src_dir = manifest_dir.join("src");
-    if !src_dir.exists() {
-        return 0;
-    }
-
-    walk_for_newest_mtime(&src_dir)
-}
-
-/// Recursively walks a directory for the newest `.rs` file mtime.
-fn walk_for_newest_mtime(dir: &Path) -> u64 {
-    let mut newest: u64 = 0;
-
-    let Ok(entries) = fs::read_dir(dir) else {
-        return 0;
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            newest = newest.max(walk_for_newest_mtime(&path));
-        } else if path.extension().is_some_and(|ext| ext == "rs") {
-            if let Ok(meta) = fs::metadata(&path) {
-                if let Ok(modified) = meta.modified() {
-                    let mtime = modified
-                        .duration_since(UNIX_EPOCH)
-                        .map_or(0, |d| d.as_secs());
-                    newest = newest.max(mtime);
-                }
-            }
-        }
-    }
-
-    newest
 }
 
 /// Debug-only: checks if the groxide binary is newer than the cache file.
@@ -324,8 +263,6 @@ pub(crate) fn clear_global_cache() -> Option<PathBuf> {
 mod tests {
     use super::*;
     use crate::types::{DocIndex, IndexItem, ItemKind, SourceSpan};
-    use std::fs::File;
-    use std::io::Write;
     use tempfile::TempDir;
 
     /// Creates a minimal test `DocIndex` with one item.
@@ -352,15 +289,6 @@ mod tests {
         index
     }
 
-    /// Creates a `CrateSource::CurrentCrate` pointing at a temp directory.
-    fn make_current_source(tmp: &Path) -> CrateSource {
-        CrateSource::CurrentCrate {
-            manifest_path: tmp.join("Cargo.toml"),
-            name: "testcrate".to_string(),
-            version: "1.0.0".to_string(),
-        }
-    }
-
     /// Creates a `CrateSource::Dependency` pointing at a temp directory.
     fn make_dep_source(tmp: &Path) -> CrateSource {
         CrateSource::Dependency {
@@ -370,42 +298,7 @@ mod tests {
         }
     }
 
-    /// Sets up a temp directory with a `src/lib.rs` file.
-    fn setup_src_dir(tmp: &Path) {
-        let src_dir = tmp.join("src");
-        fs::create_dir_all(&src_dir).unwrap();
-        let mut f = File::create(src_dir.join("lib.rs")).unwrap();
-        writeln!(f, "pub struct Foo;").unwrap();
-    }
-
     // ---- Round-trip: save and load ----
-
-    #[test]
-    fn round_trip_save_load_preserves_index() {
-        let tmp = TempDir::new().unwrap();
-        let tmp_path = tmp.path();
-        setup_src_dir(tmp_path);
-        let source = make_current_source(tmp_path);
-
-        let index = make_test_index();
-        let cache_file = tmp_path.join("target/groxide/testcrate-1.0.0.groxide");
-
-        save_to_cache(&cache_file, &index, &source);
-        assert!(cache_file.exists(), "cache file should exist after save");
-
-        let loaded = load_cached(&cache_file, &source);
-        assert!(loaded.is_some(), "should load valid cache");
-        let loaded = loaded.unwrap();
-
-        assert_eq!(loaded.crate_name, index.crate_name);
-        assert_eq!(loaded.crate_version, index.crate_version);
-        assert_eq!(loaded.items.len(), index.items.len());
-        assert_eq!(loaded.items[0], index.items[0]);
-        assert_eq!(loaded.path_map, index.path_map);
-        assert_eq!(loaded.name_map, index.name_map);
-        assert_eq!(loaded.suffix_map, index.suffix_map);
-        assert_eq!(loaded.trait_impls, index.trait_impls);
-    }
 
     #[test]
     fn round_trip_dependency_save_load() {
@@ -425,17 +318,16 @@ mod tests {
     // ---- Cache path includes version ----
 
     #[test]
-    fn cache_path_includes_version_for_current_crate() {
+    fn cache_path_returns_none_for_current_crate() {
         let tmp = TempDir::new().unwrap();
         let source = CrateSource::CurrentCrate {
             manifest_path: tmp.path().join("Cargo.toml"),
             name: "mycrate".to_string(),
             version: "2.3.4".to_string(),
         };
-        let path = cache_path(&source, "").unwrap();
         assert!(
-            path.to_str().unwrap().contains("mycrate-2.3.4.groxide"),
-            "path should include version: {path:?}"
+            cache_path(&source, "").is_none(),
+            "CurrentCrate should not be cached"
         );
     }
 
@@ -472,7 +364,7 @@ mod tests {
     #[test]
     fn cache_path_changes_with_feature_suffix() {
         let tmp = TempDir::new().unwrap();
-        let source = CrateSource::CurrentCrate {
+        let source = CrateSource::Dependency {
             manifest_path: tmp.path().join("Cargo.toml"),
             name: "mycrate".to_string(),
             version: "1.0.0".to_string(),
@@ -494,7 +386,7 @@ mod tests {
     #[test]
     fn cache_path_no_suffix_for_default_features() {
         let tmp = TempDir::new().unwrap();
-        let source = CrateSource::CurrentCrate {
+        let source = CrateSource::Dependency {
             manifest_path: tmp.path().join("Cargo.toml"),
             name: "mycrate".to_string(),
             version: "1.0.0".to_string(),
@@ -510,8 +402,7 @@ mod tests {
     fn atomic_write_no_temp_file_left_behind() {
         let tmp = TempDir::new().unwrap();
         let tmp_path = tmp.path();
-        setup_src_dir(tmp_path);
-        let source = make_current_source(tmp_path);
+        let source = make_dep_source(tmp_path);
         let index = make_test_index();
 
         let cache_dir = tmp_path.join("target/groxide");
@@ -529,35 +420,6 @@ mod tests {
             entries.is_empty(),
             "no temp files should remain after successful save"
         );
-    }
-
-    // ---- Stale cache detected by mtime ----
-
-    #[test]
-    fn stale_cache_detected_when_source_newer() {
-        let tmp = TempDir::new().unwrap();
-        let tmp_path = tmp.path();
-        setup_src_dir(tmp_path);
-        let source = make_current_source(tmp_path);
-        let index = make_test_index();
-        let cache_file = tmp_path.join("target/groxide/testcrate-1.0.0.groxide");
-
-        // Save cache
-        save_to_cache(&cache_file, &index, &source);
-        assert!(
-            load_cached(&cache_file, &source).is_some(),
-            "fresh cache should load"
-        );
-
-        // Modify source file to make cache stale — write with a newer timestamp
-        // Sleep briefly to ensure mtime changes
-        std::thread::sleep(std::time::Duration::from_millis(1100));
-        let src_file = tmp_path.join("src/lib.rs");
-        let mut f = File::create(&src_file).unwrap();
-        writeln!(f, "pub struct Bar;").unwrap();
-
-        let loaded = load_cached(&cache_file, &source);
-        assert!(loaded.is_none(), "stale cache should not load");
     }
 
     // ---- Dependency version mismatch invalidation ----
@@ -658,72 +520,7 @@ mod tests {
         );
     }
 
-    // ---- get_newest_source_mtime ----
-
-    #[test]
-    fn get_newest_source_mtime_returns_zero_when_no_src_dir() {
-        let tmp = TempDir::new().unwrap();
-        assert_eq!(get_newest_source_mtime(tmp.path()), 0);
-    }
-
-    #[test]
-    fn get_newest_source_mtime_finds_rs_files() {
-        let tmp = TempDir::new().unwrap();
-        setup_src_dir(tmp.path());
-        let mtime = get_newest_source_mtime(tmp.path());
-        assert!(mtime > 0, "should find mtime of src/lib.rs");
-    }
-
-    #[test]
-    fn get_newest_source_mtime_finds_nested_rs_files() {
-        let tmp = TempDir::new().unwrap();
-        let nested = tmp.path().join("src/submod");
-        fs::create_dir_all(&nested).unwrap();
-        let mut f = File::create(nested.join("mod.rs")).unwrap();
-        writeln!(f, "// nested").unwrap();
-
-        let mtime = get_newest_source_mtime(tmp.path());
-        assert!(mtime > 0, "should find nested .rs file");
-    }
-
-    // ---- source type mismatch ----
-
-    #[test]
-    fn load_cached_returns_none_for_source_type_mismatch() {
-        let tmp = TempDir::new().unwrap();
-        let tmp_path = tmp.path();
-        setup_src_dir(tmp_path);
-
-        let current_source = make_current_source(tmp_path);
-        let dep_source = make_dep_source(tmp_path);
-
-        let index = make_test_index();
-        let cache_file = tmp_path.join("target/groxide/testcrate-1.0.0.groxide");
-
-        // Save as CurrentCrate
-        save_to_cache(&cache_file, &index, &current_source);
-
-        // Try to load as Dependency — should fail due to metadata type mismatch
-        let loaded = load_cached(&cache_file, &dep_source);
-        assert!(loaded.is_none(), "source type mismatch should invalidate");
-    }
-
     // ---- project vs global cache paths ----
-
-    #[test]
-    fn cache_path_current_crate_under_target() {
-        let tmp = TempDir::new().unwrap();
-        let source = CrateSource::CurrentCrate {
-            manifest_path: tmp.path().join("Cargo.toml"),
-            name: "mylib".to_string(),
-            version: "0.5.0".to_string(),
-        };
-        let path = cache_path(&source, "").unwrap();
-        assert!(
-            path.starts_with(tmp.path().join("target/groxide")),
-            "should be under target/groxide: {path:?}"
-        );
-    }
 
     #[test]
     fn cache_path_dependency_under_target() {
