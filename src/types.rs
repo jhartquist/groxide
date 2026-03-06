@@ -63,6 +63,7 @@ impl ItemKind {
     /// - `macro` matches `Macro`, `ProcMacro`
     ///
     /// All other kinds match only themselves.
+    #[must_use]
     pub(crate) fn matches_filter(self, filter: Self) -> bool {
         match filter {
             Self::Trait => matches!(self, Self::Trait | Self::TraitAlias),
@@ -99,6 +100,7 @@ impl ItemKind {
     /// Primary kinds: `Struct`, `Enum`, `Union`, `Trait`, `TraitAlias`, `TypeAlias`.
     /// When an ambiguous query at the crate root has exactly one primary match,
     /// it auto-selects to Found instead of Ambiguous.
+    #[must_use]
     pub(crate) fn is_primary(self) -> bool {
         matches!(
             self,

@@ -162,6 +162,7 @@ impl QueryPath {
     /// Parses a CLI input string into a `QueryPath`.
     ///
     /// Returns an error for invalid syntax like `@crate` or `crate@`.
+    #[must_use = "parsing produces a new QueryPath"]
     pub(crate) fn parse(input: &str) -> Result<Self> {
         let input = input.trim();
 
@@ -234,6 +235,7 @@ impl FeatureFlags {
     }
 
     /// Returns true if no feature flags were explicitly set by the user.
+    #[must_use]
     pub(crate) fn is_default(&self) -> bool {
         !self.all_features && !self.no_default_features && self.features.is_empty()
     }
@@ -242,6 +244,7 @@ impl FeatureFlags {
     ///
     /// Returns "" for default flags, "-feat_<16-hex-hash>" for non-default.
     /// Uses DJB2 hash on a canonical string representation.
+    #[must_use]
     pub(crate) fn cache_suffix(&self) -> String {
         if self.is_default() {
             return String::new();

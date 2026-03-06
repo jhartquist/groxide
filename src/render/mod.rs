@@ -399,12 +399,9 @@ pub(crate) fn strip_inline_markdown(line: &str) -> String {
                 }
             }
             _ => {
-                result.push(line[i..].chars().next().expect("invariant: valid index"));
-                i += line[i..]
-                    .chars()
-                    .next()
-                    .expect("invariant: valid index")
-                    .len_utf8();
+                let ch = line[i..].chars().next().expect("invariant: valid index");
+                result.push(ch);
+                i += ch.len_utf8();
             }
         }
     }
