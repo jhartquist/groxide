@@ -148,7 +148,17 @@ impl GroxError {
     pub fn exit_code(&self) -> i32 {
         match self {
             Self::CrateNotFound { .. } | Self::ItemNotFound { .. } => EXIT_NOT_FOUND,
-            _ => EXIT_ERROR,
+            Self::ManifestNotFound
+            | Self::CargoMetadataFailed { .. }
+            | Self::NightlyNotAvailable
+            | Self::RustdocFailed { .. }
+            | Self::StdLibSourceMissing
+            | Self::ExternalFetchFailed { .. }
+            | Self::InvalidQuery { .. }
+            | Self::JsonReadFailed { .. }
+            | Self::JsonParseFailed { .. }
+            | Self::CacheSerializationFailed { .. }
+            | Self::Io(_) => EXIT_ERROR,
         }
     }
 }

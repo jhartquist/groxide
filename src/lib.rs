@@ -181,7 +181,9 @@ fn resolve_crate_source(
                     // Auto-fetch
                     let version = match &source {
                         CrateSource::External { version, .. } => version.clone(),
-                        _ => None,
+                        CrateSource::CurrentCrate { .. }
+                        | CrateSource::Dependency { .. }
+                        | CrateSource::Stdlib { .. } => None,
                     };
                     print_auto_fetch_message(name, version.as_deref());
                 }
@@ -754,7 +756,7 @@ fn try_follow_reexport(
 
     match result {
         QueryResult::Found { index: idx } => Some((source_index, idx)),
-        _ => None,
+        QueryResult::Ambiguous { .. } | QueryResult::NotFound { .. } => None,
     }
 }
 
