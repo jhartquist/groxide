@@ -677,6 +677,70 @@ fn recursive_and_docs_composable() {
 
 // ── --clear-cache ────────────────────────────────────────────────────
 
+// ── Brief mode ──────────────────────────────────────────────────────
+
+#[test]
+fn brief_mode_crate_root() {
+    let output = grox()
+        .arg("-b")
+        .arg("groxide_test_api")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!("brief_crate_root", stdout);
+
+    // Verify no signatures appear
+    assert!(!stdout.contains("pub fn"), "should not contain signatures");
+    assert!(
+        !stdout.contains("pub struct"),
+        "should not contain signatures"
+    );
+}
+
+#[test]
+fn brief_mode_module() {
+    let output = grox()
+        .arg("-b")
+        .arg("groxide_test_api::containers")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!("brief_module", stdout);
+
+    assert!(!stdout.contains("pub fn"), "should not contain signatures");
+    assert!(
+        !stdout.contains("pub struct"),
+        "should not contain signatures"
+    );
+}
+
+#[test]
+fn brief_recursive_crate_root() {
+    let output = grox()
+        .arg("-r")
+        .arg("-b")
+        .arg("groxide_test_api")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!("brief_recursive_crate_root", stdout);
+
+    assert!(!stdout.contains("pub fn"), "should not contain signatures");
+    assert!(
+        !stdout.contains("pub struct"),
+        "should not contain signatures"
+    );
+}
+
 #[test]
 fn clear_cache_exits_successfully() {
     let output = Command::new(assert_cmd::cargo::cargo_bin!("grox"))

@@ -718,6 +718,8 @@ fn handle_output(
                 let root_path = &using_index.get(effective_idx).path;
                 let output = if cli.json {
                     render::json::render_json_recursive(&items)
+                } else if cli.brief {
+                    render::brief::render_brief_recursive(&items, root_path)
                 } else {
                     render::list::render_list_recursive(&items, root_path)
                 };
@@ -737,6 +739,9 @@ fn handle_output(
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.json {
                 let output = render::json::render_json(&display);
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
+            } else if cli.brief {
+                let output = render::brief::render_brief(&display);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else {
                 let limits = DisplayLimits::default();

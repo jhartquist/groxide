@@ -1,0 +1,26 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+mod groxide_test_api
+  mod     containers
+  mod     deeply
+  mod     reexports
+  mod     traits
+  struct  GenericStruct
+  struct  SimpleStruct
+  struct  UnstableStruct
+  enum    Direction
+  enum    Shape
+  union   IntOrFloat
+  fn      add
+  fn      generic_fn
+  fn      unicode_docs
+  fn      unstable_api
+  type    Callback
+  type    Result
+  const   DEFAULT_GREETING
+  const   MAX_BUFFER_SIZE
+  static  GLOBAL_COUNTER
+  static  VERSION
+  macro   greet

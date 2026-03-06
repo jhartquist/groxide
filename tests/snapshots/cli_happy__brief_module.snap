@@ -1,0 +1,8 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+mod groxide_test_api::containers
+  struct  Pair
+  struct  Stack
+  const   MAX_CAPACITY

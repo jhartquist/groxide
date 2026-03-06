@@ -1,0 +1,52 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+groxide_test_api:
+  type    Callback
+  const   DEFAULT_GREETING
+  enum    Direction
+  static  GLOBAL_COUNTER
+  struct  GenericStruct
+  union   IntOrFloat
+  const   MAX_BUFFER_SIZE
+  type    Result
+  enum    Shape
+  struct  SimpleStruct
+  struct  UnstableStruct
+  static  VERSION
+  fn      add
+  mod     containers
+  mod     deeply
+  fn      generic_fn
+  macro   greet
+  mod     reexports
+  mod     traits
+  fn      unicode_docs
+  fn      unstable_api
+
+groxide_test_api::containers:
+  const   MAX_CAPACITY
+  struct  Pair
+  struct  Stack
+
+groxide_test_api::deeply:
+  struct  DeepMarker
+  mod     nested
+
+groxide_test_api::deeply::nested:
+  const   DEPTH
+  struct  InnerItem
+  fn      deep_fn
+
+groxide_test_api::reexports:
+  type    GlobAlias
+  struct  GlobItem
+  struct  Helper
+  fn      glob_fn
+  fn      inner_fn
+
+groxide_test_api::traits:
+  trait   Describable
+  trait   Processor
+  trait   Stringify
