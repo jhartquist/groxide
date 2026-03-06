@@ -2,7 +2,7 @@
 source: tests/cli_happy.rs
 expression: stdout
 ---
-mod groxide_test_api
+crate groxide_test_api
   mod     containers
   mod     deeply
   mod     reexports

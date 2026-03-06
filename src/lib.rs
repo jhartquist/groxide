@@ -77,7 +77,8 @@ pub fn run(cli: &Cli) -> Result<()> {
     // Step 4: Load or build DocIndex
     let features = FeatureFlags::from_cli(cli);
     let feature_suffix = features.cache_suffix();
-    let (index, source) = load_or_build_index(source, &features, &feature_suffix, cli.private)?;
+    let (index, source) =
+        load_or_build_index(source, &features, &feature_suffix, cli.private, false)?;
 
     // Step 5: Handle --readme (early return)
     if cli.readme {
@@ -214,6 +215,7 @@ fn load_or_build_index(
     features: &FeatureFlags,
     feature_suffix: &str,
     private: bool,
+    quiet: bool,
 ) -> Result<(DocIndex, CrateSource)> {
     // Compute cache path
     let cache_file = cache::cache_path(&source, feature_suffix);
@@ -228,7 +230,9 @@ fn load_or_build_index(
     let start = Instant::now();
     let name = source.name().to_string();
     let version = source.version().unwrap_or("").to_string();
-    eprint!("[grox] Building index for {name} {version}...");
+    if !quiet {
+        eprint!("[grox] Building index for {name} {version}...");
+    }
 
     // Handle external crates: fetch first
     let (json_path, source) = if let CrateSource::External {
@@ -271,7 +275,9 @@ fn load_or_build_index(
     }
 
     let elapsed = start.elapsed().as_secs_f64();
-    eprintln!(" done ({elapsed:.1}s)");
+    if !quiet {
+        eprintln!(" done ({elapsed:.1}s)");
+    }
 
     Ok((index, source))
 }
@@ -518,7 +524,7 @@ fn handle_search(
                 };
                 let all_suffix = all_features.cache_suffix();
                 if let Ok((all_index, _)) =
-                    load_or_build_index(src.clone(), &all_features, &all_suffix, cli.private)
+                    load_or_build_index(src.clone(), &all_features, &all_suffix, cli.private, false)
                 {
                     let all_results = search::search(&all_index, search_query, kind_filter)?;
                     if !all_results.is_empty() {
@@ -725,7 +731,7 @@ fn try_follow_reexport(
 
     // Load source crate index
     let (source_index, _source) =
-        load_or_build_index(source, features, feature_suffix, private).ok()?;
+        load_or_build_index(source, features, feature_suffix, private, false).ok()?;
 
     // Query canonical item in source index
     let source_query = QueryPath {
@@ -1000,61 +1006,69 @@ fn handle_output(
 
 /// Handles workspace-wide querying when no path is given in a virtual workspace.
 ///
-/// Iterates over all workspace member packages, builds their doc indices, and
+/// Builds all workspace member indices first (single progress line), then
 /// renders each crate's top-level view separated by blank lines.
 fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Result<()> {
     let members = ctx.workspace_member_packages();
     let features = FeatureFlags::from_cli(cli);
     let feature_suffix = features.cache_suffix();
 
-    let mut first = true;
-    for pkg in &members {
+    // Filter to library crates only (rustdoc can't generate docs for binary-only crates)
+    let lib_members: Vec<_> = members
+        .into_iter()
+        .filter(|pkg| pkg.targets.iter().any(cargo_metadata::Target::is_lib))
+        .collect();
+
+    // Phase 1: Build all indices with a single progress line
+    let start = Instant::now();
+    eprint!("[grox] Building workspace indices...");
+
+    let mut built: Vec<(&cargo_metadata::Package, DocIndex, CrateSource)> = Vec::new();
+    let mut errors: Vec<(String, GroxError)> = Vec::new();
+
+    for pkg in &lib_members {
         let source = CrateSource::CurrentCrate {
             manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
             name: pkg.name.clone(),
             version: pkg.version.to_string(),
         };
 
-        let (index, source) =
-            match load_or_build_index(source, &features, &feature_suffix, cli.private) {
-                Ok(pair) => pair,
-                Err(e) => {
-                    eprintln!("[grox] Failed to build index for {}: {e}", pkg.name);
-                    continue;
-                }
-            };
+        match load_or_build_index(source, &features, &feature_suffix, cli.private, true) {
+            Ok((index, source)) => built.push((pkg, index, source)),
+            Err(e) => errors.push((pkg.name.clone(), e)),
+        }
+    }
 
-        // Resolve crate root
+    let elapsed = start.elapsed().as_secs_f64();
+    eprintln!(" done ({elapsed:.1}s)");
+
+    for (name, e) in &errors {
+        eprintln!("[grox] Failed to build index for {name}: {e}");
+    }
+
+    // Phase 2: Render all results
+    let mut first = true;
+    for (pkg, index, source) in &built {
         let query_path = QueryPath {
             crate_spec: CrateSpec::CurrentCrate,
             item_segments: Vec::new(),
         };
-        let result = resolve_item(&query_path, &index, None);
+        let result = resolve_item(&query_path, index, None);
 
         if !first {
-            writeln!(w).map_err(GroxError::Io)?;
+            // Double blank line between crates for visual separation
+            write!(w, "\n\n").map_err(GroxError::Io)?;
         }
         first = false;
-
-        // Crate header for workspace output (skip for JSON — emit raw JSON Lines)
-        let crate_header = format!(
-            "== {} {} ==",
-            resolve::normalize_crate_name(&pkg.name),
-            pkg.version,
-        );
-        if !cli.json {
-            writeln!(w, "{crate_header}").map_err(GroxError::Io)?;
-            writeln!(w).map_err(GroxError::Io)?;
-        }
 
         match result {
             QueryResult::Found { index: idx } => {
                 if cli.recursive && cli.source {
-                    render_recursive_source(w, &index, idx, &source, cli)?;
+                    render_recursive_source(w, index, idx, source, cli)?;
                 } else if cli.recursive {
-                    render_recursive(w, &index, idx, cli)?;
+                    render_recursive(w, index, idx, cli)?;
                 } else {
-                    let display = render::build_display_item(&index, idx, cli.private);
+                    let display = render::build_display_item(index, idx, cli.private);
                     if cli.json {
                         let output = render::json::render_json(&display);
                         writeln!(w, "{output}").map_err(GroxError::Io)?;

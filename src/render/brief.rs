@@ -14,7 +14,22 @@ pub(crate) fn render_brief(display: &DisplayItem<'_>) -> String {
     let mut out = String::new();
 
     match display {
-        DisplayItem::Crate { item, children } | DisplayItem::Module { item, children } => {
+        DisplayItem::Crate { item, children } => {
+            let _ = writeln!(out, "crate {}", item.path);
+            let max_kind = children
+                .values()
+                .flat_map(|items| items.iter())
+                .map(|i| i.kind.short_name().len())
+                .max()
+                .unwrap_or(0);
+            for items in children.values() {
+                for child in items {
+                    let kind = child.kind.short_name();
+                    let _ = writeln!(out, "  {kind:<max_kind$}  {}", child.name);
+                }
+            }
+        }
+        DisplayItem::Module { item, children } => {
             let _ = writeln!(out, "{} {}", item.kind.short_name(), item.path);
             let max_kind = children
                 .values()
@@ -144,7 +159,7 @@ mod tests {
 
         let display = build_display_item(&index, 0, false);
         let output = render_brief(&display);
-        assert!(output.contains("mod mycrate"), "header: {output}");
+        assert!(output.contains("crate mycrate"), "header: {output}");
         assert!(
             output.contains("fn   bar") || output.contains("fn  bar"),
             "child fn: {output}"

@@ -32,7 +32,7 @@ fn render_crate(item: &IndexItem, children: &GroupedItems<'_>, limits: &DisplayL
 
     // Header
     let gate = feature_gate_suffix(item.feature_gate.as_ref());
-    let _ = writeln!(out, "mod {}{gate}", item.name);
+    let _ = writeln!(out, "crate {}{gate}", item.name);
 
     // Doc text
     if !item.docs.is_empty() {

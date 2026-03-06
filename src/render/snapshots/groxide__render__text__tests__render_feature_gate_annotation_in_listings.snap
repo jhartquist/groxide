@@ -2,7 +2,7 @@
 source: src/render/text.rs
 expression: output
 ---
-mod mycrate
+crate mycrate
 
 A crate.
 
