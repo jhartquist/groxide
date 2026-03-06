@@ -17,13 +17,14 @@ pub(crate) fn build_display_item(
     index: &DocIndex,
     item_index: usize,
     include_private: bool,
+    kind_filter: Option<ItemKind>,
 ) -> DisplayItem<'_> {
     let item = index.get(item_index);
 
     match item.kind {
         ItemKind::Module => {
             let is_crate_root = item.path == index.crate_name;
-            let children = collect_children(index, item, include_private);
+            let children = collect_children(index, item, include_private, kind_filter);
             if is_crate_root {
                 DisplayItem::Crate { item, children }
             } else {
@@ -68,12 +69,14 @@ fn collect_children<'a>(
     index: &'a DocIndex,
     item: &'a IndexItem,
     include_private: bool,
+    kind_filter: Option<ItemKind>,
 ) -> GroupedItems<'a> {
     let children: Vec<&IndexItem> = item
         .children
         .iter()
         .map(|c| index.get(c.index))
         .filter(|c| include_private || c.is_public)
+        .filter(|c| kind_filter.is_none_or(|k| c.kind.matches_filter(k)))
         .collect();
     group_items(&children)
 }
@@ -551,7 +554,7 @@ mod tests {
     fn build_display_item_returns_crate_when_path_equals_crate_name() {
         let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
         index.add_item(make_item("mycrate", "mycrate", ItemKind::Module));
-        let di = build_display_item(&index, 0, false);
+        let di = build_display_item(&index, 0, false, None);
         assert!(matches!(di, DisplayItem::Crate { .. }));
     }
 
@@ -559,7 +562,7 @@ mod tests {
     fn build_display_item_returns_module_when_not_crate_root() {
         let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
         index.add_item(make_item("sub", "mycrate::sub", ItemKind::Module));
-        let di = build_display_item(&index, 0, false);
+        let di = build_display_item(&index, 0, false, None);
         assert!(matches!(di, DisplayItem::Module { .. }));
     }
 
@@ -567,7 +570,7 @@ mod tests {
     fn build_display_item_returns_type_for_struct() {
         let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
         index.add_item(make_item("Foo", "mycrate::Foo", ItemKind::Struct));
-        let di = build_display_item(&index, 0, false);
+        let di = build_display_item(&index, 0, false, None);
         assert!(matches!(di, DisplayItem::Type { .. }));
     }
 
@@ -575,7 +578,7 @@ mod tests {
     fn build_display_item_returns_trait_for_trait() {
         let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
         index.add_item(make_item("MyTrait", "mycrate::MyTrait", ItemKind::Trait));
-        let di = build_display_item(&index, 0, false);
+        let di = build_display_item(&index, 0, false, None);
         assert!(matches!(di, DisplayItem::Trait { .. }));
     }
 
@@ -583,7 +586,7 @@ mod tests {
     fn build_display_item_returns_leaf_for_function() {
         let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
         index.add_item(make_item("foo", "mycrate::foo", ItemKind::Function));
-        let di = build_display_item(&index, 0, false);
+        let di = build_display_item(&index, 0, false, None);
         assert!(matches!(di, DisplayItem::Leaf { .. }));
     }
 
@@ -609,7 +612,7 @@ mod tests {
         ];
         index.add_item(enum_item);
 
-        let di = build_display_item(&index, 2, false);
+        let di = build_display_item(&index, 2, false, None);
         match di {
             DisplayItem::Type {
                 methods, variants, ..
@@ -645,7 +648,7 @@ mod tests {
         ];
         index.add_item(trait_item);
 
-        let di = build_display_item(&index, 2, false);
+        let di = build_display_item(&index, 2, false, None);
         match di {
             DisplayItem::Trait {
                 required_methods,

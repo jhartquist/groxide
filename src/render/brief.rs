@@ -157,7 +157,7 @@ mod tests {
         ];
         index.items[0] = root;
 
-        let display = build_display_item(&index, 0, false);
+        let display = build_display_item(&index, 0, false, None);
         let output = render_brief(&display);
         assert!(output.contains("crate mycrate"), "header: {output}");
         assert!(
@@ -189,7 +189,7 @@ mod tests {
         }];
         index.items[0] = st;
 
-        let display = build_display_item(&index, 0, false);
+        let display = build_display_item(&index, 0, false, None);
         let output = render_brief(&display);
         assert!(output.contains("struct mycrate::Foo"), "header: {output}");
         assert!(output.contains("fn       do_thing"), "method: {output}");

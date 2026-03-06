@@ -367,7 +367,7 @@ mod tests {
             ],
         );
 
-        let di = build_display_item(&index, 2, false);
+        let di = build_display_item(&index, 2, false, None);
         let output = render_json(&di);
 
         // Parse and verify it's valid JSON
@@ -436,7 +436,7 @@ mod tests {
         ];
         index.add_item(trait_item);
 
-        let di = build_display_item(&index, 2, false);
+        let di = build_display_item(&index, 2, false, None);
         let output = render_json(&di);
 
         let parsed: serde_json::Value =
@@ -514,7 +514,7 @@ mod tests {
         ];
         index.add_item(crate_item);
 
-        let di = build_display_item(&index, 3, false);
+        let di = build_display_item(&index, 3, false, None);
         let output = render_json(&di);
 
         // Should be JSON Lines

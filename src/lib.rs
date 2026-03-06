@@ -286,16 +286,18 @@ fn load_or_build_index(
 fn resolve_item(query: &QueryPath, index: &DocIndex, kind_filter: Option<ItemKind>) -> QueryResult {
     let crate_name = &index.crate_name;
 
-    // If no item segments, look up crate root
+    // If no item segments, look up crate root.
+    // Skip kind filter here — the root is always a module, and the kind filter
+    // should apply to the children listing, not reject the root itself.
     if query.item_segments.is_empty() {
-        let result = query::lookup(index, crate_name, kind_filter);
+        let result = query::lookup(index, crate_name, None);
         if !matches!(result, QueryResult::NotFound { .. }) {
             return result;
         }
         // Crate root not found by name, try hyphen-normalized
         let normalized = crate_name.replace('-', "_");
         if normalized != *crate_name {
-            let result = query::lookup(index, &normalized, kind_filter);
+            let result = query::lookup(index, &normalized, None);
             if !matches!(result, QueryResult::NotFound { .. }) {
                 return result;
             }
@@ -954,7 +956,9 @@ fn handle_output(
                 return render_recursive(w, using_index, effective_idx, cli);
             }
 
-            let display = render::build_display_item(using_index, effective_idx, cli.private);
+            let kind_filter = cli.kind.map(ItemKind::from);
+            let display =
+                render::build_display_item(using_index, effective_idx, cli.private, kind_filter);
 
             if let Some(ref filter) = cli.impls {
                 let trait_filter = if filter.is_empty() {
@@ -1069,7 +1073,8 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
                 } else if cli.recursive {
                     render_recursive(w, index, idx, cli)?;
                 } else {
-                    let display = render::build_display_item(index, idx, cli.private);
+                    let kind_filter = cli.kind.map(ItemKind::from);
+                    let display = render::build_display_item(index, idx, cli.private, kind_filter);
                     if cli.json {
                         let output = render::json::render_json(&display);
                         writeln!(w, "{output}").map_err(GroxError::Io)?;

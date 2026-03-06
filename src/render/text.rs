@@ -357,7 +357,7 @@ mod tests {
         ];
         index.add_item(crate_item);
 
-        let di = crate::render::build_display_item(&index, 3, false);
+        let di = crate::render::build_display_item(&index, 3, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
@@ -410,7 +410,7 @@ mod tests {
         ];
         index.add_item(mod_item);
 
-        let di = crate::render::build_display_item(&index, 2, false);
+        let di = crate::render::build_display_item(&index, 2, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
@@ -451,7 +451,7 @@ mod tests {
         struct_item.children = children;
         index.add_item(struct_item);
 
-        let di = crate::render::build_display_item(&index, 20, false);
+        let di = crate::render::build_display_item(&index, 20, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
@@ -534,7 +534,7 @@ mod tests {
         ];
         index.add_item(enum_item);
 
-        let di = crate::render::build_display_item(&index, 4, false);
+        let di = crate::render::build_display_item(&index, 4, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
@@ -608,7 +608,7 @@ mod tests {
         ];
         index.add_item(trait_item);
 
-        let di = crate::render::build_display_item(&index, 3, false);
+        let di = crate::render::build_display_item(&index, 3, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
@@ -715,7 +715,7 @@ mod tests {
         ];
         index.add_item(mod_item);
 
-        let di = crate::render::build_display_item(&index, 3, false);
+        let di = crate::render::build_display_item(&index, 3, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
@@ -819,7 +819,7 @@ mod tests {
         }];
         index.add_item(trait_item);
 
-        let di = crate::render::build_display_item(&index, 1, false);
+        let di = crate::render::build_display_item(&index, 1, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
@@ -907,7 +907,7 @@ mod tests {
             ],
         );
 
-        let di = crate::render::build_display_item(&index, 0, false);
+        let di = crate::render::build_display_item(&index, 0, false, None);
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
