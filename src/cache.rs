@@ -9,7 +9,7 @@ use crate::resolve::CrateSource;
 use crate::types::DocIndex;
 
 /// Current cache format version. Bump when serialization format changes.
-const FORMAT_VERSION: u32 = 1;
+const FORMAT_VERSION: u32 = 2;
 
 /// Serialized cache file: header + index, both MessagePack-encoded.
 #[derive(Serialize, Deserialize)]
@@ -34,9 +34,9 @@ struct CacheHeader {
 /// Source-specific invalidation metadata stored in the cache header.
 #[derive(Serialize, Deserialize)]
 enum CacheMetadata {
-    Dependency { package_version: String },
+    Dependency { version: String },
     StdLib { toolchain_version: String },
-    External { crate_version: String },
+    External { version: String },
 }
 
 /// Computes the cache file path for a given crate source.
@@ -146,8 +146,8 @@ fn create_header(source: &CrateSource) -> CacheHeader {
         CrateSource::CurrentCrate { .. } => {
             unreachable!("CurrentCrate should never be cached")
         }
-        CrateSource::Dependency { version, .. } => CacheMetadata::Dependency {
-            package_version: version.clone(),
+        CrateSource::Dependency { version: ver, .. } => CacheMetadata::Dependency {
+            version: ver.clone(),
         },
         CrateSource::Stdlib { .. } => {
             let toolchain =
@@ -157,7 +157,7 @@ fn create_header(source: &CrateSource) -> CacheHeader {
             }
         }
         CrateSource::External { version, .. } => CacheMetadata::External {
-            crate_version: version.as_deref().unwrap_or("unknown").to_string(),
+            version: version.as_deref().unwrap_or("unknown").to_string(),
         },
     };
 
@@ -182,7 +182,7 @@ fn is_cache_valid(header: &CacheHeader, source: &CrateSource) -> bool {
     match (&header.metadata, source) {
         (
             CacheMetadata::Dependency {
-                package_version: cached_version,
+                version: cached_version,
             },
             CrateSource::Dependency { version, .. },
         ) => cached_version == version,
@@ -198,7 +198,7 @@ fn is_cache_valid(header: &CacheHeader, source: &CrateSource) -> bool {
         }
         (
             CacheMetadata::External {
-                crate_version: cached_version,
+                version: cached_version,
             },
             CrateSource::External { version, .. },
         ) => {
