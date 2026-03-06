@@ -3,8 +3,8 @@ source: src/render/list.rs
 expression: output
 ---
 mycrate:
-  fn      mycrate::bar       pub fn bar()    Does bar.
-  mod     mycrate::sub                       A submodule.
+  fn      mycrate::bar       pub fn bar()
+  mod     mycrate::sub     
 
 mycrate::sub:
-  struct  mycrate::sub::Foo  pub struct Foo  A struct.
+  struct  mycrate::sub::Foo  pub struct Foo

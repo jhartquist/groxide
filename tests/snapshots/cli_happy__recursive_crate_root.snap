@@ -3,55 +3,50 @@ source: tests/cli_happy.rs
 expression: stdout
 ---
 groxide_test_api:
-  type    groxide_test_api::Callback                   pub type Callback = fn(i32) -> bool                                                      A type alias for a callback function.
-  const   groxide_test_api::DEFAULT_GREETING           pub const DEFAULT_GREETING: &str                                                         The default greeting string.
-  enum    groxide_test_api::Direction                  pub enum Direction                                                                       An enum representing cardinal directions.
-  static  groxide_test_api::GLOBAL_COUNTER             pub static GLOBAL_COUNTER: std::sync::atomic::AtomicUsize                                A global counter for testing static items.
-  struct  groxide_test_api::GenericStruct              pub struct GenericStruct<T: Clone>                                                       A generic container holding a single value.
-  union   groxide_test_api::IntOrFloat                 pub union IntOrFloat { pub i: i32, pub f: f32 }                                          A union for testing union item rendering.
-
-# Safety
-
-Accessing union fields requires `unsafe` since the compiler cannot guarantee
-which field was last written.
-  const   groxide_test_api::MAX_BUFFER_SIZE            pub const MAX_BUFFER_SIZE: usize                                                         The maximum buffer size in bytes.
-  type    groxide_test_api::Result                     pub type Result<T> = std::result::Result<T, String>                                      A type alias for results in this crate.
-  enum    groxide_test_api::Shape                      pub enum Shape                                                                           An enum with data-carrying variants.
-  struct  groxide_test_api::SimpleStruct               pub struct SimpleStruct { pub name: String, pub count: u32 }                             A simple struct with no generics.
-  struct  groxide_test_api::UnstableStruct             pub struct UnstableStruct { pub experimental: bool }                                     A feature-gated struct.
-  static  groxide_test_api::VERSION                    pub static VERSION: &str                                                                 A simple static string.
-  fn      groxide_test_api::add                        pub fn add(a: i32, b: i32) -> i32                                                        Adds two numbers together.
-  mod     groxide_test_api::containers                 pub mod containers                                                                       Container types for testing module-level items.
-  mod     groxide_test_api::deeply                     pub mod deeply                                                                           A module for testing deeply nested paths.
-  fn      groxide_test_api::generic_fn                 pub fn generic_fn<T: std::fmt::Display, U: Into<String>>(value: T, _label: U) -> String  A function with multiple generic parameters.
-  macro   groxide_test_api::greet                      macro_rules! greet                                                                       Generates a greeting string.
-  mod     groxide_test_api::reexports                  pub mod reexports                                                                        Module for testing re-export handling.
-  mod     groxide_test_api::traits                     pub mod traits                                                                           Trait definitions for testing trait rendering.
-  fn      groxide_test_api::unicode_docs               pub fn unicode_docs() -> &'static str                                                    A function demonstrating unicode in documentation.
-  fn      groxide_test_api::unstable_api               pub fn unstable_api() -> &'static str                                                    An item only available with the `unstable` feature.
+  type    groxide_test_api::Callback                   pub type Callback = fn(i32) -> bool
+  const   groxide_test_api::DEFAULT_GREETING           pub const DEFAULT_GREETING: &str
+  enum    groxide_test_api::Direction                  pub enum Direction
+  static  groxide_test_api::GLOBAL_COUNTER             pub static GLOBAL_COUNTER: std::sync::atomic::AtomicUsize
+  struct  groxide_test_api::GenericStruct              pub struct GenericStruct<T: Clone>
+  union   groxide_test_api::IntOrFloat                 pub union IntOrFloat { pub i: i32, pub f: f32 }
+  const   groxide_test_api::MAX_BUFFER_SIZE            pub const MAX_BUFFER_SIZE: usize
+  type    groxide_test_api::Result                     pub type Result<T> = std::result::Result<T, String>
+  enum    groxide_test_api::Shape                      pub enum Shape
+  struct  groxide_test_api::SimpleStruct               pub struct SimpleStruct { pub name: String, pub count: u32 }
+  struct  groxide_test_api::UnstableStruct             pub struct UnstableStruct { pub experimental: bool }
+  static  groxide_test_api::VERSION                    pub static VERSION: &str
+  fn      groxide_test_api::add                        pub fn add(a: i32, b: i32) -> i32
+  mod     groxide_test_api::containers                 pub mod containers
+  mod     groxide_test_api::deeply                     pub mod deeply
+  fn      groxide_test_api::generic_fn                 pub fn generic_fn<T: std::fmt::Display, U: Into<String>>(value: T, _label: U) -> String
+  macro   groxide_test_api::greet                      macro_rules! greet
+  mod     groxide_test_api::reexports                  pub mod reexports
+  mod     groxide_test_api::traits                     pub mod traits
+  fn      groxide_test_api::unicode_docs               pub fn unicode_docs() -> &'static str
+  fn      groxide_test_api::unstable_api               pub fn unstable_api() -> &'static str
 
 groxide_test_api::containers:
-  const   groxide_test_api::containers::MAX_CAPACITY   pub const MAX_CAPACITY: usize                                                            The maximum capacity for a fixed-size container.
-  struct  groxide_test_api::containers::Pair           pub struct Pair<A, B>                                                                    A pair of two values, possibly of different types.
-  struct  groxide_test_api::containers::Stack          pub struct Stack<T>                                                                      A stack data structure backed by a `Vec`.
+  const   groxide_test_api::containers::MAX_CAPACITY   pub const MAX_CAPACITY: usize
+  struct  groxide_test_api::containers::Pair           pub struct Pair<A, B>
+  struct  groxide_test_api::containers::Stack          pub struct Stack<T>
 
 groxide_test_api::deeply:
-  struct  groxide_test_api::deeply::DeepMarker         pub struct DeepMarker                                                                    A marker type at the `deeply` module level.
-  mod     groxide_test_api::deeply::nested             pub mod nested                                                                           The deepest level of nesting for path resolution tests.
+  struct  groxide_test_api::deeply::DeepMarker         pub struct DeepMarker
+  mod     groxide_test_api::deeply::nested             pub mod nested
 
 groxide_test_api::deeply::nested:
-  const   groxide_test_api::deeply::nested::DEPTH      pub const DEPTH: u32                                                                     A constant at the deepest level.
-  struct  groxide_test_api::deeply::nested::InnerItem  pub struct InnerItem { pub label: String }                                               A struct at 3 levels of nesting.
-  fn      groxide_test_api::deeply::nested::deep_fn    pub fn deep_fn() -> &'static str                                                         A function at the deepest nesting level.
+  const   groxide_test_api::deeply::nested::DEPTH      pub const DEPTH: u32
+  struct  groxide_test_api::deeply::nested::InnerItem  pub struct InnerItem { pub label: String }
+  fn      groxide_test_api::deeply::nested::deep_fn    pub fn deep_fn() -> &'static str
 
 groxide_test_api::reexports:
-  type    groxide_test_api::reexports::GlobAlias       pub type GlobAlias = Vec<String>                                                         A type alias in the glob source.
-  struct  groxide_test_api::reexports::GlobItem        pub struct GlobItem { pub value: i32 }                                                   An item that will be glob-reexported.
-  struct  groxide_test_api::reexports::Helper          pub struct Helper { pub id: u32 }                                                        Re-exported `Helper` from the private inner module.
-  fn      groxide_test_api::reexports::glob_fn         pub fn glob_fn() -> bool                                                                 Another item for glob re-export.
-  fn      groxide_test_api::reexports::inner_fn        pub fn inner_fn() -> i32                                                                 Re-exported `inner_fn` from the private inner module.
+  type    groxide_test_api::reexports::GlobAlias       pub type GlobAlias = Vec<String>
+  struct  groxide_test_api::reexports::GlobItem        pub struct GlobItem { pub value: i32 }
+  struct  groxide_test_api::reexports::Helper          pub struct Helper { pub id: u32 }
+  fn      groxide_test_api::reexports::glob_fn         pub fn glob_fn() -> bool
+  fn      groxide_test_api::reexports::inner_fn        pub fn inner_fn() -> i32
 
 groxide_test_api::traits:
-  trait   groxide_test_api::traits::Describable        pub trait Describable: Stringify + std::fmt::Debug                                       A trait that extends both `Stringify` and `std::fmt::Debug`.
-  trait   groxide_test_api::traits::Processor          pub trait Processor                                                                      A trait with an associated type and constant.
-  trait   groxide_test_api::traits::Stringify          pub trait Stringify                                                                      A trait for items that can be serialized to a string representation.
+  trait   groxide_test_api::traits::Describable        pub trait Describable: Stringify + std::fmt::Debug
+  trait   groxide_test_api::traits::Processor          pub trait Processor
+  trait   groxide_test_api::traits::Stringify          pub trait Stringify

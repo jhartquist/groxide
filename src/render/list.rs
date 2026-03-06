@@ -66,53 +66,34 @@ fn column_widths(items: &[&IndexItem]) -> ColumnWidths {
     }
 }
 
-/// Renders one item as a table row: `{prefix}{kind}  {path}  {signature}  {summary}`.
+/// Renders one item as a table row: `{prefix}{kind}  {path}  {signature}  [feature gate]`.
 fn render_item_line(out: &mut String, item: &IndexItem, widths: &ColumnWidths, prefix: &str) {
     let kind = item.kind.short_name();
     let path = &item.path;
     let sig = &item.signature;
-    let summary = &item.summary;
     let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
     let max_kind = widths.kind;
     let max_path = widths.path;
-    let max_sig = widths.signature;
 
-    // Build the trailing part: signature + summary + gate suffix
     let has_sig = !sig.is_empty();
-    let has_summary = !summary.is_empty() || !gate_suffix.is_empty();
+    let has_gate = !gate_suffix.is_empty();
 
-    if !has_sig && !has_summary {
+    if !has_sig && !has_gate {
         let _ = writeln!(out, "{prefix}{kind:<max_kind$}  {path:<max_path$}");
     } else if !has_sig {
-        // No signature (e.g., modules) — skip sig column, show summary
-        let display_summary = build_display_summary(summary, &gate_suffix);
+        let max_sig = widths.signature;
         let _ = writeln!(
             out,
-            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {:<max_sig$}  {display_summary}",
+            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {:<max_sig$}  {gate_suffix}",
             ""
         );
-    } else if !has_summary {
+    } else if !has_gate {
+        let _ = writeln!(out, "{prefix}{kind:<max_kind$}  {path:<max_path$}  {sig}");
+    } else {
         let _ = writeln!(
             out,
-            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {sig:<max_sig$}"
+            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {sig}  {gate_suffix}"
         );
-    } else {
-        let display_summary = build_display_summary(summary, &gate_suffix);
-        let _ = writeln!(
-            out,
-            "{prefix}{kind:<max_kind$}  {path:<max_path$}  {sig:<max_sig$}  {display_summary}"
-        );
-    }
-}
-
-/// Combines summary and feature gate suffix into one display string.
-fn build_display_summary(summary: &str, gate_suffix: &str) -> String {
-    if gate_suffix.is_empty() {
-        summary.to_string()
-    } else if summary.is_empty() {
-        gate_suffix.to_string()
-    } else {
-        format!("{summary}{gate_suffix}")
     }
 }
 
