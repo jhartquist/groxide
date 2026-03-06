@@ -532,6 +532,27 @@ fn reexported_struct_shows_fields_and_impls() {
     insta::assert_snapshot!("reexported_struct", stdout);
 }
 
+// ── Re-export resolution on not-found path ──────────────────────────
+
+#[test]
+fn reexport_resolves_transparently_with_wrong_module_path() {
+    // Query Helper via a non-existent module path — the re-export fallback
+    // should find it under reexports::Helper since it's re-exported from inner.
+    let output = grox()
+        .arg("groxide_test_api::wrong_module::Helper")
+        .output()
+        .expect("command runs");
+
+    assert!(
+        output.status.success(),
+        "should resolve via re-export fallback, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Helper"), "should show Helper: {stdout}");
+}
+
 // ── --recursive mode ──────────────────────────────────────────────────
 
 #[test]

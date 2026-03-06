@@ -101,7 +101,7 @@ pub fn run(cli: &Cli) -> Result<()> {
         } else {
             cli.kind.map(ItemKind::from)
         };
-        let result = resolve_item(
+        let mut result = resolve_item(
             &query_path,
             &index,
             kind_filter,
@@ -109,6 +109,15 @@ pub fn run(cli: &Cli) -> Result<()> {
             &feature_suffix,
             cli.private,
         );
+
+        // Step 7b: On NotFound, try resolving via re-export stubs
+        if matches!(result, QueryResult::NotFound { .. }) {
+            if let Some(resolved) =
+                try_resolve_reexport_on_not_found(&query_path, &index, kind_filter)
+            {
+                result = resolved;
+            }
+        }
 
         if cli.recursive && cli.source {
             // Step 8a: Handle --recursive --source (dump everything)
@@ -770,6 +779,62 @@ fn try_follow_reexport(
     }
 }
 
+/// Attempts to resolve a `NotFound` query by searching for re-export stubs
+/// in the index whose item name matches the last segment of the query.
+///
+/// When a crate re-exports an item (e.g., `pub use dep::Item`), rustdoc may
+/// index the stub under a path that doesn't exactly match the user's query.
+/// This function finds such stubs and returns them as a `Found` or `Ambiguous`
+/// result so the caller can follow the re-export chain.
+fn try_resolve_reexport_on_not_found(
+    query: &QueryPath,
+    index: &DocIndex,
+    kind_filter: Option<ItemKind>,
+) -> Option<QueryResult> {
+    // Need at least one item segment to extract the name
+    let item_name = query.item_segments.last()?;
+    let name_lower = item_name.to_lowercase();
+
+    // Search the index for items with the same name
+    let name_indices = index.name_map.get(&name_lower)?;
+
+    // Filter to re-export stubs whose reexport_source is set
+    let mut reexport_matches: Vec<usize> = name_indices
+        .iter()
+        .copied()
+        .filter(|&idx| {
+            let item = &index.items[idx];
+            item.reexport_source.is_some()
+                && item.name.eq_ignore_ascii_case(item_name)
+                && kind_filter.is_none_or(|k| item.kind.matches_filter(k))
+        })
+        .collect();
+
+    if reexport_matches.is_empty() {
+        // Also try non-stub items at a different path (same name, different module)
+        reexport_matches = name_indices
+            .iter()
+            .copied()
+            .filter(|&idx| {
+                let item = &index.items[idx];
+                item.name.eq_ignore_ascii_case(item_name)
+                    && kind_filter.is_none_or(|k| item.kind.matches_filter(k))
+            })
+            .collect();
+    }
+
+    match reexport_matches.len() {
+        0 => None,
+        1 => Some(QueryResult::Found {
+            index: reexport_matches[0],
+        }),
+        _ => Some(QueryResult::Ambiguous {
+            indices: reexport_matches,
+            query: query.item_segments.join("::"),
+        }),
+    }
+}
+
 /// Post-processes rendered output for a followed re-export.
 ///
 /// Replaces the canonical path in the header line with the stub path and inserts
@@ -1110,7 +1175,7 @@ mod tests {
         let features = FeatureFlags::from_cli(&cli);
         let feature_suffix = features.cache_suffix();
 
-        let result = resolve_item(
+        let mut result = resolve_item(
             &query_path,
             index,
             kind_filter,
@@ -1118,6 +1183,15 @@ mod tests {
             &feature_suffix,
             cli.private,
         );
+
+        // Mirror the re-export fallback from run()
+        if matches!(result, QueryResult::NotFound { .. }) {
+            if let Some(resolved) =
+                try_resolve_reexport_on_not_found(&query_path, index, kind_filter)
+            {
+                result = resolved;
+            }
+        }
 
         let mut stdout_buf = Vec::new();
 
@@ -1381,5 +1455,44 @@ mod tests {
         let features = FeatureFlags::from_cli(&cli);
         let result = handle_search(&mut buf, &index, "", &cli, None, &features);
         assert!(result.is_err(), "empty search should fail");
+    }
+
+    // ---- Re-export resolution on NotFound ----
+
+    #[test]
+    fn resolve_reexport_finds_item_by_name_when_path_not_found() {
+        let index = load_fixture_index();
+        // Query with a wrong module prefix — the item exists as Helper under reexports
+        let query_path = QueryPath {
+            crate_spec: CrateSpec::CurrentCrate,
+            item_segments: vec!["nonexistent_mod".to_string(), "Helper".to_string()],
+        };
+        let result = try_resolve_reexport_on_not_found(&query_path, &index, None);
+        assert!(
+            result.is_some(),
+            "should find Helper via re-export fallback"
+        );
+        let idx = match result.unwrap() {
+            QueryResult::Found { index: idx } => idx,
+            QueryResult::Ambiguous { indices, .. } => indices[0],
+            other @ QueryResult::NotFound { .. } => {
+                panic!("expected Found or Ambiguous, got {other:?}")
+            }
+        };
+        assert_eq!(index.items[idx].name, "Helper");
+    }
+
+    #[test]
+    fn resolve_reexport_returns_none_for_truly_missing_item() {
+        let index = load_fixture_index();
+        let query_path = QueryPath {
+            crate_spec: CrateSpec::CurrentCrate,
+            item_segments: vec!["TotallyFakeItem99".to_string()],
+        };
+        let result = try_resolve_reexport_on_not_found(&query_path, &index, None);
+        assert!(
+            result.is_none(),
+            "should return None for truly missing item"
+        );
     }
 }
