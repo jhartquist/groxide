@@ -249,7 +249,7 @@ pub(crate) struct TraitImplInfo {
 }
 
 /// The queryable index for one crate. Built from rustdoc JSON, cached to disk.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct DocIndex {
     /// All items in the index.
     pub(crate) items: Vec<IndexItem>,

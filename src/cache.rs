@@ -103,7 +103,7 @@ fn save_to_cache_inner(path: &Path, index: &DocIndex, source: &CrateSource) -> R
     let header = create_header(source);
     let data = CachedData {
         header,
-        index: serialize_index_ref(index)?,
+        index: index.clone(),
     };
 
     let bytes = rmp_serde::to_vec(&data).map_err(|e| GroxError::CacheSerializationFailed {
@@ -134,20 +134,6 @@ fn save_to_cache_inner(path: &Path, index: &DocIndex, source: &CrateSource) -> R
     }
 
     Ok(())
-}
-
-/// Serializes a `&DocIndex` into a `DocIndex` for embedding in `CachedData`.
-///
-/// This exists because `CachedData` owns its `DocIndex`. We re-serialize the reference
-/// by serializing and deserializing through `rmp-serde`. This avoids requiring `Clone`
-/// on `DocIndex`.
-fn serialize_index_ref(index: &DocIndex) -> Result<DocIndex> {
-    let bytes = rmp_serde::to_vec(index).map_err(|e| GroxError::CacheSerializationFailed {
-        message: format!("serialize index: {e}"),
-    })?;
-    rmp_serde::from_slice(&bytes).map_err(|e| GroxError::CacheSerializationFailed {
-        message: format!("deserialize index: {e}"),
-    })
 }
 
 /// Creates a cache header for the given crate source.
