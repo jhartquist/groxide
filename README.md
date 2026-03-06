@@ -49,14 +49,14 @@ Examples
 ```
 $ grox -r tokio::sync
 
-mod     tokio::sync::broadcast                    A multi-producer, multi-consumer broadcast queue.
-mod     tokio::sync::futures                      Named future types.
-mod     tokio::sync::mpsc                         A multi-producer, single-consumer queue for sending ...
-mod     tokio::sync::oneshot                      A one-shot channel is used for sending a single ...
-mod     tokio::sync::watch                        A multi-producer, multi-consumer channel that only ...
-struct  tokio::sync::AcquireError                 Error returned from the [`Semaphore::acquire`] function.
-struct  tokio::sync::Barrier                      A barrier enables multiple tasks to synchronize the ...
-struct  tokio::sync::Mutex                        An asynchronous `Mutex`-like type.
+mod     tokio::sync::broadcast                    pub mod broadcast
+mod     tokio::sync::futures                      pub mod futures
+mod     tokio::sync::mpsc                         pub mod mpsc
+mod     tokio::sync::oneshot                      pub mod oneshot
+mod     tokio::sync::watch                        pub mod watch
+struct  tokio::sync::AcquireError                 pub struct AcquireError
+struct  tokio::sync::Barrier                      pub struct Barrier
+struct  tokio::sync::Mutex                        pub struct Mutex<T: ?Sized>
 # ... (30 items total)
 ```
 

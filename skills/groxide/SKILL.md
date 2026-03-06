@@ -54,8 +54,8 @@ Shows full method signature and documentation.
 grox -r tokio::sync
 ```
 
-One-line summaries of all public items in the module. Useful for discovering
-what a module offers before drilling into specific items.
+Shows kind, path, and signature for all public items in the module. Useful for
+discovering what a module offers before drilling into specific items.
 
 ### Brief skeleton (names only)
 
