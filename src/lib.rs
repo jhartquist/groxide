@@ -101,14 +101,7 @@ pub fn run(cli: &Cli) -> Result<()> {
         } else {
             cli.kind.map(ItemKind::from)
         };
-        let mut result = resolve_item(
-            &query_path,
-            &index,
-            kind_filter,
-            &features,
-            &feature_suffix,
-            cli.private,
-        );
+        let mut result = resolve_item(&query_path, &index, kind_filter);
 
         // Step 7b: On NotFound, try resolving via re-export stubs
         if matches!(result, QueryResult::NotFound { .. }) {
@@ -282,14 +275,7 @@ fn load_or_build_index(
 }
 
 /// Resolves an item with all fallback strategies.
-fn resolve_item(
-    query: &QueryPath,
-    index: &DocIndex,
-    kind_filter: Option<ItemKind>,
-    _features: &FeatureFlags,
-    _feature_suffix: &str,
-    _private: bool,
-) -> QueryResult {
+fn resolve_item(query: &QueryPath, index: &DocIndex, kind_filter: Option<ItemKind>) -> QueryResult {
     let crate_name = &index.crate_name;
 
     // If no item segments, look up crate root
@@ -764,14 +750,7 @@ fn try_follow_reexport(
         crate_spec: CrateSpec::CurrentCrate,
         item_segments: item_path.split("::").map(String::from).collect(),
     };
-    let result = resolve_item(
-        &source_query,
-        &source_index,
-        None,
-        features,
-        feature_suffix,
-        private,
-    );
+    let result = resolve_item(&source_query, &source_index, None);
 
     match result {
         QueryResult::Found { index: idx } => Some((source_index, idx)),
@@ -955,7 +934,7 @@ fn handle_output(
                 } else {
                     Some(filter.as_str())
                 };
-                let output = render_impls(&display, using_index, effective_idx, trait_filter);
+                let output = render_impls(&display, trait_filter);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.json {
                 let output = render::json::render_json(&display);
@@ -1029,7 +1008,7 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
             crate_spec: CrateSpec::CurrentCrate,
             item_segments: Vec::new(),
         };
-        let result = resolve_item(&query_path, &index, None, &features, &feature_suffix, false);
+        let result = resolve_item(&query_path, &index, None);
 
         if !first {
             writeln!(w).map_err(GroxError::Io)?;
@@ -1111,12 +1090,7 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
 }
 
 /// Renders the `--impls` view for a display item.
-fn render_impls(
-    display: &DisplayItem<'_>,
-    _index: &DocIndex,
-    _item_idx: usize,
-    trait_filter: Option<&str>,
-) -> String {
+fn render_impls(display: &DisplayItem<'_>, trait_filter: Option<&str>) -> String {
     match display {
         DisplayItem::Type {
             item, trait_impls, ..
@@ -1175,14 +1149,7 @@ mod tests {
         let features = FeatureFlags::from_cli(&cli);
         let feature_suffix = features.cache_suffix();
 
-        let mut result = resolve_item(
-            &query_path,
-            index,
-            kind_filter,
-            &features,
-            &feature_suffix,
-            cli.private,
-        );
+        let mut result = resolve_item(&query_path, index, kind_filter);
 
         // Mirror the re-export fallback from run()
         if matches!(result, QueryResult::NotFound { .. }) {
@@ -1288,7 +1255,7 @@ mod tests {
         let feature_suffix = features.cache_suffix();
 
         // For crate root, item_segments is empty
-        let result = resolve_item(&query_path, &index, None, &features, &feature_suffix, false);
+        let result = resolve_item(&query_path, &index, None);
 
         let mut buf = Vec::new();
         let cli = Cli::try_parse_from(["grox"]).expect("parses");
