@@ -497,13 +497,27 @@ fn sort_by_priority(index: &DocIndex, indices: &[usize]) -> Vec<usize> {
     result
 }
 
+/// Collects scored candidates into a sorted, deduplicated, truncated suggestion list.
+fn collect_suggestions(
+    scored: impl IntoIterator<Item = (String, usize)>,
+    max: usize,
+) -> Vec<String> {
+    let mut candidates: Vec<(String, usize)> = scored.into_iter().collect();
+    candidates.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+
+    let mut seen = std::collections::HashSet::new();
+    candidates.retain(|(path, _)| seen.insert(path.clone()));
+
+    candidates.truncate(max);
+    candidates.into_iter().map(|(path, _)| path).collect()
+}
+
 /// Computes "did you mean?" suggestions using Levenshtein distance.
 fn compute_suggestions(index: &DocIndex, query: &str) -> Vec<String> {
     let query_lower = query.to_lowercase();
     let last_segment = query.split("::").last().unwrap_or(query).to_lowercase();
-    let mut candidates: Vec<(String, usize)> = Vec::new();
 
-    for item in &index.items {
+    let scored = index.items.iter().filter_map(|item| {
         let path_lower = item.path.to_lowercase();
         let name_lower = item.name.to_lowercase();
 
@@ -511,7 +525,7 @@ fn compute_suggestions(index: &DocIndex, query: &str) -> Vec<String> {
             && !could_match_within_distance(&query_lower, &name_lower, 3)
             && !could_match_within_distance(&last_segment, &name_lower, 3)
         {
-            continue;
+            return None;
         }
 
         let path_dist = levenshtein_distance(&query_lower, &path_lower);
@@ -520,18 +534,13 @@ fn compute_suggestions(index: &DocIndex, query: &str) -> Vec<String> {
         let distance = path_dist.min(name_dist).min(seg_dist);
 
         if distance <= 3 {
-            candidates.push((item.path.clone(), distance));
+            Some((item.path.clone(), distance))
+        } else {
+            None
         }
-    }
+    });
 
-    candidates.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
-
-    // Deduplicate by path
-    let mut seen = std::collections::HashSet::new();
-    candidates.retain(|(path, _)| seen.insert(path.clone()));
-
-    candidates.truncate(5);
-    candidates.into_iter().map(|(path, _)| path).collect()
+    collect_suggestions(scored, 5)
 }
 
 /// Pre-filter heuristic: quickly checks if two strings could be within edit distance.
@@ -610,28 +619,22 @@ fn compute_method_suggestions(
 ) -> Vec<String> {
     let method_lower = method_name.to_lowercase();
     let parent_item = &index.items[parent_idx];
-    let mut candidates: Vec<(String, usize)> = Vec::new();
 
-    for child in &parent_item.children {
+    let scored = parent_item.children.iter().filter_map(|child| {
         let child_lower = child.name.to_lowercase();
         if !could_match_within_distance(&method_lower, &child_lower, 3) {
-            continue;
+            return None;
         }
         let distance = levenshtein_distance(&method_lower, &child_lower);
         if distance <= 3 {
             let path = format!("{}::{}", parent_item.path, child.name);
-            candidates.push((path, distance));
+            Some((path, distance))
+        } else {
+            None
         }
-    }
+    });
 
-    candidates.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
-
-    // Deduplicate by path
-    let mut seen = std::collections::HashSet::new();
-    candidates.retain(|(path, _)| seen.insert(path.clone()));
-
-    candidates.truncate(5);
-    candidates.into_iter().map(|(path, _)| path).collect()
+    collect_suggestions(scored, 5)
 }
 
 /// Determines whether a single-segment query looks like an item name.
