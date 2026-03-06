@@ -611,27 +611,7 @@ fn handle_recursive_source(
 
             let using_index = effective_index.as_ref().unwrap_or(index);
 
-            let kind_filter = cli.kind.map(ItemKind::from);
-            let mut items =
-                render::collect_children_recursive(using_index, effective_idx, cli.private);
-            if let Some(filter) = kind_filter {
-                items.retain(|item| item.kind.matches_filter(filter));
-            }
-
-            let mut first = true;
-            for child in &items {
-                if !first {
-                    writeln!(w).map_err(GroxError::Io)?;
-                    writeln!(w, "────────────────────────────────────────")
-                        .map_err(GroxError::Io)?;
-                    writeln!(w).map_err(GroxError::Io)?;
-                }
-                first = false;
-                let content = read_source_content(child, source);
-                let rendered = render::ambiguous::render_source(child, content.as_deref());
-                writeln!(w, "{rendered}").map_err(GroxError::Io)?;
-            }
-            Ok(())
+            render_recursive_source(w, using_index, effective_idx, source, cli)
         }
         QueryResult::Ambiguous { indices, .. } => {
             // For ambiguous results, just show source for each match
@@ -875,6 +855,62 @@ fn annotate_reexport(output: &str, stub_path: &str, source_path: &str) -> String
     result
 }
 
+/// Renders items in `--recursive` mode using the appropriate detail tier.
+///
+/// Collects all children recursively, applies kind filtering, and dispatches
+/// to the json/brief/docs/list renderer based on CLI flags.
+fn render_recursive(w: &mut impl Write, index: &DocIndex, idx: usize, cli: &Cli) -> Result<()> {
+    let kind_filter = cli.kind.map(ItemKind::from);
+    let mut items = render::collect_children_recursive(index, idx, cli.private);
+    if let Some(filter) = kind_filter {
+        items.retain(|item| item.kind.matches_filter(filter));
+    }
+    let root_path = &index.get(idx).path;
+    let output = if cli.json {
+        render::json::render_json_recursive(&items)
+    } else if cli.brief {
+        render::brief::render_brief_recursive(&items, root_path)
+    } else if cli.docs {
+        render::docs::render_docs_recursive(&items, root_path)
+    } else {
+        render::list::render_list_recursive(&items, root_path)
+    };
+    writeln!(w, "{output}").map_err(GroxError::Io)?;
+    Ok(())
+}
+
+/// Renders items in `--recursive --source` mode with separator lines.
+///
+/// Collects all children recursively, applies kind filtering, and renders
+/// each item's source code separated by horizontal rules.
+fn render_recursive_source(
+    w: &mut impl Write,
+    index: &DocIndex,
+    idx: usize,
+    source: &CrateSource,
+    cli: &Cli,
+) -> Result<()> {
+    let kind_filter = cli.kind.map(ItemKind::from);
+    let mut items = render::collect_children_recursive(index, idx, cli.private);
+    if let Some(filter) = kind_filter {
+        items.retain(|item| item.kind.matches_filter(filter));
+    }
+
+    let mut first = true;
+    for child in &items {
+        if !first {
+            writeln!(w).map_err(GroxError::Io)?;
+            writeln!(w, "────────────────────────────────────────").map_err(GroxError::Io)?;
+            writeln!(w).map_err(GroxError::Io)?;
+        }
+        first = false;
+        let content = read_source_content(child, source);
+        let rendered = render::ambiguous::render_source(child, content.as_deref());
+        writeln!(w, "{rendered}").map_err(GroxError::Io)?;
+    }
+    Ok(())
+}
+
 /// Handles default/list/json/impls output.
 fn handle_output(
     w: &mut impl Write,
@@ -908,24 +944,7 @@ fn handle_output(
 
             // --recursive: collect all items recursively and render
             if cli.recursive {
-                let kind_filter = cli.kind.map(ItemKind::from);
-                let mut items =
-                    render::collect_children_recursive(using_index, effective_idx, cli.private);
-                if let Some(filter) = kind_filter {
-                    items.retain(|item| item.kind.matches_filter(filter));
-                }
-                let root_path = &using_index.get(effective_idx).path;
-                let output = if cli.json {
-                    render::json::render_json_recursive(&items)
-                } else if cli.brief {
-                    render::brief::render_brief_recursive(&items, root_path)
-                } else if cli.docs {
-                    render::docs::render_docs_recursive(&items, root_path)
-                } else {
-                    render::list::render_list_recursive(&items, root_path)
-                };
-                writeln!(w, "{output}").map_err(GroxError::Io)?;
-                return Ok(());
+                return render_recursive(w, using_index, effective_idx, cli);
             }
 
             let display = render::build_display_item(using_index, effective_idx, cli.private);
@@ -1031,42 +1050,9 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
         match result {
             QueryResult::Found { index: idx } => {
                 if cli.recursive && cli.source {
-                    let kind_filter = cli.kind.map(ItemKind::from);
-                    let mut items = render::collect_children_recursive(&index, idx, cli.private);
-                    if let Some(filter) = kind_filter {
-                        items.retain(|item| item.kind.matches_filter(filter));
-                    }
-
-                    let mut first_child = true;
-                    for child in &items {
-                        if !first_child {
-                            writeln!(w).map_err(GroxError::Io)?;
-                            writeln!(w, "────────────────────────────────────────")
-                                .map_err(GroxError::Io)?;
-                            writeln!(w).map_err(GroxError::Io)?;
-                        }
-                        first_child = false;
-                        let content = read_source_content(child, &source);
-                        let rendered = render::ambiguous::render_source(child, content.as_deref());
-                        writeln!(w, "{rendered}").map_err(GroxError::Io)?;
-                    }
+                    render_recursive_source(w, &index, idx, &source, cli)?;
                 } else if cli.recursive {
-                    let kind_filter = cli.kind.map(ItemKind::from);
-                    let mut items = render::collect_children_recursive(&index, idx, cli.private);
-                    if let Some(filter) = kind_filter {
-                        items.retain(|item| item.kind.matches_filter(filter));
-                    }
-                    let root_path = &index.get(idx).path;
-                    let output = if cli.json {
-                        render::json::render_json_recursive(&items)
-                    } else if cli.brief {
-                        render::brief::render_brief_recursive(&items, root_path)
-                    } else if cli.docs {
-                        render::docs::render_docs_recursive(&items, root_path)
-                    } else {
-                        render::list::render_list_recursive(&items, root_path)
-                    };
-                    writeln!(w, "{output}").map_err(GroxError::Io)?;
+                    render_recursive(w, &index, idx, cli)?;
                 } else {
                     let display = render::build_display_item(&index, idx, cli.private);
                     if cli.json {
