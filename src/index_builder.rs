@@ -277,16 +277,18 @@ impl IndexBuilder<'_> {
             };
 
             if let Some(parent_path) = self.id_to_path.get(&parent_id) {
+                segments.reverse();
                 return Some(format!("{}::{}", parent_path, segments.join("::")));
             }
 
             let Some(parent_name) = &parent_item.name else {
                 break;
             };
-            segments.insert(0, parent_name.clone());
+            segments.push(parent_name.clone());
             current_id = parent_id;
         }
 
+        segments.reverse();
         Some(segments.join("::"))
     }
 
