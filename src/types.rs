@@ -36,26 +36,134 @@ pub(crate) enum ItemKind {
     Primitive,
 }
 
+/// Metadata for an [`ItemKind`] variant: display name, category, filter group, and priority.
+///
+/// All four properties are defined in a single match inside [`ItemKind::meta`],
+/// so adding a new variant requires updating exactly one place.
+struct KindMeta {
+    /// User-facing short name: "fn", "struct", "mod", etc.
+    short_name: &'static str,
+    /// Display grouping category.
+    category: KindCategory,
+    /// Whether this is a "primary" kind for crate-root auto-selection.
+    is_primary: bool,
+    /// Canonical variant for `--kind` filter matching.
+    ///
+    /// Kinds in the same filter group share the same canonical variant.
+    /// For example, `TraitAlias` uses `Trait` as its canonical, so
+    /// `--kind trait` matches both `Trait` and `TraitAlias`.
+    filter_canonical: ItemKind,
+}
+
 impl ItemKind {
+    /// Returns the consolidated metadata for this kind.
+    ///
+    /// This is the single source of truth for short name, category, primary
+    /// status, and filter grouping. All public accessor methods delegate here.
+    const fn meta(self) -> KindMeta {
+        match self {
+            Self::Module => KindMeta {
+                short_name: "mod",
+                category: KindCategory::Modules,
+                is_primary: false,
+                filter_canonical: Self::Module,
+            },
+            Self::Struct => KindMeta {
+                short_name: "struct",
+                category: KindCategory::Structs,
+                is_primary: true,
+                filter_canonical: Self::Struct,
+            },
+            Self::Enum => KindMeta {
+                short_name: "enum",
+                category: KindCategory::Enums,
+                is_primary: true,
+                filter_canonical: Self::Enum,
+            },
+            Self::Union => KindMeta {
+                short_name: "union",
+                category: KindCategory::Unions,
+                is_primary: true,
+                filter_canonical: Self::Union,
+            },
+            Self::Trait => KindMeta {
+                short_name: "trait",
+                category: KindCategory::Traits,
+                is_primary: true,
+                filter_canonical: Self::Trait,
+            },
+            Self::TraitAlias => KindMeta {
+                short_name: "trait alias",
+                category: KindCategory::Traits,
+                is_primary: true,
+                filter_canonical: Self::Trait,
+            },
+            Self::Function => KindMeta {
+                short_name: "fn",
+                category: KindCategory::Functions,
+                is_primary: false,
+                filter_canonical: Self::Function,
+            },
+            Self::TypeAlias => KindMeta {
+                short_name: "type",
+                category: KindCategory::TypeAliases,
+                is_primary: true,
+                filter_canonical: Self::TypeAlias,
+            },
+            Self::AssocType | Self::ForeignType => KindMeta {
+                short_name: "type",
+                category: KindCategory::TypeAliases,
+                is_primary: false,
+                filter_canonical: Self::TypeAlias,
+            },
+            Self::Constant | Self::AssocConst => KindMeta {
+                short_name: "const",
+                category: KindCategory::Constants,
+                is_primary: false,
+                filter_canonical: Self::Constant,
+            },
+            Self::Static => KindMeta {
+                short_name: "static",
+                category: KindCategory::Statics,
+                is_primary: false,
+                filter_canonical: Self::Static,
+            },
+            Self::Macro => KindMeta {
+                short_name: "macro",
+                category: KindCategory::Macros,
+                is_primary: false,
+                filter_canonical: Self::Macro,
+            },
+            Self::ProcMacro => KindMeta {
+                short_name: "proc macro",
+                category: KindCategory::Macros,
+                is_primary: false,
+                filter_canonical: Self::Macro,
+            },
+            Self::Variant => KindMeta {
+                short_name: "variant",
+                category: KindCategory::Variants,
+                is_primary: false,
+                filter_canonical: Self::Variant,
+            },
+            Self::Field => KindMeta {
+                short_name: "field",
+                category: KindCategory::Fields,
+                is_primary: false,
+                filter_canonical: Self::Field,
+            },
+            Self::Primitive => KindMeta {
+                short_name: "primitive",
+                category: KindCategory::Primitives,
+                is_primary: false,
+                filter_canonical: Self::Primitive,
+            },
+        }
+    }
+
     /// Returns the user-facing short name: "fn", "struct", "mod", etc.
     pub(crate) fn short_name(self) -> &'static str {
-        match self {
-            Self::Module => "mod",
-            Self::Struct => "struct",
-            Self::Enum => "enum",
-            Self::Union => "union",
-            Self::Trait => "trait",
-            Self::TraitAlias => "trait alias",
-            Self::Function => "fn",
-            Self::TypeAlias | Self::AssocType | Self::ForeignType => "type",
-            Self::Constant | Self::AssocConst => "const",
-            Self::Static => "static",
-            Self::Macro => "macro",
-            Self::ProcMacro => "proc macro",
-            Self::Variant => "variant",
-            Self::Field => "field",
-            Self::Primitive => "primitive",
-        }
+        self.meta().short_name
     }
 
     /// Returns whether this kind matches a CLI `--kind` filter value.
@@ -73,34 +181,13 @@ impl ItemKind {
     /// All other kinds match only themselves.
     #[must_use]
     pub(crate) fn matches_filter(self, filter: Self) -> bool {
-        match filter {
-            Self::Trait => matches!(self, Self::Trait | Self::TraitAlias),
-            Self::TypeAlias => {
-                matches!(self, Self::TypeAlias | Self::AssocType | Self::ForeignType)
-            }
-            Self::Constant => matches!(self, Self::Constant | Self::AssocConst),
-            Self::Macro => matches!(self, Self::Macro | Self::ProcMacro),
-            other => self == other,
-        }
+        std::mem::discriminant(&self.meta().filter_canonical)
+            == std::mem::discriminant(&filter.meta().filter_canonical)
     }
 
     /// Maps this kind to a [`KindCategory`] for display grouping.
     pub(crate) fn category(self) -> KindCategory {
-        match self {
-            Self::Module => KindCategory::Modules,
-            Self::Struct => KindCategory::Structs,
-            Self::Enum => KindCategory::Enums,
-            Self::Union => KindCategory::Unions,
-            Self::Trait | Self::TraitAlias => KindCategory::Traits,
-            Self::Function => KindCategory::Functions,
-            Self::TypeAlias | Self::AssocType | Self::ForeignType => KindCategory::TypeAliases,
-            Self::Constant | Self::AssocConst => KindCategory::Constants,
-            Self::Static => KindCategory::Statics,
-            Self::Macro | Self::ProcMacro => KindCategory::Macros,
-            Self::Variant => KindCategory::Variants,
-            Self::Field => KindCategory::Fields,
-            Self::Primitive => KindCategory::Primitives,
-        }
+        self.meta().category
     }
 
     /// Returns whether this is a "primary" kind for crate-root auto-selection.
@@ -110,15 +197,7 @@ impl ItemKind {
     /// it auto-selects to Found instead of Ambiguous.
     #[must_use]
     pub(crate) fn is_primary(self) -> bool {
-        matches!(
-            self,
-            Self::Struct
-                | Self::Enum
-                | Self::Union
-                | Self::Trait
-                | Self::TraitAlias
-                | Self::TypeAlias
-        )
+        self.meta().is_primary
     }
 }
 
