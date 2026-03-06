@@ -41,20 +41,14 @@ enum CacheMetadata {
 
 /// Computes the cache file path for a given crate source.
 ///
-/// Project caches go under `target/groxide/`, global caches under `~/.cache/groxide/`.
+/// All caches go under `~/.cache/groxide/` (deps, stdlib, external subdirectories).
 pub(crate) fn cache_path(source: &CrateSource, feature_suffix: &str) -> Option<PathBuf> {
     match source {
         CrateSource::CurrentCrate { .. } => None,
-        CrateSource::Dependency {
-            manifest_path,
-            name,
-            version,
-            ..
-        } => {
-            // Use the workspace target dir — walk up to workspace root via the manifest's parent
-            let workspace_root = manifest_path.parent()?;
+        CrateSource::Dependency { name, version, .. } => {
+            let cache_dir = dirs::cache_dir()?;
             let filename = format!("{name}-{version}{feature_suffix}.groxide");
-            Some(workspace_root.join("target").join("groxide").join(filename))
+            Some(cache_dir.join("groxide").join("deps").join(filename))
         }
         CrateSource::Stdlib { name } => {
             let cache_dir = dirs::cache_dir()?;
@@ -307,7 +301,8 @@ mod tests {
         let source = make_dep_source(tmp_path);
 
         let index = make_test_index();
-        let cache_file = tmp_path.join("target/groxide/testcrate-1.0.0.groxide");
+        // Use a temp dir path directly — cache_path() returns global dir which we shouldn't pollute in tests
+        let cache_file = tmp_path.join("deps/testcrate-1.0.0.groxide");
 
         save_to_cache(&cache_file, &index, &source);
         let loaded = load_cached(&cache_file, &source);
@@ -405,7 +400,7 @@ mod tests {
         let source = make_dep_source(tmp_path);
         let index = make_test_index();
 
-        let cache_dir = tmp_path.join("target/groxide");
+        let cache_dir = tmp_path.join("deps");
         let cache_file = cache_dir.join("testcrate-1.0.0.groxide");
 
         save_to_cache(&cache_file, &index, &source);
@@ -440,7 +435,7 @@ mod tests {
         };
 
         let index = make_test_index();
-        let cache_file = tmp_path.join("target/groxide/serde-1.0.0.groxide");
+        let cache_file = tmp_path.join("deps/serde-1.0.0.groxide");
 
         save_to_cache(&cache_file, &index, &source_v1);
         assert!(
@@ -520,10 +515,10 @@ mod tests {
         );
     }
 
-    // ---- project vs global cache paths ----
+    // ---- dependency uses global cache ----
 
     #[test]
-    fn cache_path_dependency_under_target() {
+    fn cache_path_dependency_uses_global_cache() {
         let tmp = TempDir::new().unwrap();
         let source = CrateSource::Dependency {
             manifest_path: tmp.path().join("Cargo.toml"),
@@ -531,9 +526,10 @@ mod tests {
             version: "1.0.0".to_string(),
         };
         let path = cache_path(&source, "").unwrap();
+        let path_str = path.to_str().unwrap();
         assert!(
-            path.starts_with(tmp.path().join("target/groxide")),
-            "should be under target/groxide: {path:?}"
+            path_str.contains("groxide/deps/"),
+            "dependency should use global cache: {path_str}"
         );
     }
 
