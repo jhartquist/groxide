@@ -645,6 +645,36 @@ fn impls_bare_flag_still_works() {
     insta::assert_snapshot!("impls_bare_flag", stdout);
 }
 
+// ── --recursive composes with detail flags ───────────────────────────
+
+#[test]
+fn recursive_and_source_composable() {
+    let output = grox()
+        .args(["-r", "-s", "groxide_test_api"])
+        .output()
+        .expect("command runs");
+    // Should not fail with conflict error (exit 2)
+    assert_ne!(output.status.code(), Some(2));
+}
+
+#[test]
+fn recursive_and_brief_composable() {
+    let output = grox()
+        .args(["-r", "-b", "groxide_test_api"])
+        .output()
+        .expect("command runs");
+    assert_ne!(output.status.code(), Some(2));
+}
+
+#[test]
+fn recursive_and_docs_composable() {
+    let output = grox()
+        .args(["-r", "-d", "groxide_test_api"])
+        .output()
+        .expect("command runs");
+    assert_ne!(output.status.code(), Some(2));
+}
+
 // ── --clear-cache ────────────────────────────────────────────────────
 
 #[test]
