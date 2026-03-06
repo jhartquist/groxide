@@ -60,7 +60,7 @@ pub(crate) fn render_recursive_source(
             writeln!(w).map_err(GroxError::Io)?;
         }
         first = false;
-        let content = crate::read_source_content(child, source);
+        let content = crate::source::read_source_content(child, source);
         let rendered = render::ambiguous::render_source(child, content.as_deref(), cli.docs);
         writeln!(w, "{rendered}").map_err(GroxError::Io)?;
     }
