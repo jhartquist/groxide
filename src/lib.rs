@@ -30,6 +30,11 @@ use types::{DisplayItem, DisplayLimits, DocIndex, ItemKind, QueryResult};
 /// # Errors
 ///
 /// Returns `GroxError` if crate resolution, doc generation, or querying fails.
+///
+/// # Panics
+///
+/// Panics if virtual workspace detection succeeds but the context is unexpectedly `None`
+/// (should be unreachable).
 pub fn run(cli: &Cli) -> Result<()> {
     if cli.clear_cache {
         if let Some(path) = cache::clear_global_cache() {
@@ -49,6 +54,19 @@ pub fn run(cli: &Cli) -> Result<()> {
     } else {
         ProjectContext::discover(None).ok()
     };
+
+    // Step 1b: Virtual workspace detection — show all workspace members
+    if cli.path.is_none()
+        && cli.search.is_none()
+        && !cli.readme
+        && ctx
+            .as_ref()
+            .is_some_and(ProjectContext::is_virtual_workspace)
+    {
+        // SAFETY: is_some_and guarantees ctx is Some.
+        let ctx = ctx.as_ref().expect("invariant: checked is_some");
+        return handle_workspace(&mut out, ctx, cli);
+    }
 
     // Step 2: Parse query path
     let query_path = QueryPath::parse(cli.path.as_deref().unwrap_or(""))?;
@@ -873,6 +891,107 @@ fn handle_output(
             suggestions: suggestions.clone(),
         }),
     }
+}
+
+/// Handles workspace-wide querying when no path is given in a virtual workspace.
+///
+/// Iterates over all workspace member packages, builds their doc indices, and
+/// renders each crate's top-level view separated by blank lines.
+fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Result<()> {
+    let members = ctx.workspace_member_packages();
+    let features = FeatureFlags::from_cli(cli);
+    let feature_suffix = features.cache_suffix();
+
+    let mut first = true;
+    for pkg in &members {
+        let source = CrateSource::CurrentCrate {
+            manifest_path: pkg.manifest_path.clone().into_std_path_buf(),
+            name: pkg.name.clone(),
+            version: pkg.version.to_string(),
+        };
+
+        let (index, source) =
+            match load_or_build_index(source, &features, &feature_suffix, cli.private) {
+                Ok(pair) => pair,
+                Err(e) => {
+                    eprintln!("[grox] Failed to build index for {}: {e}", pkg.name);
+                    continue;
+                }
+            };
+
+        // Resolve crate root
+        let query_path = QueryPath {
+            crate_spec: CrateSpec::CurrentCrate,
+            item_segments: Vec::new(),
+        };
+        let result = resolve_item(&query_path, &index, None, &features, &feature_suffix, false);
+
+        if !first {
+            writeln!(w).map_err(GroxError::Io)?;
+        }
+        first = false;
+
+        match result {
+            QueryResult::Found { index: idx } => {
+                if cli.recursive && cli.source {
+                    let kind_filter = cli.kind.map(ItemKind::from);
+                    let mut items = render::collect_children_recursive(&index, idx, cli.private);
+                    if let Some(filter) = kind_filter {
+                        items.retain(|item| item.kind.matches_filter(filter));
+                    }
+
+                    let mut first_child = true;
+                    for child in &items {
+                        if !first_child {
+                            writeln!(w).map_err(GroxError::Io)?;
+                            writeln!(w, "────────────────────────────────────────")
+                                .map_err(GroxError::Io)?;
+                            writeln!(w).map_err(GroxError::Io)?;
+                        }
+                        first_child = false;
+                        let content = read_source_content(child, &source);
+                        let rendered = render::ambiguous::render_source(child, content.as_deref());
+                        writeln!(w, "{rendered}").map_err(GroxError::Io)?;
+                    }
+                } else if cli.recursive {
+                    let kind_filter = cli.kind.map(ItemKind::from);
+                    let mut items = render::collect_children_recursive(&index, idx, cli.private);
+                    if let Some(filter) = kind_filter {
+                        items.retain(|item| item.kind.matches_filter(filter));
+                    }
+                    let root_path = &index.get(idx).path;
+                    let output = if cli.json {
+                        render::json::render_json_recursive(&items)
+                    } else if cli.brief {
+                        render::brief::render_brief_recursive(&items, root_path)
+                    } else if cli.docs {
+                        render::docs::render_docs_recursive(&items, root_path)
+                    } else {
+                        render::list::render_list_recursive(&items, root_path)
+                    };
+                    writeln!(w, "{output}").map_err(GroxError::Io)?;
+                } else {
+                    let display = render::build_display_item(&index, idx, cli.private);
+                    if cli.json {
+                        let output = render::json::render_json(&display);
+                        writeln!(w, "{output}").map_err(GroxError::Io)?;
+                    } else if cli.brief {
+                        let output = render::brief::render_brief(&display);
+                        writeln!(w, "{output}").map_err(GroxError::Io)?;
+                    } else {
+                        let limits = DisplayLimits::default();
+                        let output = render::text::render_text(&display, &limits);
+                        writeln!(w, "{output}").map_err(GroxError::Io)?;
+                    }
+                }
+            }
+            QueryResult::NotFound { .. } | QueryResult::Ambiguous { .. } => {
+                eprintln!("[grox] Could not resolve crate root for {}", pkg.name);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Renders the `--impls` view for a display item.

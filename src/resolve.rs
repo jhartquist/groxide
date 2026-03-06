@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use cargo_metadata::{Metadata, MetadataCommand, PackageId};
+use cargo_metadata::{Metadata, MetadataCommand, Package, PackageId};
 
 use crate::cli::CrateSpec;
 use crate::error::{GroxError, Result};
@@ -109,6 +109,27 @@ impl ProjectContext {
             .manifest_path
             .clone()
             .into_std_path_buf()
+    }
+
+    /// Returns true if the workspace has no root package (virtual manifest).
+    pub(crate) fn is_virtual_workspace(&self) -> bool {
+        self.metadata
+            .resolve
+            .as_ref()
+            .and_then(|r| r.root.as_ref())
+            .is_none()
+    }
+
+    /// Returns all workspace member packages, sorted by name.
+    pub(crate) fn workspace_member_packages(&self) -> Vec<&Package> {
+        let mut members: Vec<_> = self
+            .metadata
+            .workspace_members
+            .iter()
+            .map(|id| &self.metadata[id])
+            .collect();
+        members.sort_by_key(|p| &p.name);
+        members
     }
 
     /// Resolves a `CrateSpec` to a `CrateSource`.
@@ -653,5 +674,42 @@ mod tests {
             version: None,
         };
         assert_eq!(ext_none.version(), None);
+    }
+
+    // ---- is_virtual_workspace ----
+
+    #[test]
+    fn is_virtual_workspace_returns_false_for_normal_crate() {
+        let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
+        assert!(
+            !ctx.is_virtual_workspace(),
+            "groxide is a normal crate, not a virtual workspace"
+        );
+    }
+
+    // ---- workspace_member_packages ----
+
+    #[test]
+    fn workspace_member_packages_returns_at_least_current() {
+        let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
+        let members = ctx.workspace_member_packages();
+        assert!(
+            !members.is_empty(),
+            "should have at least one workspace member"
+        );
+        assert!(
+            members.iter().any(|p| p.name == "groxide"),
+            "should include groxide"
+        );
+    }
+
+    #[test]
+    fn workspace_member_packages_returns_sorted_by_name() {
+        let ctx = ProjectContext::discover(None).expect("should find Cargo.toml");
+        let members = ctx.workspace_member_packages();
+        let names: Vec<&str> = members.iter().map(|p| p.name.as_str()).collect();
+        let mut sorted = names.clone();
+        sorted.sort_unstable();
+        assert_eq!(names, sorted, "members should be sorted by name");
     }
 }
