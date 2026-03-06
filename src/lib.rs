@@ -20,7 +20,7 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::time::Instant;
 
-use cli::{Cli, CrateSpec, FeatureFlags, QueryPath};
+use cli::{Cli, CrateSpec, FeatureFlags, OutputMode, QueryPath};
 use error::{GroxError, Result};
 use resolve::{CrateSource, ProjectContext};
 use types::{DisplayLimits, DocIndex, ItemKind, QueryResult};
@@ -463,58 +463,59 @@ fn handle_search(
     let results = search::search(index, search_query, kind_filter)?;
     let total = results.len();
 
-    if cli.json {
-        // JSON Lines output
-        for r in &results {
-            let item = index.get(r.index);
-            let obj = serde_json::json!({
-                "path": item.path,
-                "kind": item.kind.short_name(),
-                "signature": item.signature,
-                "summary": item.summary,
-                "score": r.score,
-            });
-            writeln!(
-                w,
-                "{}",
-                serde_json::to_string(&obj).expect("invariant: json serializes")
-            )
-            .map_err(GroxError::Io)?;
-        }
-    } else {
-        // Plain text output
-        if total == 0 {
-            writeln!(w, "0 results for \"{search_query}\":").map_err(GroxError::Io)?;
-        } else {
-            writeln!(w, "{total} results for \"{search_query}\":").map_err(GroxError::Io)?;
-            writeln!(w).map_err(GroxError::Io)?;
-
-            // Compute column widths
-            let max_kind_width = results
-                .iter()
-                .map(|r| index.get(r.index).kind.short_name().len())
-                .max()
-                .unwrap_or(0);
-            let max_path_width = results
-                .iter()
-                .map(|r| index.get(r.index).path.len())
-                .max()
-                .unwrap_or(0);
-
+    match cli.output_mode() {
+        OutputMode::Json => {
             for r in &results {
                 let item = index.get(r.index);
-                let kind = item.kind.short_name();
-                let path = &item.path;
-                let summary = &item.summary;
-                if summary.is_empty() {
-                    writeln!(w, "{kind:<max_kind_width$}  {path:<max_path_width$}")
+                let obj = serde_json::json!({
+                    "path": item.path,
+                    "kind": item.kind.short_name(),
+                    "signature": item.signature,
+                    "summary": item.summary,
+                    "score": r.score,
+                });
+                writeln!(
+                    w,
+                    "{}",
+                    serde_json::to_string(&obj).expect("invariant: json serializes")
+                )
+                .map_err(GroxError::Io)?;
+            }
+        }
+        OutputMode::Brief | OutputMode::Text => {
+            if total == 0 {
+                writeln!(w, "0 results for \"{search_query}\":").map_err(GroxError::Io)?;
+            } else {
+                writeln!(w, "{total} results for \"{search_query}\":").map_err(GroxError::Io)?;
+                writeln!(w).map_err(GroxError::Io)?;
+
+                // Compute column widths
+                let max_kind_width = results
+                    .iter()
+                    .map(|r| index.get(r.index).kind.short_name().len())
+                    .max()
+                    .unwrap_or(0);
+                let max_path_width = results
+                    .iter()
+                    .map(|r| index.get(r.index).path.len())
+                    .max()
+                    .unwrap_or(0);
+
+                for r in &results {
+                    let item = index.get(r.index);
+                    let kind = item.kind.short_name();
+                    let path = &item.path;
+                    let summary = &item.summary;
+                    if summary.is_empty() {
+                        writeln!(w, "{kind:<max_kind_width$}  {path:<max_path_width$}")
+                            .map_err(GroxError::Io)?;
+                    } else {
+                        writeln!(
+                            w,
+                            "{kind:<max_kind_width$}  {path:<max_path_width$}  {summary}"
+                        )
                         .map_err(GroxError::Io)?;
-                } else {
-                    writeln!(
-                        w,
-                        "{kind:<max_kind_width$}  {path:<max_path_width$}  {summary}"
-                    )
-                    .map_err(GroxError::Io)?;
+                    }
                 }
             }
         }
@@ -616,17 +617,15 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
                 } else {
                     let kind_filter = cli.kind.map(ItemKind::from);
                     let display = render::build_display_item(index, idx, cli.private, kind_filter);
-                    if cli.json {
-                        let output = render::json::render_json(&display);
-                        writeln!(w, "{output}").map_err(GroxError::Io)?;
-                    } else if cli.brief {
-                        let output = render::brief::render_brief(&display);
-                        writeln!(w, "{output}").map_err(GroxError::Io)?;
-                    } else {
-                        let limits = DisplayLimits::default();
-                        let output = render::text::render_text(&display, &limits);
-                        writeln!(w, "{output}").map_err(GroxError::Io)?;
-                    }
+                    let output = match cli.output_mode() {
+                        OutputMode::Json => render::json::render_json(&display),
+                        OutputMode::Brief => render::brief::render_brief(&display),
+                        OutputMode::Text => {
+                            let limits = DisplayLimits::default();
+                            render::text::render_text(&display, &limits)
+                        }
+                    };
+                    writeln!(w, "{output}").map_err(GroxError::Io)?;
                 }
             }
             QueryResult::NotFound { .. } | QueryResult::Ambiguous { .. } => {

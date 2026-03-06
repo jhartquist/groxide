@@ -5,6 +5,20 @@ use clap::{Parser, ValueEnum};
 use crate::error::{GroxError, Result};
 use crate::types::ItemKind;
 
+/// Output format for rendering query results.
+///
+/// Represents the top-level format choice (JSON, brief, or full text),
+/// not the detail tier (`--docs`, `--source`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OutputMode {
+    /// JSON Lines output (`--json`).
+    Json,
+    /// Compact names-only output (`--brief`).
+    Brief,
+    /// Default plain text output (possibly with `--docs`/`--source` modifiers).
+    Text,
+}
+
 const HELP_EXAMPLES: &str = "\
 EXAMPLES:
     grox serde::Deserialize          Struct docs with methods
@@ -92,6 +106,19 @@ pub struct Cli {
     /// Clear the global documentation cache and exit
     #[arg(long)]
     pub clear_cache: bool,
+}
+
+impl Cli {
+    /// Returns the output format mode based on CLI flags.
+    pub(crate) fn output_mode(&self) -> OutputMode {
+        if self.json {
+            OutputMode::Json
+        } else if self.brief {
+            OutputMode::Brief
+        } else {
+            OutputMode::Text
+        }
+    }
 }
 
 /// Item kinds accepted by the --kind flag.
