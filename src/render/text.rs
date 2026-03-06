@@ -105,7 +105,7 @@ fn render_type(
     // Variants (enums only)
     if !variants.is_empty() {
         out.push('\n');
-        out.push_str("Variants:\n");
+        out.push_str("variants:\n");
         for v in variants {
             render_signature_line(&mut out, v);
         }
@@ -114,7 +114,7 @@ fn render_type(
     // Methods
     if !methods.is_empty() {
         out.push('\n');
-        out.push_str("Methods:\n");
+        out.push_str("methods:\n");
         for m in methods {
             render_signature_line(&mut out, m);
         }
@@ -131,7 +131,7 @@ fn render_type(
         });
 
         out.push('\n');
-        out.push_str("Trait Implementations:\n");
+        out.push_str("trait implementations:\n");
         for ti in &sorted_impls {
             let _ = writeln!(out, "  impl {}", ti.trait_path);
         }
@@ -178,18 +178,18 @@ fn render_trait(
     } else if has_required && has_provided {
         // Both: use distinct headers
         out.push('\n');
-        out.push_str("Required Methods:\n");
+        out.push_str("required methods:\n");
         for m in required_methods {
             render_signature_line(&mut out, m);
         }
 
         out.push('\n');
-        out.push_str("Provided Methods:\n");
+        out.push_str("provided methods:\n");
         for m in provided_methods {
             render_signature_line(&mut out, m);
         }
     } else {
-        // Only one kind: use generic "Methods:" header
+        // Only one kind: use generic "methods:" header
         let methods = if has_required {
             required_methods
         } else {
@@ -197,7 +197,7 @@ fn render_trait(
         };
 
         out.push('\n');
-        out.push_str("Methods:\n");
+        out.push_str("methods:\n");
         for m in methods {
             render_signature_line(&mut out, m);
         }
@@ -787,7 +787,7 @@ mod tests {
         assert!(std::str::from_utf8(output.as_bytes()).is_ok());
     }
 
-    // ---- Trait with only required methods uses generic "Methods:" header ----
+    // ---- Trait with only required methods uses generic "methods:" header ----
 
     #[test]
     fn render_trait_only_required_uses_methods_header() {
@@ -823,9 +823,9 @@ mod tests {
         let limits = DisplayLimits::default();
         let output = render_text(&di, &limits);
 
-        assert!(output.contains("Methods:"));
-        assert!(!output.contains("Required Methods:"));
-        assert!(!output.contains("Provided Methods:"));
+        assert!(output.contains("methods:"));
+        assert!(!output.contains("required methods:"));
+        assert!(!output.contains("provided methods:"));
     }
 
     // ---- Marker trait shows (no methods) ----

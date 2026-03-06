@@ -6,6 +6,6 @@ trait mycrate::MyTrait
 
 pub trait MyTrait
 
-Implementors:
+implementors:
   mycrate::MyStruct
   mycrate::OtherStruct

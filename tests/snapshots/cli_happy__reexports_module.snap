@@ -8,13 +8,13 @@ Module for testing re-export handling.
 
 Contains both specific pub use re-exports and glob re-exports.
 
-Structs:
+structs:
   GlobItem                        An item that will be glob-reexported.
   Helper                          Re-exported `Helper` from the private inner module.
 
-Functions:
+functions:
   pub fn glob_fn() -> bool                                    Another item for glob re-export.
   pub fn inner_fn() -> i32                                    Re-exported `inner_fn` from the private inner module.
 
-Type Aliases:
+type aliases:
   pub type GlobAlias = Vec<String>                            A type alias in the glob source.

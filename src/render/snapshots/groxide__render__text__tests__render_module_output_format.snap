@@ -6,8 +6,8 @@ mod mycrate::sync
 
 Synchronization primitives.
 
-Structs:
+structs:
   Mutex                           An asynchronous Mutex-like type.
 
-Enums:
+enums:
   TryLockError                    Error returned from try_lock.

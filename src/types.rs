@@ -139,19 +139,19 @@ impl KindCategory {
     /// Returns the section header text: "Modules:", "Structs:", etc.
     pub(crate) fn header(self) -> &'static str {
         match self {
-            Self::Modules => "Modules:",
-            Self::Structs => "Structs:",
-            Self::Enums => "Enums:",
-            Self::Unions => "Unions:",
-            Self::Traits => "Traits:",
-            Self::Functions => "Functions:",
-            Self::TypeAliases => "Type Aliases:",
-            Self::Constants => "Constants:",
-            Self::Statics => "Statics:",
-            Self::Macros => "Macros:",
-            Self::Variants => "Variants:",
-            Self::Fields => "Fields:",
-            Self::Primitives => "Primitives:",
+            Self::Modules => "modules:",
+            Self::Structs => "structs:",
+            Self::Enums => "enums:",
+            Self::Unions => "unions:",
+            Self::Traits => "traits:",
+            Self::Functions => "functions:",
+            Self::TypeAliases => "type aliases:",
+            Self::Constants => "constants:",
+            Self::Statics => "statics:",
+            Self::Macros => "macros:",
+            Self::Variants => "variants:",
+            Self::Fields => "fields:",
+            Self::Primitives => "primitives:",
         }
     }
 
@@ -572,19 +572,19 @@ mod tests {
 
     #[test]
     fn header_returns_expected_text_for_all_categories() {
-        assert_eq!(KindCategory::Modules.header(), "Modules:");
-        assert_eq!(KindCategory::Structs.header(), "Structs:");
-        assert_eq!(KindCategory::Enums.header(), "Enums:");
-        assert_eq!(KindCategory::Unions.header(), "Unions:");
-        assert_eq!(KindCategory::Traits.header(), "Traits:");
-        assert_eq!(KindCategory::Functions.header(), "Functions:");
-        assert_eq!(KindCategory::TypeAliases.header(), "Type Aliases:");
-        assert_eq!(KindCategory::Constants.header(), "Constants:");
-        assert_eq!(KindCategory::Statics.header(), "Statics:");
-        assert_eq!(KindCategory::Macros.header(), "Macros:");
-        assert_eq!(KindCategory::Variants.header(), "Variants:");
-        assert_eq!(KindCategory::Fields.header(), "Fields:");
-        assert_eq!(KindCategory::Primitives.header(), "Primitives:");
+        assert_eq!(KindCategory::Modules.header(), "modules:");
+        assert_eq!(KindCategory::Structs.header(), "structs:");
+        assert_eq!(KindCategory::Enums.header(), "enums:");
+        assert_eq!(KindCategory::Unions.header(), "unions:");
+        assert_eq!(KindCategory::Traits.header(), "traits:");
+        assert_eq!(KindCategory::Functions.header(), "functions:");
+        assert_eq!(KindCategory::TypeAliases.header(), "type aliases:");
+        assert_eq!(KindCategory::Constants.header(), "constants:");
+        assert_eq!(KindCategory::Statics.header(), "statics:");
+        assert_eq!(KindCategory::Macros.header(), "macros:");
+        assert_eq!(KindCategory::Variants.header(), "variants:");
+        assert_eq!(KindCategory::Fields.header(), "fields:");
+        assert_eq!(KindCategory::Primitives.header(), "primitives:");
     }
 
     // ---- KindCategory ordering ----

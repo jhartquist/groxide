@@ -8,7 +8,7 @@ pub struct InnerItem { pub label: String }
 
 A struct at 3 levels of nesting.
 
-Trait Implementations:
+trait implementations:
   impl Freeze
   impl RefUnwindSafe
   impl Send

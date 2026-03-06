@@ -10,22 +10,22 @@ This crate exists solely to produce rustdoc JSON that covers every item kind
 groxide needs to handle: structs, enums, traits, functions, constants, type aliases,
 macros, statics, unions, re-exports, nested modules, and more.
 
-Modules:
+modules:
   containers                      Container types for testing module-level items.
   deeply                          A module for testing deeply nested paths.
   reexports                       Module for testing re-export handling.
   traits                          Trait definitions for testing trait rendering.
 
-Structs:
+structs:
   GenericStruct                   A generic container holding a single value.
   SimpleStruct                    A simple struct with no generics.
   UnstableStruct                  A feature-gated struct.
 
-Enums:
+enums:
   Direction                       An enum representing cardinal directions.
   Shape                           An enum with data-carrying variants.
 
-Unions:
+unions:
   IntOrFloat                      A union for testing union item rendering.
 
 # Safety
@@ -33,23 +33,23 @@ Unions:
 Accessing union fields requires `unsafe` since the compiler cannot guarantee
 which field was last written.
 
-Functions:
+functions:
   pub fn add(a: i32, b: i32) -> i32                           Adds two numbers together.
   pub fn generic_fn<T: std::fmt::Display, U: Into<String>>(value: T, _label: U) -> String  A function with multiple generic parameters.
   pub fn unicode_docs() -> &'static str                       A function demonstrating unicode in documentation.
   pub fn unstable_api() -> &'static str                       An item only available with the `unstable` feature.
 
-Type Aliases:
+type aliases:
   pub type Callback = fn(i32) -> bool                         A type alias for a callback function.
   pub type Result<T> = std::result::Result<T, String>         A type alias for results in this crate.
 
-Constants:
+constants:
   pub const DEFAULT_GREETING: &str                            The default greeting string.
   pub const MAX_BUFFER_SIZE: usize                            The maximum buffer size in bytes.
 
-Statics:
+statics:
   pub static GLOBAL_COUNTER: std::sync::atomic::AtomicUsize   A global counter for testing static items.
   pub static VERSION: &str                                    A simple static string.
 
-Macros:
+macros:
   greet                           Generates a greeting string.

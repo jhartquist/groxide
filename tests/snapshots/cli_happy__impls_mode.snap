@@ -6,7 +6,7 @@ struct groxide_test_api::GenericStruct
 
 pub struct GenericStruct<T: Clone>
 
-Trait Implementations:
+trait implementations:
   impl Freeze (synthetic)
   impl RefUnwindSafe (synthetic)
   impl Send (synthetic)

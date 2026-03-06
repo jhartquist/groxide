@@ -6,7 +6,7 @@ struct mycrate::Mutex
 
 pub struct Mutex<T: ?Sized>
 
-Trait Implementations:
+trait implementations:
   impl Clone
   impl Debug
   impl Default

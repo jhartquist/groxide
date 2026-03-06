@@ -22,8 +22,8 @@ Implement Stringify for a custom type:
       }
   }
 
-Required Methods:
+required methods:
   fn stringify(&self) -> String                               Converts this value to its string representation.
 
-Provided Methods:
+provided methods:
   fn debug_string(&self) -> String                            Returns a debug-formatted string representation.

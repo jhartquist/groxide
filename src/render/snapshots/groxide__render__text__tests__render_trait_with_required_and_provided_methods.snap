@@ -8,9 +8,9 @@ pub trait AsyncRead
 
 Read bytes from a source asynchronously.
 
-Required Methods:
+required methods:
   fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>>  Attempts to read from the source.
 
-Provided Methods:
+provided methods:
   fn chain<R>(self, next: R) -> Chain<Self, R>                Creates an adaptor which chains this stream.
   fn take(self, limit: u64) -> Take<Self>                     Creates an adaptor which reads at most limit bytes.

@@ -1370,7 +1370,7 @@ mod tests {
         let (result, _) = query_fixture(&index, "Direction", &["Direction"]);
         let output = result.expect("enum query should succeed");
         assert!(
-            output.contains("Variants:") || output.contains("North"),
+            output.contains("variants:") || output.contains("North"),
             "enum should show variants: {output}"
         );
     }

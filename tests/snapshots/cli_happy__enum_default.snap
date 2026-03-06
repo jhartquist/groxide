@@ -10,13 +10,13 @@ An enum representing cardinal directions.
 
 Used for testing enum variant rendering.
 
-Variants:
+variants:
   East                                                        Points east.
   North                                                       Points north.
   South                                                       Points south.
   West                                                        Points west.
 
-Trait Implementations:
+trait implementations:
   impl Freeze
   impl RefUnwindSafe
   impl Send

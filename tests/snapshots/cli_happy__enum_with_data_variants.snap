@@ -8,12 +8,12 @@ pub enum Shape
 
 An enum with data-carrying variants.
 
-Variants:
+variants:
   Circle(f64)                                                 A circle with a radius.
   Point                                                       A point with no data.
   Rectangle { width: f64, height: f64 }                       A rectangle with width and height.
 
-Trait Implementations:
+trait implementations:
   impl Freeze
   impl RefUnwindSafe
   impl Send

@@ -6,11 +6,11 @@ crate mycrate
 
 A framework for doing things.
 
-Modules:
+modules:
   utils                           Utility helpers.
 
-Structs:
+structs:
   Widget                          A widget.
 
-Functions:
+functions:
   pub fn process(x: u32) -> u32                               Processes a value.

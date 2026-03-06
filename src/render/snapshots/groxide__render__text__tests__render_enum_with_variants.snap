@@ -8,10 +8,10 @@ pub enum Color
 
 Represents a color.
 
-Variants:
+variants:
   Blue(u8)                                                    The color blue with intensity.
   Green                                                       The color green.
   Red                                                         The color red.
 
-Methods:
+methods:
   pub fn name(&self) -> &str                                  Returns the color name.

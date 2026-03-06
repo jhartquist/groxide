@@ -92,7 +92,7 @@ pub(crate) fn render_impls_type(
         });
 
         out.push('\n');
-        out.push_str("Trait Implementations:\n");
+        out.push_str("trait implementations:\n");
         for ti in &sorted_impls {
             if ti.is_synthetic {
                 let _ = writeln!(out, "  impl {} (synthetic)", ti.trait_path);
@@ -126,7 +126,7 @@ pub(crate) fn render_impls_trait(item: &IndexItem, implementors: &[String]) -> S
         out.push_str("No known implementors.");
     } else {
         out.push('\n');
-        out.push_str("Implementors:\n");
+        out.push_str("implementors:\n");
         for imp in implementors {
             let _ = writeln!(out, "  {imp}");
         }

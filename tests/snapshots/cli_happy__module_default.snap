@@ -9,9 +9,9 @@ Container types for testing module-level items.
 This module provides various container types used to exercise
 groxide's rendering of structs, enums, and associated items.
 
-Structs:
+structs:
   Pair                            A pair of two values, possibly of different types.
   Stack                           A stack data structure backed by a `Vec`.
 
-Constants:
+constants:
   pub const MAX_CAPACITY: usize                               The maximum capacity for a fixed-size container.

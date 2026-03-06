@@ -6,9 +6,9 @@ crate mycrate
 
 A crate.
 
-Modules:
+modules:
   fs                              Filesystem utilities.  [feature: fs]
   io                              I/O utilities.
 
-Functions:
+functions:
   pub fn read(path: &str) -> Vec<u8>                          Reads a file.  [feature: fs]

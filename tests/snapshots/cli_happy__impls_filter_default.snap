@@ -6,5 +6,5 @@ struct groxide_test_api::containers::Stack
 
 pub struct Stack<T>
 
-Trait Implementations:
+trait implementations:
   impl Default

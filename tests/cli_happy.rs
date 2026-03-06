@@ -208,7 +208,7 @@ fn impls_mode() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Trait Implementations:"),
+        stdout.contains("trait implementations:"),
         "should show trait implementations: {stdout}"
     );
 
@@ -473,7 +473,7 @@ fn enum_with_variants() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Variants:"),
+        stdout.contains("variants:"),
         "should show variants section: {stdout}"
     );
     assert!(
@@ -687,7 +687,7 @@ fn impls_bare_flag_still_works() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Trait Implementations:"),
+        stdout.contains("trait implementations:"),
         "should show all trait implementations: {stdout}"
     );
 
