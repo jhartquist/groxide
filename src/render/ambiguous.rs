@@ -41,8 +41,13 @@ pub(crate) fn render_ambiguous(index: &DocIndex, indices: &[usize], query: &str)
 
 /// Renders the impls view (`--impls`) for a type (struct/enum/union).
 ///
-/// Shows all trait implementations with no truncation.
-pub(crate) fn render_impls_type(item: &IndexItem, trait_impls: &[TraitImplInfo]) -> String {
+/// When `trait_filter` is `Some`, only shows implementations whose trait path
+/// contains the filter string (case-insensitive). Shows all when `None`.
+pub(crate) fn render_impls_type(
+    item: &IndexItem,
+    trait_impls: &[TraitImplInfo],
+    trait_filter: Option<&str>,
+) -> String {
     let mut out = String::new();
 
     // Header
@@ -54,12 +59,32 @@ pub(crate) fn render_impls_type(item: &IndexItem, trait_impls: &[TraitImplInfo])
     out.push_str(&item.signature);
     out.push('\n');
 
-    if trait_impls.is_empty() {
+    // Apply trait filter if provided
+    let filtered: Vec<&TraitImplInfo> = if let Some(filter) = trait_filter {
+        let filter_lower = filter.to_lowercase();
+        trait_impls
+            .iter()
+            .filter(|ti| ti.trait_path.to_lowercase().contains(&filter_lower))
+            .collect()
+    } else {
+        trait_impls.iter().collect()
+    };
+
+    if let Some(filter) = trait_filter {
+        if filtered.is_empty() {
+            out.push('\n');
+            let _ = write!(out, "No implementation of '{filter}' found.");
+            trim_trailing_newlines(&mut out);
+            return out;
+        }
+    }
+
+    if filtered.is_empty() {
         out.push('\n');
         out.push_str("No trait implementations.");
     } else {
         // Sort: non-synthetic first (alphabetically), then synthetic (alphabetically)
-        let mut sorted_impls: Vec<&TraitImplInfo> = trait_impls.iter().collect();
+        let mut sorted_impls = filtered;
         sorted_impls.sort_by(|a, b| {
             a.is_synthetic
                 .cmp(&b.is_synthetic)
@@ -535,7 +560,7 @@ mod tests {
             },
         ];
 
-        let output = render_impls_type(&item, &trait_impls);
+        let output = render_impls_type(&item, &trait_impls, None);
         insta::assert_snapshot!(output);
     }
 
@@ -552,7 +577,7 @@ mod tests {
             "",
         );
 
-        let output = render_impls_type(&item, &[]);
+        let output = render_impls_type(&item, &[], None);
         insta::assert_snapshot!(output);
     }
 
@@ -593,6 +618,83 @@ mod tests {
 
         let output = render_impls_trait(&item, &[]);
         insta::assert_snapshot!(output);
+    }
+
+    // ---- Impls: filtered by trait name ----
+
+    #[test]
+    fn render_impls_type_filtered_shows_matching_only() {
+        let item = make_item_full(
+            "Mutex",
+            "mycrate::Mutex",
+            ItemKind::Struct,
+            "pub struct Mutex<T: ?Sized>",
+            "",
+            "",
+        );
+
+        let trait_impls = vec![
+            TraitImplInfo {
+                trait_path: "Debug".to_string(),
+                is_synthetic: false,
+            },
+            TraitImplInfo {
+                trait_path: "Clone".to_string(),
+                is_synthetic: false,
+            },
+            TraitImplInfo {
+                trait_path: "Send".to_string(),
+                is_synthetic: true,
+            },
+        ];
+
+        let output = render_impls_type(&item, &trait_impls, Some("Clone"));
+        assert!(output.contains("Clone"), "should show Clone: {output}");
+        assert!(!output.contains("Debug"), "should not show Debug: {output}");
+        assert!(!output.contains("Send"), "should not show Send: {output}");
+    }
+
+    #[test]
+    fn render_impls_type_filter_case_insensitive() {
+        let item = make_item_full(
+            "Foo",
+            "mycrate::Foo",
+            ItemKind::Struct,
+            "pub struct Foo",
+            "",
+            "",
+        );
+
+        let trait_impls = vec![TraitImplInfo {
+            trait_path: "Debug".to_string(),
+            is_synthetic: false,
+        }];
+
+        let output = render_impls_type(&item, &trait_impls, Some("debug"));
+        assert!(output.contains("Debug"), "case-insensitive match: {output}");
+    }
+
+    #[test]
+    fn render_impls_type_filter_no_match() {
+        let item = make_item_full(
+            "Foo",
+            "mycrate::Foo",
+            ItemKind::Struct,
+            "pub struct Foo",
+            "",
+            "",
+        );
+
+        let trait_impls = vec![TraitImplInfo {
+            trait_path: "Debug".to_string(),
+            is_synthetic: false,
+        }];
+
+        let output = render_impls_type(&item, &trait_impls, Some("Clone"));
+        assert!(
+            output.contains("No implementation of 'Clone' found"),
+            "should show no-match message: {output}"
+        );
     }
 
     // ---- Impls: other item types ----

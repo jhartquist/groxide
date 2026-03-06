@@ -42,8 +42,8 @@ Options:
   -j, --json
           JSON Lines output
 
-  -i, --impls
-          Show trait implementations (on types) or implementors (on traits)
+  -i, --impls [<IMPLS>]
+          Show trait implementations, optionally filtered by trait name
 
   -r, --recursive
           List all public items recursively in a crate or module tree

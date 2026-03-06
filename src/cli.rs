@@ -55,9 +55,10 @@ pub struct Cli {
     #[arg(short = 'j', long)]
     pub json: bool,
 
-    /// Show trait implementations (on types) or implementors (on traits)
-    #[arg(short = 'i', long, conflicts_with_all = ["brief", "docs", "source"])]
-    pub impls: bool,
+    /// Show trait implementations, optionally filtered by trait name
+    #[arg(short = 'i', long, conflicts_with_all = ["brief", "docs", "source"],
+          num_args = 0..=1, default_missing_value = "")]
+    pub impls: Option<String>,
 
     /// List all public items recursively in a crate or module tree
     #[arg(short = 'r', long, conflicts_with_all = ["source", "impls", "search"])]
@@ -625,6 +626,20 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn clap_parses_impls_bare_flag() {
+        let cli = Cli::try_parse_from(["grox", "something", "--impls"]).unwrap();
+        assert_eq!(cli.impls, Some(String::new()));
+        assert_eq!(cli.path, Some("something".to_string()));
+    }
+
+    #[test]
+    fn clap_parses_impls_with_trait_filter() {
+        let cli = Cli::try_parse_from(["grox", "something", "--impls", "Clone"]).unwrap();
+        assert_eq!(cli.impls, Some("Clone".to_string()));
+        assert_eq!(cli.path, Some("something".to_string()));
     }
 
     #[test]

@@ -1,0 +1,17 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+struct groxide_test_api::containers::Stack
+
+pub struct Stack<T>
+
+Trait Implementations:
+  impl Default
+  impl Freeze (synthetic)
+  impl RefUnwindSafe (synthetic)
+  impl Send (synthetic)
+  impl Sync (synthetic)
+  impl Unpin (synthetic)
+  impl UnsafeUnpin (synthetic)
+  impl UnwindSafe (synthetic)

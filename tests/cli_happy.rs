@@ -199,8 +199,8 @@ fn source_mode() {
 #[test]
 fn impls_mode() {
     let output = grox()
-        .arg("--impls")
         .arg("groxide_test_api::GenericStruct")
+        .arg("--impls")
         .output()
         .expect("command runs");
 
@@ -363,8 +363,8 @@ fn source_mode_struct() {
 #[test]
 fn impls_on_trait() {
     let output = grox()
-        .arg("--impls")
         .arg("groxide_test_api::traits::Stringify")
+        .arg("--impls")
         .output()
         .expect("command runs");
 
@@ -577,4 +577,70 @@ fn recursive_with_kind_filter() {
     }
 
     insta::assert_snapshot!("recursive_kind_filter", stdout);
+}
+
+// ── --impls with trait filter ────────────────────────────────────────
+
+#[test]
+fn impls_filter_by_trait_name() {
+    let output = grox()
+        .arg("--impls")
+        .arg("Default")
+        .arg("groxide_test_api::containers::Stack")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Default"),
+        "should show Default impl: {stdout}"
+    );
+    // Should NOT show synthetic impls like Send/Sync when filtering
+    assert!(
+        !stdout.contains("Send"),
+        "should not show unrelated impls: {stdout}"
+    );
+
+    insta::assert_snapshot!("impls_filter_default", stdout);
+}
+
+#[test]
+fn impls_filter_no_match() {
+    let output = grox()
+        .arg("--impls")
+        .arg("NonexistentTrait")
+        .arg("groxide_test_api::containers::Stack")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("No implementation of 'NonexistentTrait' found"),
+        "should show no-match message: {stdout}"
+    );
+
+    insta::assert_snapshot!("impls_filter_no_match", stdout);
+}
+
+#[test]
+fn impls_bare_flag_still_works() {
+    let output = grox()
+        .arg("groxide_test_api::containers::Stack")
+        .arg("--impls")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Trait Implementations:"),
+        "should show all trait implementations: {stdout}"
+    );
+
+    insta::assert_snapshot!("impls_bare_flag", stdout);
 }

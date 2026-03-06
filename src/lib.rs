@@ -718,8 +718,13 @@ fn handle_output(
 
             let display = render::build_display_item(using_index, effective_idx, cli.private);
 
-            if cli.impls {
-                let output = render_impls(&display, using_index, effective_idx);
+            if let Some(ref filter) = cli.impls {
+                let trait_filter = if filter.is_empty() {
+                    None
+                } else {
+                    Some(filter.as_str())
+                };
+                let output = render_impls(&display, using_index, effective_idx, trait_filter);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.json {
                 let output = render::json::render_json(&display);
@@ -760,11 +765,16 @@ fn handle_output(
 }
 
 /// Renders the `--impls` view for a display item.
-fn render_impls(display: &DisplayItem<'_>, _index: &DocIndex, _item_idx: usize) -> String {
+fn render_impls(
+    display: &DisplayItem<'_>,
+    _index: &DocIndex,
+    _item_idx: usize,
+    trait_filter: Option<&str>,
+) -> String {
     match display {
         DisplayItem::Type {
             item, trait_impls, ..
-        } => render::ambiguous::render_impls_type(item, trait_impls),
+        } => render::ambiguous::render_impls_type(item, trait_impls, trait_filter),
         DisplayItem::Trait { item, .. } => {
             // For traits, gather implementors from the index (not stored yet, return empty)
             render::ambiguous::render_impls_trait(item, &[])

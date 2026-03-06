@@ -280,8 +280,8 @@ fn semver_version_method_lookup() {
 #[ignore = "requires nightly toolchain"]
 fn semver_version_impls_shows_trait_implementations() {
     let output = grox()
-        .arg("--impls")
         .arg("semver::Version")
+        .arg("--impls")
         .output()
         .expect("command runs");
 

@@ -1,0 +1,10 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+struct groxide_test_api::containers::Stack
+
+pub struct Stack<T>
+
+Trait Implementations:
+  impl Default
