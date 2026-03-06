@@ -85,8 +85,20 @@ pub fn run(cli: &Cli) -> Result<()> {
             cli.private,
         );
 
-        if cli.source {
-            // Step 8: Handle --source
+        if cli.recursive && cli.source {
+            // Step 8a: Handle --recursive --source (dump everything)
+            handle_recursive_source(
+                &mut out,
+                &result,
+                &index,
+                &source,
+                cli,
+                ctx.as_ref(),
+                &features,
+                &feature_suffix,
+            )?;
+        } else if cli.source {
+            // Step 8b: Handle --source
             handle_source(&mut out, &result, &index, &source)?;
         } else {
             // Step 9: Render output
@@ -494,6 +506,89 @@ fn handle_source(
                 .collect();
 
             // Need to convert owned strings to refs for the render function
+            let refs: Vec<_> = items_with_source
+                .iter()
+                .map(|(item, content)| (*item, content.as_deref()))
+                .collect();
+
+            let output = render::ambiguous::render_source_ambiguous(&refs);
+            writeln!(w, "{output}").map_err(GroxError::Io)?;
+            Ok(())
+        }
+        QueryResult::NotFound {
+            query, suggestions, ..
+        } => Err(GroxError::ItemNotFound {
+            query: query.clone(),
+            crate_name: Some(index.crate_name.clone()),
+            suggestions: suggestions.clone(),
+        }),
+    }
+}
+
+/// Handles `--recursive --source` mode: dumps docs + source for all items.
+#[allow(clippy::too_many_arguments)]
+fn handle_recursive_source(
+    w: &mut impl Write,
+    result: &QueryResult,
+    index: &DocIndex,
+    source: &CrateSource,
+    cli: &Cli,
+    ctx: Option<&ProjectContext>,
+    features: &FeatureFlags,
+    feature_suffix: &str,
+) -> Result<()> {
+    match result {
+        QueryResult::Found { index: idx } => {
+            let item = index.get(*idx);
+
+            // Follow cross-crate re-export stubs
+            let (effective_index, effective_idx) = if query::is_reexport_stub(item) {
+                if let Some((source_index, canonical_idx)) =
+                    try_follow_reexport(item, ctx, features, feature_suffix, cli.private)
+                {
+                    (Some(source_index), canonical_idx)
+                } else {
+                    (None, *idx)
+                }
+            } else {
+                (None, *idx)
+            };
+
+            let using_index = effective_index.as_ref().unwrap_or(index);
+
+            let kind_filter = cli.kind.map(ItemKind::from);
+            let mut items =
+                render::collect_children_recursive(using_index, effective_idx, cli.private);
+            if let Some(filter) = kind_filter {
+                items.retain(|item| item.kind.matches_filter(filter));
+            }
+
+            let mut first = true;
+            for child in &items {
+                if !first {
+                    writeln!(w).map_err(GroxError::Io)?;
+                    writeln!(w, "────────────────────────────────────────")
+                        .map_err(GroxError::Io)?;
+                    writeln!(w).map_err(GroxError::Io)?;
+                }
+                first = false;
+                let content = read_source_content(child, source);
+                let rendered = render::ambiguous::render_source(child, content.as_deref());
+                writeln!(w, "{rendered}").map_err(GroxError::Io)?;
+            }
+            Ok(())
+        }
+        QueryResult::Ambiguous { indices, .. } => {
+            // For ambiguous results, just show source for each match
+            let items_with_source: Vec<_> = indices
+                .iter()
+                .map(|&idx| {
+                    let item = index.get(idx);
+                    let content = read_source_content(item, source);
+                    (item, content)
+                })
+                .collect();
+
             let refs: Vec<_> = items_with_source
                 .iter()
                 .map(|(item, content)| (*item, content.as_deref()))

@@ -807,6 +807,43 @@ fn docs_mode_recursive() {
     );
 }
 
+// ── Recursive + source mode ──────────────────────────────────────────
+
+#[test]
+fn recursive_source_module() {
+    let output = grox()
+        .args(["-r", "-s", "groxide_test_api::containers"])
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!("recursive_source_module", stdout);
+}
+
+#[test]
+fn recursive_source_crate_root() {
+    let output = grox()
+        .args(["-r", "-s", "groxide_test_api"])
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should contain source from multiple modules
+    assert!(
+        stdout.contains("Source:"),
+        "should contain source blocks: {stdout}"
+    );
+    // Should contain items from different modules
+    assert!(
+        stdout.contains("containers"),
+        "should contain containers module items"
+    );
+}
+
 // ── --clear-cache ────────────────────────────────────────────────────
 
 #[test]
