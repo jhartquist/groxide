@@ -1,0 +1,17 @@
+---
+source: src/render/docs.rs
+expression: output
+---
+mycrate:
+
+fn  mycrate::bar
+    pub fn bar()
+
+    Does bar things.
+
+mycrate::sub:
+
+struct  mycrate::sub::Baz
+    pub struct Baz
+
+    A baz struct.

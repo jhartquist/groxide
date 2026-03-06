@@ -720,6 +720,8 @@ fn handle_output(
                     render::json::render_json_recursive(&items)
                 } else if cli.brief {
                     render::brief::render_brief_recursive(&items, root_path)
+                } else if cli.docs {
+                    render::docs::render_docs_recursive(&items, root_path)
                 } else {
                     render::list::render_list_recursive(&items, root_path)
                 };

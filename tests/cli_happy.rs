@@ -741,6 +741,46 @@ fn brief_recursive_crate_root() {
     );
 }
 
+// ── Docs mode ───────────────────────────────────────────────────────
+
+#[test]
+fn docs_mode_function() {
+    let output = grox()
+        .args(["-d", "groxide_test_api::add"])
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!("docs_mode_function", stdout);
+
+    // Should show full docs (same as default for single items)
+    assert!(stdout.contains("add"), "should contain function name");
+    assert!(stdout.contains("fn"), "should contain kind");
+}
+
+#[test]
+fn docs_mode_recursive() {
+    let output = grox()
+        .args(["-r", "-d", "groxide_test_api::containers"])
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!("docs_mode_recursive", stdout);
+
+    // Should show full docs, not just one-line summaries
+    assert!(
+        stdout.contains("pub struct") || stdout.contains("pub fn"),
+        "should contain signatures: {stdout}"
+    );
+}
+
+// ── --clear-cache ────────────────────────────────────────────────────
+
 #[test]
 fn clear_cache_exits_successfully() {
     let output = Command::new(assert_cmd::cargo::cargo_bin!("grox"))

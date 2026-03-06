@@ -1,0 +1,28 @@
+---
+source: tests/cli_happy.rs
+expression: stdout
+---
+groxide_test_api::containers:
+
+const  groxide_test_api::containers::MAX_CAPACITY
+    pub const MAX_CAPACITY: usize
+
+    The maximum capacity for a fixed-size container.
+
+struct  groxide_test_api::containers::Pair
+    pub struct Pair<A, B>
+
+    A pair of two values, possibly of different types.
+
+struct  groxide_test_api::containers::Stack
+    pub struct Stack<T>
+
+    A stack data structure backed by a Vec.
+
+    Examples
+
+      use groxide_test_api::containers::Stack;
+      let mut s = Stack::new();
+      s.push(1);
+      s.push(2);
+      assert_eq!(s.pop(), Some(2));

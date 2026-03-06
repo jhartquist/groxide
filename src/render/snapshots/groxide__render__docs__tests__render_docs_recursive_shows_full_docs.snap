@@ -1,0 +1,19 @@
+---
+source: src/render/docs.rs
+expression: output
+---
+mycrate:
+
+fn  mycrate::add
+    pub fn add(a: i32, b: i32) -> i32
+
+    Adds two numbers together.
+
+    Returns the sum of a and b.
+
+struct  mycrate::Foo
+    pub struct Foo
+
+    A foo struct.
+
+    Used for testing.
