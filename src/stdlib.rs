@@ -3,14 +3,7 @@ use std::process::Command;
 
 use crate::cli::FeatureFlags;
 use crate::error::{GroxError, Result};
-
-/// Standard library crate names that this module recognizes.
-const STDLIB_CRATES: &[&str] = &["std", "core", "alloc"];
-
-/// Returns whether the given name is a recognized stdlib crate.
-pub(crate) fn is_stdlib_crate(name: &str) -> bool {
-    STDLIB_CRATES.contains(&name)
-}
+use crate::types::is_stdlib_crate;
 
 /// Detects the nightly sysroot path.
 ///
@@ -253,38 +246,6 @@ fn run_rustdoc_command(mut cmd: Command) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ---- is_stdlib_crate ----
-
-    #[test]
-    fn is_stdlib_crate_returns_true_for_std() {
-        assert!(is_stdlib_crate("std"));
-    }
-
-    #[test]
-    fn is_stdlib_crate_returns_true_for_core() {
-        assert!(is_stdlib_crate("core"));
-    }
-
-    #[test]
-    fn is_stdlib_crate_returns_true_for_alloc() {
-        assert!(is_stdlib_crate("alloc"));
-    }
-
-    #[test]
-    fn is_stdlib_crate_returns_false_for_serde() {
-        assert!(!is_stdlib_crate("serde"));
-    }
-
-    #[test]
-    fn is_stdlib_crate_returns_false_for_standard() {
-        assert!(!is_stdlib_crate("standard"));
-    }
-
-    #[test]
-    fn is_stdlib_crate_returns_false_for_empty() {
-        assert!(!is_stdlib_crate(""));
-    }
 
     // ---- Sysroot detection ----
 

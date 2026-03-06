@@ -2,6 +2,14 @@ use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 
+/// Standard library crate names recognized by groxide.
+pub(crate) const STDLIB_CRATES: &[&str] = &["std", "core", "alloc"];
+
+/// Returns whether the given name is a recognized stdlib crate.
+pub(crate) fn is_stdlib_crate(name: &str) -> bool {
+    STDLIB_CRATES.contains(&name)
+}
+
 /// Represents the kind of a documented Rust item.
 ///
 /// Every documented item has exactly one kind. This enum handles display names,
@@ -426,6 +434,38 @@ impl DocIndex {
 mod tests {
     use super::*;
     use crate::test_utils::make_item;
+
+    // ---- is_stdlib_crate ----
+
+    #[test]
+    fn is_stdlib_crate_returns_true_for_std() {
+        assert!(is_stdlib_crate("std"));
+    }
+
+    #[test]
+    fn is_stdlib_crate_returns_true_for_core() {
+        assert!(is_stdlib_crate("core"));
+    }
+
+    #[test]
+    fn is_stdlib_crate_returns_true_for_alloc() {
+        assert!(is_stdlib_crate("alloc"));
+    }
+
+    #[test]
+    fn is_stdlib_crate_returns_false_for_serde() {
+        assert!(!is_stdlib_crate("serde"));
+    }
+
+    #[test]
+    fn is_stdlib_crate_returns_false_for_standard() {
+        assert!(!is_stdlib_crate("standard"));
+    }
+
+    #[test]
+    fn is_stdlib_crate_returns_false_for_empty() {
+        assert!(!is_stdlib_crate(""));
+    }
 
     // ---- ItemKind::short_name ----
 

@@ -4,9 +4,7 @@ use cargo_metadata::{Metadata, MetadataCommand, Package, PackageId};
 
 use crate::cli::CrateSpec;
 use crate::error::{GroxError, Result};
-
-/// Standard library crate names recognized without a project context.
-const STDLIB_CRATES: &[&str] = &["std", "core", "alloc"];
+use crate::types::is_stdlib_crate;
 
 /// Where a crate's source lives — determines how rustdoc JSON is generated.
 #[derive(Debug, Clone)]
@@ -338,11 +336,6 @@ pub(crate) fn normalize_crate_name(name: &str) -> String {
     name.replace('-', "_")
 }
 
-/// Returns whether this is a standard library crate name.
-fn is_stdlib_crate(name: &str) -> bool {
-    STDLIB_CRATES.contains(&name)
-}
-
 /// Resolves a `CrateSpec` without a project context.
 ///
 /// Only stdlib and external (auto-fetch) are available when there's no project.
@@ -407,30 +400,6 @@ mod tests {
     #[test]
     fn normalize_no_change_for_simple_name() {
         assert_eq!(normalize_crate_name("serde"), "serde");
-    }
-
-    // ---- is_stdlib_crate ----
-
-    #[test]
-    fn is_stdlib_returns_true_for_std() {
-        assert!(is_stdlib_crate("std"));
-    }
-
-    #[test]
-    fn is_stdlib_returns_true_for_core() {
-        assert!(is_stdlib_crate("core"));
-    }
-
-    #[test]
-    fn is_stdlib_returns_true_for_alloc() {
-        assert!(is_stdlib_crate("alloc"));
-    }
-
-    #[test]
-    fn is_stdlib_returns_false_for_other() {
-        assert!(!is_stdlib_crate("serde"));
-        assert!(!is_stdlib_crate("tokio"));
-        assert!(!is_stdlib_crate("standard"));
     }
 
     // ---- path_distance ----
