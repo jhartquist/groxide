@@ -8,8 +8,7 @@ use crate::types::ItemKind;
 const HELP_EXAMPLES: &str = "\
 EXAMPLES:
     grox serde::Deserialize          Struct docs with methods
-    grox tokio::sync -l              List module contents
-    grox tokio::sync::Mutex::lock    Full method documentation
+grox tokio::sync::Mutex::lock    Full method documentation
     grox tokio -S \"spawn\"            Search across crate documentation
     grox -s tokio::sync::Mutex::new  View source code
     grox axum::Router                Auto-fetch external crate from crates.io
@@ -29,15 +28,11 @@ pub struct Cli {
     pub path: Option<String>,
 
     /// Show source code instead of docs
-    #[arg(short = 's', long, conflicts_with_all = ["list", "impls"])]
+    #[arg(short = 's', long, conflicts_with_all = ["impls"])]
     pub source: bool,
 
-    /// List children only (names + one-line summaries)
-    #[arg(short = 'l', long, conflicts_with_all = ["source", "impls"])]
-    pub list: bool,
-
     /// Full-text search across documentation
-    #[arg(short = 'S', long, conflicts_with_all = ["source", "list", "impls"])]
+    #[arg(short = 'S', long, conflicts_with_all = ["source", "impls"])]
     pub search: Option<String>,
 
     /// Filter by item kind
@@ -53,7 +48,7 @@ pub struct Cli {
     pub json: bool,
 
     /// Show trait implementations (on types) or implementors (on traits)
-    #[arg(short = 'i', long, conflicts_with_all = ["source", "list"])]
+    #[arg(short = 'i', long, conflicts_with_all = ["source"])]
     pub impls: bool,
 
     /// List all public items recursively in a crate or module tree
@@ -61,7 +56,7 @@ pub struct Cli {
     pub recursive: bool,
 
     /// Show the crate's README
-    #[arg(long, conflicts_with_all = ["source", "list", "search", "impls", "recursive"])]
+    #[arg(long, conflicts_with_all = ["source", "search", "impls", "recursive"])]
     pub readme: bool,
 
     /// Path to Cargo.toml
@@ -537,14 +532,6 @@ mod tests {
     }
 
     #[test]
-    fn clap_rejects_source_with_list() {
-        let result = Cli::try_parse_from(["grox", "--source", "--list"]);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
-    }
-
-    #[test]
     fn clap_rejects_source_with_impls() {
         let result = Cli::try_parse_from(["grox", "--source", "--impls"]);
         assert!(result.is_err());
@@ -561,14 +548,6 @@ mod tests {
     }
 
     #[test]
-    fn clap_rejects_search_with_list() {
-        let result = Cli::try_parse_from(["grox", "--search", "foo", "--list"]);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
-    }
-
-    #[test]
     fn clap_rejects_search_with_impls() {
         let result = Cli::try_parse_from(["grox", "--search", "foo", "--impls"]);
         assert!(result.is_err());
@@ -579,14 +558,6 @@ mod tests {
     #[test]
     fn clap_rejects_readme_with_source() {
         let result = Cli::try_parse_from(["grox", "--readme", "--source"]);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
-    }
-
-    #[test]
-    fn clap_rejects_readme_with_list() {
-        let result = Cli::try_parse_from(["grox", "--readme", "--list"]);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);

@@ -1,6 +1,0 @@
----
-source: src/render/list.rs
-expression: output
----
-fn  mycrate::Mutex::lock  pub fn lock(&self)        Locks the mutex.
-fn  mycrate::Mutex::new   pub fn new(t: T) -> Self  Creates a new lock.

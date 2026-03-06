@@ -39,19 +39,6 @@ pub(crate) fn render_ambiguous(index: &DocIndex, indices: &[usize], query: &str)
     }
 }
 
-/// Renders ambiguous matches in list mode (`--list` with ambiguous).
-///
-/// One path per line, no formatting.
-pub(crate) fn render_ambiguous_list(index: &DocIndex, indices: &[usize]) -> String {
-    let mut out = String::new();
-    for &idx in indices {
-        let item = index.get(idx);
-        let _ = writeln!(out, "{}", item.path);
-    }
-    trim_trailing_newlines(&mut out);
-    out
-}
-
 /// Renders the impls view (`--impls`) for a type (struct/enum/union).
 ///
 /// Shows all trait implementations with no truncation.
@@ -715,41 +702,6 @@ mod tests {
             output,
             "// source not available (Could not read src/foo.rs)"
         );
-    }
-
-    // ---- Ambiguous list mode ----
-
-    #[test]
-    fn render_ambiguous_list_mode() {
-        let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
-
-        index.add_item(make_item_full(
-            "Error",
-            "mycrate::de::Error",
-            ItemKind::Trait,
-            "",
-            "",
-            "",
-        ));
-        index.add_item(make_item_full(
-            "Error",
-            "mycrate::ser::Error",
-            ItemKind::Trait,
-            "",
-            "",
-            "",
-        ));
-        index.add_item(make_item_full(
-            "Error",
-            "mycrate::json::Error",
-            ItemKind::Struct,
-            "",
-            "",
-            "",
-        ));
-
-        let output = render_ambiguous_list(&index, &[0, 1, 2]);
-        insta::assert_snapshot!(output);
     }
 
     // ---- Source view with ambiguous matches ----

@@ -1,6 +1,0 @@
----
-source: src/render/list.rs
-expression: output
----
-mod  mycrate::fs    Filesystem utilities.  [feature: fs]
-mod  mycrate::io    I/O utilities.

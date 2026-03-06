@@ -107,27 +107,6 @@ fn unknown_item_exits_1() {
 // ── Invalid flag combinations (exit code 2) ──────────────────────────
 
 #[test]
-fn conflicting_source_and_list_exits_2() {
-    let output = grox_bare()
-        .arg("--source")
-        .arg("--list")
-        .output()
-        .expect("command runs");
-
-    assert_eq!(
-        output.status.code(),
-        Some(2),
-        "--source --list should exit with code 2"
-    );
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("cannot be used with"),
-        "should report conflict: {stderr}"
-    );
-}
-
-#[test]
 fn conflicting_source_and_impls_exits_2() {
     let output = grox_bare()
         .arg("--source")
@@ -155,22 +134,6 @@ fn conflicting_search_and_source_exits_2() {
         output.status.code(),
         Some(2),
         "--search --source should exit with code 2"
-    );
-}
-
-#[test]
-fn conflicting_search_and_list_exits_2() {
-    let output = grox_bare()
-        .arg("--search")
-        .arg("foo")
-        .arg("--list")
-        .output()
-        .expect("command runs");
-
-    assert_eq!(
-        output.status.code(),
-        Some(2),
-        "--search --list should exit with code 2"
     );
 }
 

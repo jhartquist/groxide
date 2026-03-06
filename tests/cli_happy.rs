@@ -109,22 +109,6 @@ fn default_output_crate_root() {
     insta::assert_snapshot!("crate_root_default", stdout);
 }
 
-// ── --list mode ──────────────────────────────────────────────────────
-
-#[test]
-fn list_mode() {
-    let output = grox()
-        .arg("--list")
-        .arg("groxide_test_api::containers")
-        .output()
-        .expect("command runs");
-
-    assert!(output.status.success(), "exit code should be 0");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    insta::assert_snapshot!("list_mode", stdout);
-}
-
 // ── --json mode ──────────────────────────────────────────────────────
 
 #[test]
@@ -157,23 +141,6 @@ fn json_mode() {
     );
 
     insta::assert_snapshot!("json_mode", stdout);
-}
-
-// ── --json --list combined ───────────────────────────────────────────
-
-#[test]
-fn json_list_combined() {
-    let output = grox()
-        .arg("--json")
-        .arg("--list")
-        .arg("groxide_test_api::containers")
-        .output()
-        .expect("command runs");
-
-    assert!(output.status.success(), "exit code should be 0");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    insta::assert_snapshot!("json_list_combined", stdout);
 }
 
 // ── --search "query" mode ────────────────────────────────────────────
@@ -323,25 +290,6 @@ fn type_alias_output() {
 }
 
 #[test]
-fn list_mode_on_struct_shows_methods() {
-    let output = grox()
-        .arg("--list")
-        .arg("groxide_test_api::containers::Stack")
-        .output()
-        .expect("command runs");
-
-    assert!(output.status.success(), "exit code should be 0");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("fn"),
-        "list should show fn methods: {stdout}"
-    );
-
-    insta::assert_snapshot!("list_struct_methods", stdout);
-}
-
-#[test]
 fn json_mode_module() {
     let output = grox()
         .arg("--json")
@@ -466,29 +414,6 @@ fn method_lookup() {
     );
 
     insta::assert_snapshot!("method_lookup", stdout);
-}
-
-#[test]
-fn list_mode_crate_root() {
-    let output = grox()
-        .arg("--list")
-        .arg("groxide_test_api")
-        .output()
-        .expect("command runs");
-
-    assert!(output.status.success(), "exit code should be 0");
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("struct"),
-        "list should show struct kind: {stdout}"
-    );
-    assert!(
-        stdout.contains("mod"),
-        "list should show mod kind: {stdout}"
-    );
-
-    insta::assert_snapshot!("list_crate_root", stdout);
 }
 
 #[test]

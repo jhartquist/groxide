@@ -1,5 +1,0 @@
----
-source: src/render/list.rs
-expression: output
----
-fn  mycrate::spawn  pub fn spawn<F>(future: F) -> JoinHandle<F::Output>  Spawns a task.

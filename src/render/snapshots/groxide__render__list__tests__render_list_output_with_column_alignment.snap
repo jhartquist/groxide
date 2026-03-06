@@ -1,8 +1,0 @@
----
-source: src/render/list.rs
-expression: output
----
-mod     mycrate::sync::mpsc                                                                    A multi-producer, single-consumer queue.
-struct  mycrate::sync::Mutex         pub struct Mutex<T>                                       An asynchronous Mutex-like type.
-enum    mycrate::sync::TryLockError  pub enum TryLockError                                     Error returned from try_lock.
-fn      mycrate::sync::channel       pub fn channel<T>(capacity: usize) -> (Sender, Receiver)  Creates a broadcast channel.

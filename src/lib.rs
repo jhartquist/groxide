@@ -721,9 +721,6 @@ fn handle_output(
             if cli.impls {
                 let output = render_impls(&display, using_index, effective_idx);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
-            } else if cli.list {
-                let output = render::list::render_list(&display);
-                writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else if cli.json {
                 let output = render::json::render_json(&display);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
@@ -745,9 +742,6 @@ fn handle_output(
             if cli.json {
                 let items: Vec<&types::IndexItem> = indices.iter().map(|&i| index.get(i)).collect();
                 let output = render::json::render_json_ambiguous(&items);
-                writeln!(w, "{output}").map_err(GroxError::Io)?;
-            } else if cli.list {
-                let output = render::ambiguous::render_ambiguous_list(index, indices);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else {
                 let output = render::ambiguous::render_ambiguous(index, indices, query);
@@ -971,17 +965,6 @@ mod tests {
     }
 
     // ---- List mode output ----
-
-    #[test]
-    fn list_mode_produces_output() {
-        let index = load_fixture_index();
-        let (result, _) = query_fixture(&index, "GenericStruct", &["--list", "GenericStruct"]);
-        let output = result.expect("list mode should succeed");
-        assert!(
-            output.contains("fn"),
-            "list should show fn kind for methods: {output}"
-        );
-    }
 
     // ---- JSON mode output ----
 
