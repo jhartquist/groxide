@@ -1,5 +1,6 @@
 pub(crate) mod ambiguous;
 pub(crate) mod brief;
+pub(crate) mod dispatch;
 pub(crate) mod docs;
 pub(crate) mod json;
 pub(crate) mod list;
