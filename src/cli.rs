@@ -8,13 +8,18 @@ use crate::types::ItemKind;
 const HELP_EXAMPLES: &str = "\
 EXAMPLES:
     grox serde::Deserialize          Struct docs with methods
-grox tokio::sync::Mutex::lock    Full method documentation
-    grox tokio -S \"spawn\"            Search across crate documentation
-    grox -s tokio::sync::Mutex::new  View source code
-    grox axum::Router                Auto-fetch external crate from crates.io
+    grox tokio::sync::Mutex::lock    Full method documentation
+    grox tokio -S \"spawn\"            Search across crate docs
+    grox -s tokio::sync::Mutex::new  View docs + source code
+    grox -r tokio::sync              List all items recursively
+    grox -r -b tokio                 Structural skeleton (names only)
+    grox -r -d tokio                 Recursive with full docs
+    grox -r -s mycrate               Dump entire crate with source
+    grox --impls Clone wgpu::Device  Check if Device impl Clone
     grox std::collections::HashMap   Query standard library
-    grox --json serde::Serialize     JSON output for programmatic use
-    grox serde@1.0.210::Deserialize  Pin to specific version";
+    grox --json serde::Serialize     JSON output
+    grox serde@1.0.210::Deserialize  Pin to specific version
+    grox --clear-cache               Wipe documentation cache";
 
 /// Query Rust crate documentation from the terminal
 #[derive(Parser, Debug)]

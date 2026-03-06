@@ -18,6 +18,31 @@ A Rust CLI tool that lets LLM coding agents (and humans) query crate documentati
 5. **Zero setup.** Auto-builds and caches index on first use.
 6. **Plain text output.** Not markdown. Indentation-based like `go doc`.
 
+## CLI flags and detail tiers
+
+**Detail tiers** (mutually exclusive, from least to most verbose):
+- `-b`/`--brief` — Item names only (compact skeleton)
+- *(default)* — Signature + one-line summary
+- `-d`/`--docs` — Full rendered documentation per item
+- `-s`/`--source` — Source code with file path and line numbers
+
+**Composability:** `-r`/`--recursive` works with any detail tier:
+- `grox -r crate` — recursive default (signatures + summaries)
+- `grox -r -b crate` — structural skeleton (names only)
+- `grox -r -d crate` — recursive with full docs
+- `grox -r -s crate` — dump entire crate with source
+
+**Other flags:**
+- `-S`/`--search <QUERY>` — Full-text search. Use `|` for OR, space for AND.
+- `--impls [TRAIT]` — Show trait implementations; optionally filter by trait name (e.g., `--impls Clone`)
+- `-k`/`--kind <KIND>` — Filter by item kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro`
+- `-j`/`--json` — JSON Lines output
+- `-p`/`--private` — Include non-public items
+- `--readme` — Show crate README
+- `--clear-cache` — Wipe the global documentation cache and exit
+
+**Workspace mode:** When run inside a Cargo workspace (virtual manifest), groxide iterates over all workspace members. Queries resolve through: current crate → direct deps → workspace members → transitive deps → stdlib → crates.io auto-fetch.
+
 ## Tech stack
 
 - Rust (edition 2021) + clap (derive) for CLI

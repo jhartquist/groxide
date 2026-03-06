@@ -48,14 +48,31 @@ grox tokio::sync::Mutex::lock
 
 Shows full method signature and documentation.
 
-### List module contents
+### List module contents recursively
 
 ```sh
-grox tokio::sync -l
+grox -r tokio::sync
 ```
 
 One-line summaries of all public items in the module. Useful for discovering
 what a module offers before drilling into specific items.
+
+### Brief skeleton (names only)
+
+```sh
+grox -r -b tokio
+```
+
+Shows only item names — the most compact view. Great for getting a structural
+overview of a crate or module.
+
+### Full docs recursively
+
+```sh
+grox -r -d tokio::sync
+```
+
+Shows full rendered documentation for every item in the tree.
 
 ### Search documentation
 
@@ -64,7 +81,13 @@ grox tokio -S "spawn"
 ```
 
 Full-text search across all items in a crate. Returns up to 20 results with
-kind, path, and summary. Combine with `--kind fn` to narrow results.
+kind, path, and summary. Use `|` for OR, space for AND. Combine with `--kind fn`
+to narrow results.
+
+```sh
+grox tokio -S "spawn|join"       # OR: match either term
+grox tokio -S "async runtime"    # AND: match both terms
+```
 
 ### View source code
 
@@ -100,6 +123,22 @@ grox --impls std::sync::Arc
 
 Lists all trait implementations on a type, or all known implementors of a trait.
 
+### Check if a type implements a specific trait
+
+```sh
+grox --impls Clone wgpu::Device
+```
+
+Filters implementations to show only the named trait.
+
+### Clear the documentation cache
+
+```sh
+grox --clear-cache
+```
+
+Wipes the global documentation cache at `~/.cache/groxide/`.
+
 ### Show crate README
 
 ```sh
@@ -129,15 +168,17 @@ dependency resolution.
 
 | Flag | Short | Purpose |
 |------|-------|---------|
-| `--list` | `-l` | List children (names + one-line summaries) |
+| `--brief` | `-b` | Show only item names (compact output) |
+| `--docs` | `-d` | Show full rendered documentation per item |
 | `--source` | `-s` | Show source code |
-| `--search <Q>` | `-S` | Full-text search |
+| `--search <Q>` | `-S` | Full-text search (`\|` for OR, space for AND) |
 | `--json` | `-j` | JSON Lines output |
 | `--kind <K>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
-| `--impls` | `-i` | Show trait implementations or implementors |
-| `--recursive` | `-r` | List all public items recursively in a crate or module tree |
+| `--impls [TRAIT]` | `-i` | Show trait implementations, optionally filtered by trait name |
+| `--recursive` | `-r` | List all public items recursively (composable with `-b`, `-d`, `-s`) |
 | `--private` | `-p` | Include non-public items |
 | `--readme` | | Show crate README |
+| `--clear-cache` | | Wipe the global documentation cache and exit |
 | `--features <F>` | | Comma-separated list of features to activate |
 | `--all-features` | | Activate all features |
 | `--no-default-features` | | Do not activate the `default` feature |
@@ -150,7 +191,7 @@ dependency resolution.
 User asks: "How does the `tower` middleware system work?"
 
 1. Start with the crate overview: `grox tower`
-2. List the main exports: `grox tower -l`
+2. List the main exports: `grox tower -r`
 3. Drill into the key trait: `grox tower::Service`
 4. Read the core method: `grox tower::Service::call`
 5. Search for patterns: `grox tower -S "middleware"`
@@ -161,14 +202,14 @@ User asks: "How do I read a file asynchronously with tokio?"
 
 1. Search the crate: `grox tokio -S "read file"`
 2. Check the result: `grox tokio::fs::File::open`
-3. Browse related items: `grox tokio::fs -l`
+3. Browse related items: `grox tokio::fs -r`
 
 ## Tips for Effective Use
 
 - **Start broad, then drill down.** Query the crate first (`grox tokio`), then
   a module (`grox tokio::sync`), then a type (`grox tokio::sync::Mutex`).
-- **Use `--list` to orient.** When you don't know what's in a module, `-l` gives
-  a quick overview without the noise of full documentation.
+- **Use `-r` to orient.** When you don't know what's in a module, `-r` gives
+  a quick overview. Add `-b` for names only, `-d` for full docs.
 - **Use `--json` for structured data.** When you need to extract specific fields
   (signatures, method lists), JSON is more reliable to parse than plain text.
 - **Search before guessing paths.** If you're not sure of the exact path,
@@ -197,7 +238,7 @@ index and are fast. Do not interrupt the process.
 The path does not match any item in the crate's public API.
 - Check spelling (paths are case-insensitive but must match item names)
 - Use `grox crate_name -S "keyword"` to search by documentation content
-- Use `grox crate_name -l` to list what's available
+- Use `grox crate_name -r` to list what's available
 - The item may be behind a feature flag — try `--all-features`
 
 ### Exit code 2: error

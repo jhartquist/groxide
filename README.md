@@ -44,10 +44,10 @@ Examples
   *n = 2;
 ```
 
-**Module listing** — discover what's in a module:
+**Recursive listing** — discover what's in a module:
 
 ```
-$ grox tokio::sync -l
+$ grox -r tokio::sync
 
 mod     tokio::sync::broadcast                    A multi-producer, multi-consumer broadcast queue.
 mod     tokio::sync::futures                      Named future types.
@@ -97,7 +97,7 @@ LLM coding agents and humans both need fast, token-efficient access to crate doc
 - **Auto-fetch.** Unknown crates are fetched from crates.io automatically — works outside a project.
 - **Standard library.** Query `std`, `core`, and `alloc` directly — works anywhere.
 - **Full-text search.** `grox tokio -S "spawn"` searches across a crate's docs.
-- **Multiple output formats.** Plain text (default), JSON (`--json`), list (`--list`).
+- **Multiple output formats.** Plain text (default), JSON (`--json`), brief (`--brief`), full docs (`--docs`).
 
 ## Requirements
 
@@ -146,9 +146,6 @@ npx skills add jhartquist/groxide
 # Query a dependency's type (serde is in your Cargo.toml)
 grox serde::Deserialize
 
-# List module contents
-grox tokio::sync -l
-
 # Full method documentation
 grox tokio::sync::Mutex::lock
 
@@ -158,8 +155,20 @@ grox tokio -S "spawn"
 # View source code
 grox -s tokio::sync::Mutex::new
 
+# Recursive listing of a module
+grox -r tokio::sync
+
+# Brief skeleton (names only)
+grox -r -b tokio
+
+# Check if a type implements a trait
+grox --impls Clone wgpu::Device
+
 # JSON output for programmatic use
 grox --json serde::Serialize
+
+# Clear the documentation cache
+grox --clear-cache
 ```
 
 **Works anywhere** — no Cargo.toml needed:
@@ -191,15 +200,17 @@ grox [OPTIONS] [PATH]
 
 | Flag | Short | Description |
 |------|-------|-------------|
+| `--brief` | `-b` | Show only item names (compact output) |
+| `--docs` | `-d` | Show full rendered documentation per item |
 | `--source` | `-s` | Show source code instead of docs |
-| `--list` | `-l` | List children only (names + one-line summaries) |
-| `--search <QUERY>` | `-S` | Full-text search across documentation |
-| `--kind <KIND>` | `-k` | Filter by item kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
+| `--search <QUERY>` | `-S` | Full-text search (`\|` for OR, space for AND) |
+| `--kind <KIND>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
 | `--private` | `-p` | Include non-public items |
 | `--json` | `-j` | JSON Lines output |
-| `--impls` | `-i` | Show trait implementations (on types) or implementors (on traits) |
-| `--recursive` | `-r` | List all public items recursively in a crate or module tree |
+| `--impls [TRAIT]` | `-i` | Show trait implementations, optionally filtered by trait name |
+| `--recursive` | `-r` | List all public items recursively (composable with `-b`, `-d`, `-s`) |
 | `--readme` | | Show the crate's README |
+| `--clear-cache` | | Wipe the global documentation cache and exit |
 | `--manifest-path <PATH>` | | Path to Cargo.toml |
 | `--features <FEATURES>` | | Comma-separated list of features to activate |
 | `--all-features` | | Activate all available features |
