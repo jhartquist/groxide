@@ -492,24 +492,12 @@ impl IndexBuilder<'_> {
 
             let resolved_ids = match &item.inner {
                 ItemEnum::Module(m) => self.resolve_module_children(m),
-                ItemEnum::Struct(s) => {
-                    let mut ids = struct_field_ids(s);
-                    ids.extend(self.resolve_inherent_impl_items(&s.impls));
-                    ids
-                }
-                ItemEnum::Enum(e) => {
-                    let mut ids = e.variants.clone();
-                    ids.extend(self.resolve_inherent_impl_items(&e.impls));
-                    ids
-                }
-                ItemEnum::Union(u) => self.resolve_inherent_impl_items(&u.impls),
-                ItemEnum::Trait(t) => t.items.clone(),
                 ItemEnum::Use(use_item) => {
                     // For in-crate re-exports, copy children from the referenced item
                     self.resolve_use_children(use_item, parent_idx);
                     continue;
                 }
-                _ => Vec::new(),
+                _ => self.collect_item_child_ids(item),
             };
 
             let mut children = Vec::new();
@@ -569,21 +557,7 @@ impl IndexBuilder<'_> {
         };
 
         // Collect child IDs from the referenced item (struct fields, enum variants, impl methods)
-        let child_ids = match &ref_item.inner {
-            ItemEnum::Struct(s) => {
-                let mut ids = struct_field_ids(s);
-                ids.extend(self.resolve_inherent_impl_items(&s.impls));
-                ids
-            }
-            ItemEnum::Enum(e) => {
-                let mut ids = e.variants.clone();
-                ids.extend(self.resolve_inherent_impl_items(&e.impls));
-                ids
-            }
-            ItemEnum::Union(u) => self.resolve_inherent_impl_items(&u.impls),
-            ItemEnum::Trait(t) => t.items.clone(),
-            _ => Vec::new(),
-        };
+        let child_ids = self.collect_item_child_ids(ref_item);
 
         let mut children = Vec::new();
         for cid in &child_ids {
@@ -606,6 +580,26 @@ impl IndexBuilder<'_> {
         let trait_impls = self.extract_trait_impls(ref_item);
         if !trait_impls.is_empty() {
             self.index.trait_impls.insert(parent_idx, trait_impls);
+        }
+    }
+
+    /// Collects child IDs from a struct, enum, union, or trait item,
+    /// including methods from inherent impls.
+    fn collect_item_child_ids(&self, item: &rustdoc_types::Item) -> Vec<Id> {
+        match &item.inner {
+            ItemEnum::Struct(s) => {
+                let mut ids = struct_field_ids(s);
+                ids.extend(self.resolve_inherent_impl_items(&s.impls));
+                ids
+            }
+            ItemEnum::Enum(e) => {
+                let mut ids = e.variants.clone();
+                ids.extend(self.resolve_inherent_impl_items(&e.impls));
+                ids
+            }
+            ItemEnum::Union(u) => self.resolve_inherent_impl_items(&u.impls),
+            ItemEnum::Trait(t) => t.items.clone(),
+            _ => Vec::new(),
         }
     }
 
