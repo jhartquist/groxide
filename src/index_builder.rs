@@ -111,10 +111,22 @@ impl IndexBuilder<'_> {
         self.hoist_glob_reexport_paths();
 
         // 2.3: Impl block path computation
-        self.compute_impl_paths();
+        self.compute_descendant_paths(|_id, inner, id_to_path| {
+            let ItemEnum::Impl(impl_data) = inner else {
+                return None;
+            };
+            let parent_path = Self::resolve_type_path_from(id_to_path, &impl_data.for_)?;
+            Some((parent_path, impl_data.items.clone()))
+        });
 
         // 2.4: Trait item path computation
-        self.compute_trait_item_paths();
+        self.compute_descendant_paths(|id, inner, id_to_path| {
+            let ItemEnum::Trait(t) = inner else {
+                return None;
+            };
+            let parent_path = id_to_path.get(id)?.clone();
+            Some((parent_path, t.items.clone()))
+        });
 
         // 2.5: Fallback — reconstruct remaining paths via parent chain
         let missing_ids: Vec<(Id, String)> = self
@@ -185,18 +197,22 @@ impl IndexBuilder<'_> {
         }
     }
 
-    fn compute_impl_paths(&mut self) {
+    /// Computes paths for descendant items (e.g. methods in impl blocks, items in traits).
+    ///
+    /// `extract` receives each item's ID, inner enum, and the current path map, returning
+    /// the parent path and child IDs if the item is a relevant parent kind.
+    fn compute_descendant_paths(
+        &mut self,
+        extract: impl Fn(&Id, &ItemEnum, &HashMap<Id, String>) -> Option<(String, Vec<Id>)>,
+    ) {
         let mut new_paths = Vec::new();
 
-        for item in self.krate.index.values() {
-            let ItemEnum::Impl(impl_data) = &item.inner else {
-                continue;
-            };
-            let Some(parent_path) = self.resolve_type_path(&impl_data.for_) else {
+        for (id, item) in &self.krate.index {
+            let Some((parent_path, child_ids)) = extract(id, &item.inner, &self.id_to_path) else {
                 continue;
             };
 
-            for child_id in &impl_data.items {
+            for child_id in &child_ids {
                 if self.id_to_path.contains_key(child_id) {
                     continue;
                 }
@@ -215,45 +231,16 @@ impl IndexBuilder<'_> {
         }
     }
 
-    fn resolve_type_path(&self, ty: &rustdoc_types::Type) -> Option<String> {
+    fn resolve_type_path_from(
+        id_to_path: &HashMap<Id, String>,
+        ty: &rustdoc_types::Type,
+    ) -> Option<String> {
         match ty {
-            rustdoc_types::Type::ResolvedPath(path) => self
-                .id_to_path
+            rustdoc_types::Type::ResolvedPath(path) => id_to_path
                 .get(&path.id)
                 .cloned()
                 .or_else(|| Some(path.path.clone())),
             _ => None,
-        }
-    }
-
-    fn compute_trait_item_paths(&mut self) {
-        let mut new_paths = Vec::new();
-
-        for (trait_id, item) in &self.krate.index {
-            let ItemEnum::Trait(t) = &item.inner else {
-                continue;
-            };
-            let Some(trait_path) = self.id_to_path.get(trait_id) else {
-                continue;
-            };
-            let trait_path = trait_path.clone();
-
-            for child_id in &t.items {
-                if self.id_to_path.contains_key(child_id) {
-                    continue;
-                }
-                let Some(child) = self.krate.index.get(child_id) else {
-                    continue;
-                };
-                let Some(child_name) = &child.name else {
-                    continue;
-                };
-                new_paths.push((*child_id, format!("{trait_path}::{child_name}")));
-            }
-        }
-
-        for (id, path) in new_paths {
-            self.id_to_path.entry(id).or_insert(path);
         }
     }
 
