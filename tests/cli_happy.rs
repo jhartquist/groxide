@@ -644,3 +644,19 @@ fn impls_bare_flag_still_works() {
 
     insta::assert_snapshot!("impls_bare_flag", stdout);
 }
+
+// ── --clear-cache ────────────────────────────────────────────────────
+
+#[test]
+fn clear_cache_exits_successfully() {
+    let output = Command::new(assert_cmd::cargo::cargo_bin!("grox"))
+        .arg("--clear-cache")
+        .output()
+        .expect("command runs");
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("[grox]"),
+        "should print status message: {stderr}"
+    );
+}

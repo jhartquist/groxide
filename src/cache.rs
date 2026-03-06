@@ -309,6 +309,17 @@ fn is_binary_newer_than_cache(cache_path: &Path) -> bool {
     binary_mtime > cache_mtime
 }
 
+/// Removes the global cache directory.
+///
+/// Returns the path that was cleared, or `None` if the cache dir could not be determined.
+pub(crate) fn clear_global_cache() -> Option<PathBuf> {
+    let cache_dir = dirs::cache_dir()?.join("groxide");
+    if cache_dir.exists() {
+        let _ = fs::remove_dir_all(&cache_dir);
+    }
+    Some(cache_dir)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -726,6 +737,22 @@ mod tests {
         assert!(
             path.starts_with(tmp.path().join("target/groxide")),
             "should be under target/groxide: {path:?}"
+        );
+    }
+
+    // ---- clear_global_cache ----
+
+    #[test]
+    fn clear_global_cache_returns_some_path() {
+        let result = clear_global_cache();
+        assert!(
+            result.is_some(),
+            "should return a path on systems with a cache dir"
+        );
+        let path = result.unwrap();
+        assert!(
+            path.ends_with("groxide"),
+            "path should end with 'groxide': {path:?}"
         );
     }
 }

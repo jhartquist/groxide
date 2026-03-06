@@ -31,6 +31,15 @@ use types::{DisplayItem, DisplayLimits, DocIndex, ItemKind, QueryResult};
 ///
 /// Returns `GroxError` if crate resolution, doc generation, or querying fails.
 pub fn run(cli: &Cli) -> Result<()> {
+    if cli.clear_cache {
+        if let Some(path) = cache::clear_global_cache() {
+            eprintln!("[grox] Cleared cache at {}", path.display());
+        } else {
+            eprintln!("[grox] No cache directory found");
+        }
+        return Ok(());
+    }
+
     let stdout = io::stdout();
     let mut out = stdout.lock();
 

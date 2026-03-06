@@ -63,6 +63,9 @@ Options:
       --no-default-features
           Do not activate the `default` feature
 
+      --clear-cache
+          Clear the global documentation cache and exit
+
   -h, --help
           Print help (see a summary with '-h')
 

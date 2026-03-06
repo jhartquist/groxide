@@ -83,6 +83,10 @@ pub struct Cli {
     /// Do not activate the `default` feature
     #[arg(long)]
     pub no_default_features: bool,
+
+    /// Clear the global documentation cache and exit
+    #[arg(long)]
+    pub clear_cache: bool,
 }
 
 /// Item kinds accepted by the --kind flag.
