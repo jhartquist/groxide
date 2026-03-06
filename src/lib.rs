@@ -931,6 +931,17 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
         }
         first = false;
 
+        // Crate header for workspace output (skip for JSON — emit raw JSON Lines)
+        let crate_header = format!(
+            "== {} {} ==",
+            resolve::normalize_crate_name(&pkg.name),
+            pkg.version,
+        );
+        if !cli.json {
+            writeln!(w, "{crate_header}").map_err(GroxError::Io)?;
+            writeln!(w).map_err(GroxError::Io)?;
+        }
+
         match result {
             QueryResult::Found { index: idx } => {
                 if cli.recursive && cli.source {
