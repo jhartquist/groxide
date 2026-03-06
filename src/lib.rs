@@ -84,7 +84,14 @@ pub fn run(cli: &Cli) -> Result<()> {
         handle_readme(&mut out, &source, ctx.as_ref())?;
     } else if let Some(search_query) = &cli.search {
         // Step 6: Handle --search
-        handle_search(&mut out, &index, search_query, cli)?;
+        handle_search(
+            &mut out,
+            &index,
+            search_query,
+            cli,
+            Some(&source),
+            &features,
+        )?;
     } else {
         // Step 7: Resolve item in index
         // When --recursive is set, don't filter by kind during resolution —
@@ -428,11 +435,17 @@ fn find_and_print_readme(w: &mut impl Write, dir: &Path, crate_name: &str) -> Re
 }
 
 /// Handles `--search` mode.
+///
+/// When the search returns 0 results and the crate has non-default features,
+/// rebuilds the index with `--all-features` and hints the user if more items
+/// are found.
 fn handle_search(
     w: &mut impl Write,
     index: &DocIndex,
     search_query: &str,
     cli: &Cli,
+    source: Option<&CrateSource>,
+    features: &FeatureFlags,
 ) -> Result<()> {
     let kind_filter = cli.kind.map(ItemKind::from);
     let results = search::search(index, search_query, kind_filter)?;
@@ -490,6 +503,33 @@ fn handle_search(
                         "{kind:<max_kind_width$}  {path:<max_path_width$}  {summary}"
                     )
                     .map_err(GroxError::Io)?;
+                }
+            }
+        }
+    }
+
+    // Hint: if 0 results and not already using --all-features, try rebuilding
+    // with all features to see if feature-gated items match.
+    // Skip external crates (rebuilding is too slow).
+    if total == 0 && !features.all_features {
+        if let Some(src) = source {
+            if !matches!(src, CrateSource::External { .. }) {
+                let all_features = FeatureFlags {
+                    all_features: true,
+                    no_default_features: false,
+                    features: Vec::new(),
+                };
+                let all_suffix = all_features.cache_suffix();
+                if let Ok((all_index, _)) =
+                    load_or_build_index(src.clone(), &all_features, &all_suffix, cli.private)
+                {
+                    let all_results = search::search(&all_index, search_query, kind_filter)?;
+                    if !all_results.is_empty() {
+                        eprintln!(
+                            "hint: {} items found with --all-features",
+                            all_results.len()
+                        );
+                    }
                 }
             }
         }
@@ -1083,7 +1123,7 @@ mod tests {
 
         if cli.search.is_some() {
             let search_query = cli.search.as_deref().unwrap();
-            match handle_search(&mut stdout_buf, index, search_query, &cli) {
+            match handle_search(&mut stdout_buf, index, search_query, &cli, None, &features) {
                 Ok(()) => {
                     let output = String::from_utf8(stdout_buf).expect("valid utf8");
                     return (Ok(output), String::new());
@@ -1202,7 +1242,8 @@ mod tests {
         let index = load_fixture_index();
         let cli = Cli::try_parse_from(["grox", "-S", "add"]).expect("parses");
         let mut buf = Vec::new();
-        let result = handle_search(&mut buf, &index, "add", &cli);
+        let features = FeatureFlags::from_cli(&cli);
+        let result = handle_search(&mut buf, &index, "add", &cli, None, &features);
         assert!(result.is_ok(), "search should succeed");
         let output = String::from_utf8(buf).expect("valid utf8");
         assert!(
@@ -1318,7 +1359,8 @@ mod tests {
         let index = load_fixture_index();
         let cli = Cli::try_parse_from(["grox", "-S", "add", "--json"]).expect("parses");
         let mut buf = Vec::new();
-        let result = handle_search(&mut buf, &index, "add", &cli);
+        let features = FeatureFlags::from_cli(&cli);
+        let result = handle_search(&mut buf, &index, "add", &cli, None, &features);
         assert!(result.is_ok(), "search should succeed");
         let output = String::from_utf8(buf).expect("valid utf8");
         // Each line should be valid JSON
@@ -1336,7 +1378,8 @@ mod tests {
         let index = load_fixture_index();
         let cli = Cli::try_parse_from(["grox", "-S", ""]).expect("parses");
         let mut buf = Vec::new();
-        let result = handle_search(&mut buf, &index, "", &cli);
+        let features = FeatureFlags::from_cli(&cli);
+        let result = handle_search(&mut buf, &index, "", &cli, None, &features);
         assert!(result.is_err(), "empty search should fail");
     }
 }

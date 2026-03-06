@@ -859,3 +859,31 @@ fn clear_cache_exits_successfully() {
         "should print status message: {stderr}"
     );
 }
+
+// ── Feature hint on zero search results ──────────────────────────────
+
+#[test]
+fn search_zero_results_hints_features() {
+    // Use --no-default-features to bypass the feature cascade (which tries
+    // --all-features by default). This builds without `unstable`, so
+    // `unstable_api` won't be in the index, triggering the hint.
+    let output = grox()
+        .args([
+            "--no-default-features",
+            "-S",
+            "unstable_api",
+            "groxide_test_api",
+        ])
+        .output()
+        .expect("command runs");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stdout.contains("0 results"),
+        "should show 0 results on stdout: {stdout}"
+    );
+    assert!(
+        stderr.contains("hint:") && stderr.contains("--all-features"),
+        "should hint about --all-features on stderr: {stderr}"
+    );
+}
