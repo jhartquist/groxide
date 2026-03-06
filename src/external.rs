@@ -190,20 +190,19 @@ fn query_crates_io(name: &str) -> Result<CratesIoResponse> {
     let url = format!("https://crates.io/api/v1/crates/{name}");
     let agent = build_http_agent();
 
-    let mut response = agent
-        .get(&url)
-        .call()
-        .map_err(|e| GroxError::ExternalFetchFailed {
-            name: name.to_string(),
-            details: format!("crates.io API error: {e}"),
-        })?;
-
-    if response.status() == 404 {
-        return Err(GroxError::CrateNotFound {
-            name: name.to_string(),
-            suggestions: vec![],
-        });
-    }
+    let mut response = agent.get(&url).call().map_err(|e| {
+        if matches!(e, ureq::Error::StatusCode(404)) {
+            GroxError::CrateNotFound {
+                name: name.to_string(),
+                suggestions: vec![],
+            }
+        } else {
+            GroxError::ExternalFetchFailed {
+                name: name.to_string(),
+                details: format!("crates.io API error: {e}"),
+            }
+        }
+    })?;
 
     response
         .body_mut()
