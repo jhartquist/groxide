@@ -63,8 +63,13 @@ pub(crate) fn fetch_external_crate(
     }
 
     ensure_source_available(&canonical_name, &exact_version, &crate_dir)?;
-    let generated_path =
-        generate_rustdoc_json_external(&crate_dir, &canonical_name, features, private)?;
+    let generated_path = generate_rustdoc_json_external(
+        &crate_dir,
+        &canonical_name,
+        &exact_version,
+        features,
+        private,
+    )?;
     cache_feature_json(&canonical_name, features, &generated_path, &json_path)?;
     let final_path = select_output_path(&canonical_name, &json_path, &generated_path)?;
 

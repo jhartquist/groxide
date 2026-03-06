@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -80,13 +81,20 @@ pub(crate) fn generate_rustdoc_json(
         CrateSource::CurrentCrate {
             manifest_path,
             name,
-            ..
+            version,
         } => {
             let workspace_root = manifest_path
                 .parent()
                 .expect("invariant: manifest_path has a parent");
             let target_dir = workspace_root.join("target");
-            generate_for_current_crate(workspace_root, name, &target_dir, features, private)?;
+            generate_for_current_crate(
+                workspace_root,
+                name,
+                version,
+                &target_dir,
+                features,
+                private,
+            )?;
             let json_path = json_output_path(&target_dir, name);
             Ok(json_path)
         }
@@ -133,6 +141,45 @@ fn check_nightly_available() -> Result<()> {
     }
 }
 
+/// Returns the path to the docs.rs failure cache file.
+fn docsrs_failure_cache_path() -> Option<PathBuf> {
+    Some(
+        dirs::cache_dir()?
+            .join("groxide")
+            .join("docsrs-failures.json"),
+    )
+}
+
+/// Loads the set of known docs.rs metadata build failures from disk.
+fn load_docsrs_failures(path: &Path) -> HashSet<String> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+/// Records that a docs.rs metadata build failed for a crate at a specific version.
+fn record_docsrs_failure(name: &str, version: &str) {
+    let Some(path) = docsrs_failure_cache_path() else {
+        return;
+    };
+    let mut failures = load_docsrs_failures(&path);
+    failures.insert(format!("{name}@{version}"));
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(&path, serde_json::to_string(&failures).unwrap_or_default());
+}
+
+/// Checks whether docs.rs metadata is known to fail for this crate at a specific version.
+fn is_docsrs_known_failure(name: &str, version: &str) -> bool {
+    let Some(path) = docsrs_failure_cache_path() else {
+        return false;
+    };
+    let failures = load_docsrs_failures(&path);
+    failures.contains(&format!("{name}@{version}"))
+}
+
 /// Runs the feature cascade strategy for generating rustdoc JSON.
 ///
 /// The cascade tries strategies in order until one succeeds:
@@ -146,6 +193,7 @@ fn check_nightly_available() -> Result<()> {
 fn generate_with_feature_cascade(
     crate_dir: &Path,
     crate_name: &str,
+    crate_version: Option<&str>,
     features: &FeatureFlags,
     build_cmd: impl Fn(&FeatureFlags, &[String], &[String]) -> Command,
 ) -> Result<()> {
@@ -155,8 +203,12 @@ fn generate_with_feature_cascade(
         return run_rustdoc_command(cmd);
     }
 
-    // Try docs.rs metadata first
-    if let Some(meta) = read_docsrs_metadata(crate_dir) {
+    // Try docs.rs metadata first (skip if known to fail for this crate@version)
+    let skip_docsrs = crate_version.is_some_and(|v| is_docsrs_known_failure(crate_name, v));
+
+    if skip_docsrs {
+        eprintln!("[grox] Skipping docs.rs metadata for {crate_name} (known failure)");
+    } else if let Some(meta) = read_docsrs_metadata(crate_dir) {
         eprintln!("[grox] Using docs.rs metadata for {crate_name}");
         let meta_features = FeatureFlags {
             all_features: meta.all_features,
@@ -168,6 +220,9 @@ fn generate_with_feature_cascade(
         match run_rustdoc_command_with_output(cmd) {
             Ok(()) => return Ok(()),
             Err(stderr) => {
+                if let Some(v) = crate_version {
+                    record_docsrs_failure(crate_name, v);
+                }
                 if is_platform_failure(&stderr) {
                     eprintln!(
                         "[grox] Build with docs.rs metadata failed (platform issue), \
@@ -225,6 +280,7 @@ fn generate_with_feature_cascade(
 fn generate_for_current_crate(
     workspace_root: &Path,
     crate_name: &str,
+    crate_version: &str,
     target_dir: &Path,
     features: &FeatureFlags,
     private: bool,
@@ -232,6 +288,7 @@ fn generate_for_current_crate(
     generate_with_feature_cascade(
         workspace_root,
         crate_name,
+        Some(crate_version),
         features,
         |f, rustdoc_args, rustc_args| {
             build_rustdoc_command(
@@ -311,6 +368,7 @@ fn generate_for_stdlib(
 pub(crate) fn generate_rustdoc_json_external(
     source_dir: &Path,
     crate_name: &str,
+    crate_version: &str,
     features: &FeatureFlags,
     private: bool,
 ) -> Result<PathBuf> {
@@ -321,6 +379,7 @@ pub(crate) fn generate_rustdoc_json_external(
     generate_with_feature_cascade(
         source_dir,
         crate_name,
+        Some(crate_version),
         features,
         |f, rustdoc_args, rustc_args| {
             build_rustdoc_command(
@@ -997,6 +1056,41 @@ mod tests {
         assert!(rustflags.is_some());
         let (_, val) = rustflags.unwrap();
         assert_eq!(val.unwrap().to_str().unwrap(), "--cfg tokio_unstable");
+    }
+
+    // ---- docs.rs failure cache ----
+
+    #[test]
+    fn record_and_check_docsrs_failure_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("docsrs-failures.json");
+
+        // Initially empty
+        let failures = load_docsrs_failures(&path);
+        assert!(failures.is_empty());
+
+        // Record a failure by writing directly
+        let mut failures = HashSet::new();
+        failures.insert("wgpu@0.20.0".to_string());
+        std::fs::write(&path, serde_json::to_string(&failures).unwrap()).unwrap();
+
+        // Should be found
+        let loaded = load_docsrs_failures(&path);
+        assert!(loaded.contains("wgpu@0.20.0"));
+        assert!(!loaded.contains("serde@1.0.0"));
+    }
+
+    #[test]
+    fn is_docsrs_known_failure_returns_false_for_unknown_crate() {
+        // With no cache file, should return false
+        assert!(!is_docsrs_known_failure("nonexistent-crate", "0.0.0"));
+    }
+
+    #[test]
+    fn load_docsrs_failures_returns_empty_when_file_missing() {
+        let path = Path::new("/tmp/groxide-test-nonexistent/docsrs-failures.json");
+        let failures = load_docsrs_failures(path);
+        assert!(failures.is_empty());
     }
 
     /// Extracts command arguments as a list of strings from the Command's debug output.
