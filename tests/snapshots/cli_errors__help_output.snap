@@ -20,7 +20,7 @@ Options:
   -s, --source
           Show source code with file path and line numbers
 
-  -S, --search <SEARCH>
+  -S, --search <QUERY>
           Full-text search across documentation
 
   -k, --kind <KIND>

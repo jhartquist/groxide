@@ -20,24 +20,29 @@ A Rust CLI tool that lets LLM coding agents (and humans) query crate documentati
 
 ## CLI flags and detail tiers
 
-**Detail tiers** (mutually exclusive, from least to most verbose):
+**Detail tiers** (from least to most verbose):
 - `-b`/`--brief` — Item names only (compact skeleton)
 - *(default)* — Kind, path, and signature (single-item views include full docs)
 - `-d`/`--docs` — Full rendered documentation per item
 - `-s`/`--source` — Source code with file path and line numbers
+
+`-b` is exclusive with `-d` and `-s`, but `-d` and `-s` compose: `-d -s` shows source with full docs included.
 
 **Composability:** `-r`/`--recursive` works with any detail tier:
 - `grox -r crate` — recursive default (kind, path, signature)
 - `grox -r -b crate` — structural skeleton (names only)
 - `grox -r -d crate` — recursive with full docs
 - `grox -r -s crate` — dump entire crate with source
+- `grox -r -d -s crate` — recursive with docs + source
+
+**Orthogonal modifiers** (compose with any detail tier and `-r`):
+- `-j`/`--json` — JSON Lines output
+- `-p`/`--private` — Include non-public items
+- `-k`/`--kind <KIND>` — Filter by item kind
 
 **Other flags:**
 - `-S`/`--search <QUERY>` — Full-text search. Use `|` for OR, space for AND.
 - `-i`/`--impls [TRAIT]` — Show trait implementations; optionally filter by trait name (e.g., `--impls Clone`)
-- `-k`/`--kind <KIND>` — Filter by item kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro`
-- `-j`/`--json` — JSON Lines output
-- `-p`/`--private` — Include non-public items
 - `--readme` — Show crate README
 - `--clear-cache` — Wipe the global documentation cache and exit
 

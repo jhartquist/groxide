@@ -170,7 +170,7 @@ dependency resolution.
 |------|-------|---------|
 | `--brief` | `-b` | Show only item names (compact output) |
 | `--docs` | `-d` | Show full rendered documentation per item |
-| `--source` | `-s` | Show source code |
+| `--source` | `-s` | Show source code (composable with `-d` for source + docs) |
 | `--search <Q>` | `-S` | Full-text search (`\|` for OR, space for AND) |
 | `--json` | `-j` | JSON Lines output |
 | `--kind <K>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
@@ -183,6 +183,8 @@ dependency resolution.
 | `--all-features` | | Activate all features |
 | `--no-default-features` | | Do not activate the `default` feature |
 | `--manifest-path <P>` | | Path to Cargo.toml |
+
+`-j`, `-p`, and `-k` are orthogonal modifiers that compose with any detail tier and `-r`.
 
 ## Example Workflows
 

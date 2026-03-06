@@ -101,8 +101,10 @@ src/
   stdlib.rs         Standard library support
   render/
     mod.rs          Render dispatch
-    text.rs         Plain text output
-    list.rs         List mode output
+    text.rs         Plain text output (single-item default view)
+    brief.rs        Brief mode output (names only)
+    docs.rs         Full docs mode output
+    list.rs         List mode output (recursive)
     json.rs         JSON output
     ambiguous.rs    Ambiguous match display
 tests/              Integration tests

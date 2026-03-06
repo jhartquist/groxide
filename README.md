@@ -97,7 +97,7 @@ LLM coding agents and humans both need fast, token-efficient access to crate doc
 - **Auto-fetch.** Unknown crates are fetched from crates.io automatically — works outside a project.
 - **Standard library.** Query `std`, `core`, and `alloc` directly — works anywhere.
 - **Full-text search.** `grox tokio -S "spawn"` searches across a crate's docs.
-- **Multiple output formats.** Plain text (default), JSON (`--json`), brief (`--brief`), full docs (`--docs`).
+- **Multiple output formats.** Plain text (default), JSON (`--json`), brief (`--brief`), full docs (`--docs`), source code (`--source`). Combine `-d -s` for source with full docs.
 
 ## Requirements
 
@@ -202,13 +202,15 @@ grox [OPTIONS] [PATH]
 |------|-------|-------------|
 | `--brief` | `-b` | Show only item names (compact output) |
 | `--docs` | `-d` | Show full rendered documentation per item |
-| `--source` | `-s` | Show source code instead of docs |
+| `--source` | `-s` | Show source code with file path and line numbers |
 | `--search <QUERY>` | `-S` | Full-text search (`\|` for OR, space for AND) |
 | `--kind <KIND>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
 | `--private` | `-p` | Include non-public items |
 | `--json` | `-j` | JSON Lines output |
 | `--impls [TRAIT]` | `-i` | Show trait implementations, optionally filtered by trait name |
 | `--recursive` | `-r` | List all public items recursively (composable with `-b`, `-d`, `-s`) |
+
+`-d` and `-s` compose: `grox -d -s path` shows source with full docs. `-j`, `-p`, and `-k` are orthogonal and combine with any mode.
 | `--readme` | | Show the crate's README |
 | `--clear-cache` | | Wipe the global documentation cache and exit |
 | `--manifest-path <PATH>` | | Path to Cargo.toml |

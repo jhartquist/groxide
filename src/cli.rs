@@ -45,7 +45,7 @@ pub struct Cli {
     pub source: bool,
 
     /// Full-text search across documentation
-    #[arg(short = 'S', long, conflicts_with_all = ["brief", "docs", "source", "impls"])]
+    #[arg(short = 'S', long, value_name = "QUERY", conflicts_with_all = ["brief", "docs", "source", "impls"])]
     pub search: Option<String>,
 
     /// Filter by item kind
