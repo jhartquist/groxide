@@ -3,13 +3,23 @@ source: src/render/ambiguous.rs
 expression: output
 ---
 --- mycrate::sync::Mutex ---
-// src/sync/mutex.rs:42-100
+struct mycrate::sync::Mutex
+pub struct Mutex<T>
+
+A mutual exclusion primitive.
+
+── Source: src/sync/mutex.rs:42-100 ──
 pub struct Mutex<T> {
     inner: T,
 }
 
 --- mycrate::sync::MutexGuard ---
-// src/sync/mutex.rs:150-180
+struct mycrate::sync::MutexGuard
+pub struct MutexGuard<'a, T>
+
+An RAII guard for a locked Mutex.
+
+── Source: src/sync/mutex.rs:150-180 ──
 pub struct MutexGuard<'a, T> {
     lock: &'a Mutex<T>,
 }

@@ -2,7 +2,18 @@
 source: tests/cli_happy.rs
 expression: stdout
 ---
-// src/lib.rs:21-23
+struct groxide_test_api::GenericStruct
+pub struct GenericStruct<T: Clone>
+
+A generic container holding a single value.
+
+Examples
+
+  use groxide_test_api::GenericStruct;
+  let gs = GenericStruct::new(42);
+  assert_eq!(*gs.value(), 42);
+
+── Source: src/lib.rs:21-23 ──
 pub struct GenericStruct<T: Clone> {
     value: T,
 }

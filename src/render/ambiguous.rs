@@ -146,6 +146,9 @@ pub(crate) fn render_impls_other(item: &IndexItem) -> String {
 }
 
 /// Renders the source view (`--source`) for a single item.
+///
+/// Includes rendered documentation above the source code, making source mode
+/// a strict superset of docs mode.
 pub(crate) fn render_source(item: &IndexItem, source_content: Option<&str>) -> String {
     let span = &item.span;
 
@@ -157,12 +160,38 @@ pub(crate) fn render_source(item: &IndexItem, source_content: Option<&str>) -> S
     match source_content {
         Some(content) => {
             let mut out = String::new();
+
+            // Header: kind + path
+            let gate = feature_gate_suffix(item.feature_gate.as_ref());
+            let _ = writeln!(out, "{} {}{gate}", item.kind.short_name(), item.path);
+
+            // Signature
+            if !item.signature.is_empty() {
+                let _ = writeln!(out, "{}", item.signature);
+            }
+
+            // Rendered docs
+            if !item.docs.is_empty() {
+                out.push('\n');
+                let stripped = strip_markdown(&item.docs);
+                for line in stripped.lines() {
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+
+            // Source block with divider
+            out.push('\n');
             if span.line_start == span.line_end {
-                let _ = writeln!(out, "// {}:{}", span.file, span.line_start);
+                let _ = writeln!(
+                    out,
+                    "\u{2500}\u{2500} Source: {}:{} \u{2500}\u{2500}",
+                    span.file, span.line_start
+                );
             } else {
                 let _ = writeln!(
                     out,
-                    "// {}:{}-{}",
+                    "\u{2500}\u{2500} Source: {}:{}-{} \u{2500}\u{2500}",
                     span.file, span.line_start, span.line_end
                 );
             }
@@ -177,9 +206,12 @@ pub(crate) fn render_source(item: &IndexItem, source_content: Option<&str>) -> S
 }
 
 /// Renders the source view for multiple ambiguous matches.
+///
+/// Each item includes its rendered documentation above the source code.
 pub(crate) fn render_source_ambiguous(items_with_source: &[(&IndexItem, Option<&str>)]) -> String {
     let mut out = String::new();
-    for (i, (item, source)) in items_with_source.iter().enumerate() {
+    for (i, (_, source)) in items_with_source.iter().enumerate() {
+        let item = items_with_source[i].0;
         if i > 0 {
             out.push('\n');
         }
@@ -724,8 +756,8 @@ mod tests {
                 "mycrate::Mutex",
                 ItemKind::Struct,
                 "pub struct Mutex<T: ?Sized>",
-                "",
-                "",
+                "An asynchronous Mutex-like type.\n\nProvides mutual exclusion.",
+                "An asynchronous Mutex-like type.",
             ),
             "src/sync/mutex.rs",
             42,
@@ -816,8 +848,8 @@ mod tests {
                 "mycrate::sync::Mutex",
                 ItemKind::Struct,
                 "pub struct Mutex<T>",
-                "",
-                "",
+                "A mutual exclusion primitive.",
+                "A mutual exclusion primitive.",
             ),
             "src/sync/mutex.rs",
             42,
@@ -829,8 +861,8 @@ mod tests {
                 "mycrate::sync::MutexGuard",
                 ItemKind::Struct,
                 "pub struct MutexGuard<'a, T>",
-                "",
-                "",
+                "An RAII guard for a locked Mutex.",
+                "An RAII guard for a locked Mutex.",
             ),
             "src/sync/mutex.rs",
             150,

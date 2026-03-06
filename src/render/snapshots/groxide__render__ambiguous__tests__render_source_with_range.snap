@@ -2,7 +2,14 @@
 source: src/render/ambiguous.rs
 expression: output
 ---
-// src/sync/mutex.rs:42-147
+struct mycrate::Mutex
+pub struct Mutex<T: ?Sized>
+
+An asynchronous Mutex-like type.
+
+Provides mutual exclusion.
+
+── Source: src/sync/mutex.rs:42-147 ──
 pub struct Mutex<T: ?Sized> {
     s: semaphore::Semaphore,
     c: UnsafeCell<T>,

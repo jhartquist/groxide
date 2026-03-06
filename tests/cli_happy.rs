@@ -183,7 +183,7 @@ fn source_mode() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("// src/lib.rs:"),
+        stdout.contains("Source: src/lib.rs:"),
         "should have source file header: {stdout}"
     );
     assert!(
@@ -349,7 +349,7 @@ fn source_mode_struct() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("// src/lib.rs:"),
+        stdout.contains("Source: src/lib.rs:"),
         "should have source header: {stdout}"
     );
     assert!(
@@ -358,6 +358,34 @@ fn source_mode_struct() {
     );
 
     insta::assert_snapshot!("source_struct", stdout);
+}
+
+#[test]
+fn source_mode_includes_docs() {
+    let output = grox()
+        .arg("--source")
+        .arg("groxide_test_api::add")
+        .output()
+        .expect("command runs");
+
+    assert!(output.status.success(), "exit code should be 0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should include rendered docs
+    assert!(
+        stdout.contains("Adds two numbers"),
+        "should contain doc text: {stdout}"
+    );
+    // Should include source code
+    assert!(
+        stdout.contains("a + b"),
+        "should contain source code: {stdout}"
+    );
+    // Should include source header
+    assert!(
+        stdout.contains("Source: src/lib.rs:"),
+        "should have source divider: {stdout}"
+    );
 }
 
 #[test]
