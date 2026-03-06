@@ -1,8 +1,8 @@
 [step]
 model = "Opus"
-max_turns = 100
+max_turns = 10000
 max_retries = 5
-timeout_seconds = 300
+timeout_seconds = 600
 
 [task]
 enhance_model = "Sonnet"
