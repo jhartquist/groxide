@@ -127,7 +127,8 @@ pub fn run(cli: &Cli) -> Result<()> {
             )?;
         } else if cli.source {
             // Step 8b: Handle --source
-            handle_source(&mut out, &result, &index, &source, cli.docs)?;
+            let kind_filter = cli.kind.map(ItemKind::from);
+            handle_source(&mut out, &result, &index, &source, cli.docs, kind_filter)?;
         } else {
             // Step 9: Render output
             handle_output(
@@ -550,10 +551,49 @@ fn handle_source(
     index: &DocIndex,
     source: &CrateSource,
     include_docs: bool,
+    kind_filter: Option<ItemKind>,
 ) -> Result<()> {
     match result {
         QueryResult::Found { index: idx } => {
             let item = index.get(*idx);
+
+            // When a kind filter is set and the item is a module, show source
+            // for matching children instead of the module's own source.
+            if kind_filter.is_some() && item.kind == ItemKind::Module {
+                let matching: Vec<_> = item
+                    .children
+                    .iter()
+                    .map(|c| index.get(c.index))
+                    .filter(|c| c.is_public)
+                    .filter(|c| kind_filter.is_none_or(|k| c.kind.matches_filter(k)))
+                    .collect();
+
+                if matching.is_empty() {
+                    return Err(GroxError::ItemNotFound {
+                        query: item.path.clone(),
+                        crate_name: Some(index.crate_name.clone()),
+                        suggestions: Vec::new(),
+                    });
+                }
+
+                let items_with_source: Vec<_> = matching
+                    .iter()
+                    .map(|child| {
+                        let content = read_source_content(child, source);
+                        (*child, content)
+                    })
+                    .collect();
+
+                let refs: Vec<_> = items_with_source
+                    .iter()
+                    .map(|(item, content)| (*item, content.as_deref()))
+                    .collect();
+
+                let output = render::ambiguous::render_source_ambiguous(&refs, include_docs);
+                writeln!(w, "{output}").map_err(GroxError::Io)?;
+                return Ok(());
+            }
+
             let content = read_source_content(item, source);
             let output = render::ambiguous::render_source(item, content.as_deref(), include_docs);
             writeln!(w, "{output}").map_err(GroxError::Io)?;
@@ -1187,7 +1227,15 @@ mod tests {
                 name: "groxide_test_api".to_string(),
                 version: "0.1.0".to_string(),
             };
-            match handle_source(&mut stdout_buf, &result, index, &source, cli.docs) {
+            let kind_filter = cli.kind.map(ItemKind::from);
+            match handle_source(
+                &mut stdout_buf,
+                &result,
+                index,
+                &source,
+                cli.docs,
+                kind_filter,
+            ) {
                 Ok(()) => {
                     let output = String::from_utf8(stdout_buf).expect("valid utf8");
                     return (Ok(output), String::new());
