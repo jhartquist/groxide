@@ -22,8 +22,9 @@ use std::time::Instant;
 
 use cli::{Cli, CrateSpec, FeatureFlags, OutputMode, QueryPath};
 use error::{GroxError, Result};
+use render::dispatch::RenderContext;
 use resolve::{CrateSource, ProjectContext};
-use types::{DisplayLimits, DocIndex, ItemKind, QueryResult};
+use types::{DocIndex, ItemKind, QueryResult};
 
 /// Runs the groxide CLI with the given parsed arguments.
 ///
@@ -115,12 +116,14 @@ pub fn run(cli: &Cli) -> Result<()> {
             }
         }
 
+        let render_ctx = RenderContext::from_cli(&index, cli);
+
         if cli.recursive && cli.source {
             // Step 8a: Handle --recursive --source (dump everything)
             source::handle_recursive_source(
                 &mut out,
                 &result,
-                &index,
+                &render_ctx,
                 &source,
                 cli,
                 ctx.as_ref(),
@@ -129,14 +132,20 @@ pub fn run(cli: &Cli) -> Result<()> {
             )?;
         } else if cli.source {
             // Step 8b: Handle --source
-            let kind_filter = cli.kind.map(ItemKind::from);
-            source::handle_source(&mut out, &result, &index, &source, cli.docs, kind_filter)?;
+            source::handle_source(
+                &mut out,
+                &result,
+                &index,
+                &source,
+                cli.docs,
+                render_ctx.kind_filter,
+            )?;
         } else {
             // Step 9: Render output
             render::dispatch::handle_output(
                 &mut out,
                 &result,
-                &index,
+                &render_ctx,
                 cli,
                 ctx.as_ref(),
                 &features,
@@ -610,20 +619,28 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
 
         match result {
             QueryResult::Found { index: idx } => {
+                let render_ctx = RenderContext::from_cli(index, cli);
                 if cli.recursive && cli.source {
-                    render::dispatch::render_recursive_source(w, index, idx, source, cli)?;
+                    render::dispatch::render_recursive_source(
+                        w,
+                        &render_ctx,
+                        idx,
+                        source,
+                        cli.docs,
+                    )?;
                 } else if cli.recursive {
-                    render::dispatch::render_recursive(w, index, idx, cli)?;
+                    render::dispatch::render_recursive(w, &render_ctx, idx, cli.docs)?;
                 } else {
-                    let kind_filter = cli.kind.map(ItemKind::from);
-                    let display = render::build_display_item(index, idx, cli.private, kind_filter);
-                    let output = match cli.output_mode() {
+                    let display = render::build_display_item(
+                        index,
+                        idx,
+                        render_ctx.include_private,
+                        render_ctx.kind_filter,
+                    );
+                    let output = match render_ctx.mode {
                         OutputMode::Json => render::json::render_json(&display),
                         OutputMode::Brief => render::brief::render_brief(&display),
-                        OutputMode::Text => {
-                            let limits = DisplayLimits::default();
-                            render::text::render_text(&display, &limits)
-                        }
+                        OutputMode::Text => render::text::render_text(&display, &render_ctx.limits),
                     };
                     writeln!(w, "{output}").map_err(GroxError::Io)?;
                 }
@@ -728,10 +745,11 @@ mod tests {
             }
         }
 
+        let render_ctx = RenderContext::from_cli(index, &cli);
         match render::dispatch::handle_output(
             &mut stdout_buf,
             &result,
-            index,
+            &render_ctx,
             &cli,
             None,
             &features,
@@ -799,10 +817,11 @@ mod tests {
 
         let mut buf = Vec::new();
         let cli = Cli::try_parse_from(["grox"]).expect("parses");
+        let render_ctx = RenderContext::from_cli(&index, &cli);
         let r = render::dispatch::handle_output(
             &mut buf,
             &result,
-            &index,
+            &render_ctx,
             &cli,
             None,
             &features,

@@ -96,7 +96,7 @@ pub(crate) fn handle_source(
 pub(crate) fn handle_recursive_source(
     w: &mut impl Write,
     result: &QueryResult,
-    index: &DocIndex,
+    render_ctx: &render::dispatch::RenderContext<'_>,
     source: &CrateSource,
     cli: &Cli,
     ctx: Option<&ProjectContext>,
@@ -105,13 +105,17 @@ pub(crate) fn handle_recursive_source(
 ) -> Result<()> {
     match result {
         QueryResult::Found { index: idx } => {
-            let item = index.get(*idx);
+            let item = render_ctx.index.get(*idx);
 
             // Follow cross-crate re-export stubs
             let (effective_index, effective_idx) = if query::is_reexport_stub(item) {
-                if let Some((source_index, canonical_idx)) =
-                    reexport::try_follow_reexport(item, ctx, features, feature_suffix, cli.private)
-                {
+                if let Some((source_index, canonical_idx)) = reexport::try_follow_reexport(
+                    item,
+                    ctx,
+                    features,
+                    feature_suffix,
+                    render_ctx.include_private,
+                ) {
                     (Some(source_index), canonical_idx)
                 } else {
                     (None, *idx)
@@ -120,16 +124,39 @@ pub(crate) fn handle_recursive_source(
                 (None, *idx)
             };
 
-            let using_index = effective_index.as_ref().unwrap_or(index);
+            // Build context for the effective index (may differ when following re-exports)
+            let effective_ctx = if let Some(ref eff_index) = effective_index {
+                render::dispatch::RenderContext {
+                    index: eff_index,
+                    limits: types::DisplayLimits::default(),
+                    mode: render_ctx.mode,
+                    kind_filter: render_ctx.kind_filter,
+                    include_private: render_ctx.include_private,
+                }
+            } else {
+                render::dispatch::RenderContext {
+                    index: render_ctx.index,
+                    limits: types::DisplayLimits::default(),
+                    mode: render_ctx.mode,
+                    kind_filter: render_ctx.kind_filter,
+                    include_private: render_ctx.include_private,
+                }
+            };
 
-            render::dispatch::render_recursive_source(w, using_index, effective_idx, source, cli)
+            render::dispatch::render_recursive_source(
+                w,
+                &effective_ctx,
+                effective_idx,
+                source,
+                cli.docs,
+            )
         }
         QueryResult::Ambiguous { indices, .. } => {
             // For ambiguous results, just show source for each match
             let items_with_source: Vec<_> = indices
                 .iter()
                 .map(|&idx| {
-                    let item = index.get(idx);
+                    let item = render_ctx.index.get(idx);
                     let content = read_source_content(item, source);
                     (item, content)
                 })
@@ -148,7 +175,7 @@ pub(crate) fn handle_recursive_source(
             query, suggestions, ..
         } => Err(GroxError::ItemNotFound {
             query: query.clone(),
-            crate_name: Some(index.crate_name.clone()),
+            crate_name: Some(render_ctx.index.crate_name.clone()),
             suggestions: suggestions.clone(),
         }),
     }
