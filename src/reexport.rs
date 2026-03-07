@@ -81,7 +81,10 @@ pub(crate) fn try_resolve_reexport_on_not_found(
     let name_lower = item_name.to_lowercase();
 
     // Search the index for items with the same name
-    let name_indices = index.name_map.get(&name_lower)?;
+    let name_indices = index.lookup_by_name(&name_lower);
+    if name_indices.is_empty() {
+        return None;
+    }
 
     // Filter to re-export stubs whose reexport_source is set
     let mut reexport_matches: Vec<usize> = name_indices

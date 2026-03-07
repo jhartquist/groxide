@@ -402,6 +402,21 @@ impl DocIndex {
     pub(crate) fn item_trait_impls(&self, index: usize) -> &[TraitImplInfo] {
         self.trait_impls.get(&index).map_or(&[], Vec::as_slice)
     }
+
+    /// Returns item indices matching the exact path.
+    pub(crate) fn lookup_by_path(&self, path: &str) -> &[usize] {
+        self.path_map.get(path).map_or(&[], Vec::as_slice)
+    }
+
+    /// Returns item indices matching the lowercased item name.
+    pub(crate) fn lookup_by_name(&self, name: &str) -> &[usize] {
+        self.name_map.get(name).map_or(&[], Vec::as_slice)
+    }
+
+    /// Returns item indices matching the lowercased path suffix.
+    pub(crate) fn lookup_by_suffix(&self, suffix: &str) -> &[usize] {
+        self.suffix_map.get(suffix).map_or(&[], Vec::as_slice)
+    }
 }
 
 /// Output of the query engine's lookup pipeline.

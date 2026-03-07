@@ -59,7 +59,10 @@ fn try_exact_path_match(
     query_path: &str,
     kind_filter: Option<ItemKind>,
 ) -> Option<QueryResult> {
-    let indices = index.path_map.get(query_path)?;
+    let indices = index.lookup_by_path(query_path);
+    if indices.is_empty() {
+        return None;
+    }
     let filtered = apply_kind_filter(index, indices, kind_filter);
     Some(classify_results(index, &filtered, query_path))
 }
@@ -74,7 +77,10 @@ fn try_case_insensitive_path_match(
     query_lower: &str,
     kind_filter: Option<ItemKind>,
 ) -> Option<QueryResult> {
-    let suffix_indices = index.suffix_map.get(query_lower)?;
+    let suffix_indices = index.lookup_by_suffix(query_lower);
+    if suffix_indices.is_empty() {
+        return None;
+    }
     let query_segment_count = query_path.split("::").count();
     let ci_path_matches: Vec<usize> = suffix_indices
         .iter()
@@ -108,7 +114,10 @@ fn try_suffix_match(
     query_lower: &str,
     kind_filter: Option<ItemKind>,
 ) -> Option<QueryResult> {
-    let suffix_indices = index.suffix_map.get(query_lower)?;
+    let suffix_indices = index.lookup_by_suffix(query_lower);
+    if suffix_indices.is_empty() {
+        return None;
+    }
     let filtered = apply_kind_filter(index, suffix_indices, kind_filter);
     let case_filtered = apply_case_sensitivity(index, &filtered, query_path);
 
@@ -199,7 +208,10 @@ fn try_name_match(
     }
 
     let name_lower = segments[0].to_lowercase();
-    let name_indices = index.name_map.get(&name_lower)?;
+    let name_indices = index.lookup_by_name(&name_lower);
+    if name_indices.is_empty() {
+        return None;
+    }
     let filtered = apply_kind_filter(index, name_indices, kind_filter);
     let case_filtered = apply_case_sensitivity(index, &filtered, segments[0]);
     if case_filtered.is_empty() {
@@ -325,7 +337,8 @@ fn resolve_reexport_stubs(index: &DocIndex, indices: &[usize]) -> Vec<usize> {
 
             // Try to find the canonical item elsewhere in the full index
             let name_lower = item.name.to_lowercase();
-            if let Some(name_indices) = index.name_map.get(&name_lower) {
+            let name_indices = index.lookup_by_name(&name_lower);
+            if !name_indices.is_empty() {
                 let canonical = name_indices.iter().find(|&&ni| {
                     !index_set.contains(&ni) && {
                         let candidate = &index.items[ni];
