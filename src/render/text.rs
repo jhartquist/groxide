@@ -9,7 +9,15 @@ use super::{
 /// Renders a `DisplayItem` as plain text.
 ///
 /// Returns the complete plain text output string ready for stdout.
-pub(crate) fn render_text(display: &DisplayItem<'_>, limits: &DisplayLimits) -> String {
+///
+/// When `reexport_info` is `Some((stub_path, source_path))`, the renderer uses
+/// `stub_path` in the header line and inserts a `"Re-exported from ..."` note
+/// after the signature block.
+pub(crate) fn render_text(
+    display: &DisplayItem<'_>,
+    limits: &DisplayLimits,
+    reexport_info: Option<(&str, &str)>,
+) -> String {
     match display {
         DisplayItem::Crate { item, children } => render_crate(item, children, limits),
         DisplayItem::Module { item, children } => render_module(item, children, limits),
@@ -18,13 +26,19 @@ pub(crate) fn render_text(display: &DisplayItem<'_>, limits: &DisplayLimits) -> 
             methods,
             variants,
             trait_impls,
-        } => render_type(item, methods, variants, trait_impls, limits),
+        } => render_type(item, methods, variants, trait_impls, limits, reexport_info),
         DisplayItem::Trait {
             item,
             required_methods,
             provided_methods,
-        } => render_trait(item, required_methods, provided_methods, limits),
-        DisplayItem::Leaf { item } => render_leaf(item, limits),
+        } => render_trait(
+            item,
+            required_methods,
+            provided_methods,
+            limits,
+            reexport_info,
+        ),
+        DisplayItem::Leaf { item } => render_leaf(item, limits, reexport_info),
     }
 }
 
@@ -83,17 +97,24 @@ fn render_type(
     variants: &[&IndexItem],
     trait_impls: &[TraitImplInfo],
     limits: &DisplayLimits,
+    reexport_info: Option<(&str, &str)>,
 ) -> String {
     let mut out = String::new();
 
-    // Header
+    // Header — use stub path for re-exports, canonical path otherwise
     let gate = feature_gate_suffix(item.feature_gate.as_ref());
-    let _ = writeln!(out, "{} {}{gate}", item.kind.short_name(), item.path);
+    let display_path = reexport_info.map_or(item.path.as_str(), |(stub, _)| stub);
+    let _ = writeln!(out, "{} {}{gate}", item.kind.short_name(), display_path);
 
     // Signature
     out.push('\n');
     out.push_str(&item.signature);
     out.push('\n');
+
+    // Re-export annotation (between signature and docs)
+    if let Some((_, source_path)) = reexport_info {
+        let _ = write!(out, "\nRe-exported from {source_path}.\n");
+    }
 
     // Doc text
     if !item.docs.is_empty() {
@@ -149,17 +170,24 @@ fn render_trait(
     required_methods: &[&IndexItem],
     provided_methods: &[&IndexItem],
     limits: &DisplayLimits,
+    reexport_info: Option<(&str, &str)>,
 ) -> String {
     let mut out = String::new();
 
-    // Header
+    // Header — use stub path for re-exports, canonical path otherwise
     let gate = feature_gate_suffix(item.feature_gate.as_ref());
-    let _ = writeln!(out, "trait {}{gate}", item.path);
+    let display_path = reexport_info.map_or(item.path.as_str(), |(stub, _)| stub);
+    let _ = writeln!(out, "trait {display_path}{gate}");
 
     // Signature
     out.push('\n');
     out.push_str(&item.signature);
     out.push('\n');
+
+    // Re-export annotation (between signature and docs)
+    if let Some((_, source_path)) = reexport_info {
+        let _ = write!(out, "\nRe-exported from {source_path}.\n");
+    }
 
     // Doc text
     if !item.docs.is_empty() {
@@ -210,17 +238,27 @@ fn render_trait(
 }
 
 /// Renders leaf item display.
-fn render_leaf(item: &IndexItem, limits: &DisplayLimits) -> String {
+fn render_leaf(
+    item: &IndexItem,
+    limits: &DisplayLimits,
+    reexport_info: Option<(&str, &str)>,
+) -> String {
     let mut out = String::new();
 
-    // Header
+    // Header — use stub path for re-exports, canonical path otherwise
     let gate = feature_gate_suffix(item.feature_gate.as_ref());
-    let _ = writeln!(out, "{} {}{gate}", item.kind.short_name(), item.path);
+    let display_path = reexport_info.map_or(item.path.as_str(), |(stub, _)| stub);
+    let _ = writeln!(out, "{} {}{gate}", item.kind.short_name(), display_path);
 
     // Signature
     out.push('\n');
     out.push_str(&item.signature);
     out.push('\n');
+
+    // Re-export annotation (between signature and docs)
+    if let Some((_, source_path)) = reexport_info {
+        let _ = write!(out, "\nRe-exported from {source_path}.\n");
+    }
 
     // Doc text
     if !item.docs.is_empty() {
@@ -349,7 +387,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 3, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -402,7 +440,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 2, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -443,7 +481,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 20, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -526,7 +564,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 4, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -600,7 +638,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 3, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -619,7 +657,7 @@ mod tests {
         );
         let di = DisplayItem::Leaf { item: &item };
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -638,7 +676,7 @@ mod tests {
         );
         let di = DisplayItem::Leaf { item: &item };
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -707,7 +745,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 3, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -733,7 +771,7 @@ mod tests {
             expand_all: false,
             ..DisplayLimits::default()
         };
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         // Verify truncation happened
         assert!(
@@ -769,7 +807,7 @@ mod tests {
             expand_all: false,
             ..DisplayLimits::default()
         };
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         // Should not panic (proving UTF-8 safety) and should contain truncation marker
         assert!(output.contains("..."), "output should be truncated");
@@ -811,7 +849,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 1, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         assert!(output.contains("methods:"));
         assert!(!output.contains("required methods:"));
@@ -836,7 +874,7 @@ mod tests {
             provided_methods: vec![],
         };
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -855,7 +893,7 @@ mod tests {
         );
         let di = DisplayItem::Leaf { item: &item };
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -899,7 +937,7 @@ mod tests {
 
         let di = crate::render::build_display_item(&index, 0, false, None);
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }
@@ -919,7 +957,7 @@ mod tests {
         item.feature_gate = Some("fs".to_string());
         let di = DisplayItem::Leaf { item: &item };
         let limits = DisplayLimits::default();
-        let output = render_text(&di, &limits);
+        let output = render_text(&di, &limits, None);
 
         insta::assert_snapshot!(output);
     }

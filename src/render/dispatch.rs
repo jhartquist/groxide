@@ -156,15 +156,19 @@ pub(crate) fn handle_output(
                     OutputMode::Json => render::json::render_json(&display),
                     OutputMode::Brief => render::brief::render_brief(&display),
                     OutputMode::Text => {
-                        let canonical_output = render::text::render_text(&display, &ctx.limits);
-                        // For followed re-exports, annotate with the stub path and source note
-                        if effective_index.is_some() {
+                        // For followed re-exports, pass stub path and source info
+                        // so the renderer places the annotation inline.
+                        let reexport_info = if effective_index.is_some() {
                             let source_path =
                                 reexport::parse_reexport_source(item).unwrap_or_default();
-                            reexport::annotate_reexport(&canonical_output, &item.path, &source_path)
+                            Some((item.path.clone(), source_path))
                         } else {
-                            canonical_output
-                        }
+                            None
+                        };
+                        let info_refs = reexport_info
+                            .as_ref()
+                            .map(|(s, p)| (s.as_str(), p.as_str()));
+                        render::text::render_text(&display, &ctx.limits, info_refs)
                     }
                 };
                 writeln!(w, "{output}").map_err(GroxError::Io)?;

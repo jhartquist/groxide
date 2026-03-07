@@ -640,7 +640,9 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
                     let output = match render_ctx.mode {
                         OutputMode::Json => render::json::render_json(&display),
                         OutputMode::Brief => render::brief::render_brief(&display),
-                        OutputMode::Text => render::text::render_text(&display, &render_ctx.limits),
+                        OutputMode::Text => {
+                            render::text::render_text(&display, &render_ctx.limits, None)
+                        }
                     };
                     writeln!(w, "{output}").map_err(GroxError::Io)?;
                 }
