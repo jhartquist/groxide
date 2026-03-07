@@ -2,7 +2,9 @@ use std::fmt::Write;
 
 use crate::types::{DisplayItem, DisplayLimits, GroupedItems, IndexItem, TraitImplInfo};
 
-use super::{feature_gate_suffix, strip_markdown, trim_trailing_newlines, truncate_doc};
+use super::{
+    feature_gate_suffix, strip_markdown, summary_with_gate, trim_trailing_newlines, truncate_doc,
+};
 
 /// Renders a `DisplayItem` as plain text.
 ///
@@ -254,19 +256,13 @@ fn render_grouped_children(out: &mut String, children: &GroupedItems<'_>) {
 /// Format: `  {name:<30}  {summary}`
 fn render_name_line(out: &mut String, item: &IndexItem) {
     let name = &item.name;
-    let summary = &item.summary;
-    let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
-    if summary.is_empty() && gate_suffix.is_empty() {
-        let _ = writeln!(out, "  {name}");
-    } else {
-        let display_summary = if gate_suffix.is_empty() {
-            summary.clone()
-        } else if summary.is_empty() {
-            gate_suffix
-        } else {
-            format!("{summary}{gate_suffix}")
-        };
-        let _ = writeln!(out, "  {name:<30}  {display_summary}");
+    match summary_with_gate(&item.summary, item.feature_gate.as_ref()) {
+        None => {
+            let _ = writeln!(out, "  {name}");
+        }
+        Some(display_summary) => {
+            let _ = writeln!(out, "  {name:<30}  {display_summary}");
+        }
     }
 }
 
@@ -275,19 +271,13 @@ fn render_name_line(out: &mut String, item: &IndexItem) {
 /// Format: `  {signature:<58}  {summary}`
 fn render_signature_line(out: &mut String, item: &IndexItem) {
     let sig = &item.signature;
-    let summary = &item.summary;
-    let gate_suffix = feature_gate_suffix(item.feature_gate.as_ref());
-    if summary.is_empty() && gate_suffix.is_empty() {
-        let _ = writeln!(out, "  {sig}");
-    } else {
-        let display_summary = if gate_suffix.is_empty() {
-            summary.clone()
-        } else if summary.is_empty() {
-            gate_suffix
-        } else {
-            format!("{summary}{gate_suffix}")
-        };
-        let _ = writeln!(out, "  {sig:<58}  {display_summary}");
+    match summary_with_gate(&item.summary, item.feature_gate.as_ref()) {
+        None => {
+            let _ = writeln!(out, "  {sig}");
+        }
+        Some(display_summary) => {
+            let _ = writeln!(out, "  {sig:<58}  {display_summary}");
+        }
     }
 }
 

@@ -543,6 +543,23 @@ pub(crate) fn feature_gate_suffix(feature_gate: Option<&String>) -> String {
     }
 }
 
+/// Composes a summary string with an optional feature gate suffix.
+///
+/// Returns the combined display string: summary alone, gate alone, or
+/// `"{summary}  [feature: ...]"`. Returns `None` when both are empty.
+pub(crate) fn summary_with_gate(summary: &str, feature_gate: Option<&String>) -> Option<String> {
+    let gate = feature_gate_suffix(feature_gate);
+    if summary.is_empty() && gate.is_empty() {
+        None
+    } else if gate.is_empty() {
+        Some(summary.to_owned())
+    } else if summary.is_empty() {
+        Some(gate)
+    } else {
+        Some(format!("{summary}{gate}"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -868,6 +885,39 @@ mod tests {
     fn feature_gate_suffix_some_returns_annotation() {
         let gate = "fs".to_string();
         assert_eq!(feature_gate_suffix(Some(&gate)), "  [feature: fs]");
+    }
+
+    // ---- summary_with_gate ----
+
+    #[test]
+    fn summary_with_gate_returns_none_when_both_empty() {
+        assert_eq!(summary_with_gate("", None), None);
+    }
+
+    #[test]
+    fn summary_with_gate_returns_summary_only_without_gate() {
+        assert_eq!(
+            summary_with_gate("Does things.", None),
+            Some("Does things.".to_string())
+        );
+    }
+
+    #[test]
+    fn summary_with_gate_returns_gate_only_without_summary() {
+        let gate = "fs".to_string();
+        assert_eq!(
+            summary_with_gate("", Some(&gate)),
+            Some("  [feature: fs]".to_string())
+        );
+    }
+
+    #[test]
+    fn summary_with_gate_returns_combined_when_both_present() {
+        let gate = "fs".to_string();
+        assert_eq!(
+            summary_with_gate("Does things.", Some(&gate)),
+            Some("Does things.  [feature: fs]".to_string())
+        );
     }
 
     // ---- collect_children_recursive ----
