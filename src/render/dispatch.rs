@@ -71,6 +71,9 @@ pub(crate) fn render_recursive_source(
     if let Some(filter) = ctx.kind_filter {
         items.retain(|item| item.kind.matches_filter(filter));
     }
+    // Module source encompasses all children, so rendering modules in source
+    // mode would duplicate every child's source block.
+    items.retain(|item| item.kind != ItemKind::Module);
 
     let mut first = true;
     for child in &items {
