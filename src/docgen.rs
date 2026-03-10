@@ -458,15 +458,13 @@ fn build_rustdoc_command(
     cmd.arg("-Z").arg("unstable-options");
 
     // Rustdoc-specific args go after `--`
-    let needs_separator = private || !extra_rustdoc_args.is_empty();
-    if needs_separator {
-        cmd.arg("--");
-        if private {
-            cmd.arg("--document-private-items");
-        }
-        for arg in extra_rustdoc_args {
-            cmd.arg(arg);
-        }
+    cmd.arg("--");
+    cmd.arg("--document-hidden-items");
+    if private {
+        cmd.arg("--document-private-items");
+    }
+    for arg in extra_rustdoc_args {
+        cmd.arg(arg);
     }
 
     // rustc args passed via RUSTFLAGS env var
@@ -752,6 +750,7 @@ mod tests {
         let cmd = build_rustdoc_command(None, None, None, None, &features, true, false, &[], &[]);
         let args = format_command_args(&cmd);
         assert!(has_arg(&args, "--"));
+        assert!(has_arg(&args, "--document-hidden-items"));
         assert!(has_arg(&args, "--document-private-items"));
     }
 
@@ -764,7 +763,27 @@ mod tests {
         };
         let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
         let args = format_command_args(&cmd);
+        assert!(has_arg(&args, "--"));
+        assert!(has_arg(&args, "--document-hidden-items"));
         assert!(!has_arg(&args, "--document-private-items"));
+    }
+
+    #[test]
+    fn build_command_always_includes_document_hidden_items() {
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        // Without private flag
+        let cmd = build_rustdoc_command(None, None, None, None, &features, false, false, &[], &[]);
+        let args = format_command_args(&cmd);
+        assert!(has_arg(&args, "--document-hidden-items"));
+
+        // With private flag
+        let cmd = build_rustdoc_command(None, None, None, None, &features, true, false, &[], &[]);
+        let args = format_command_args(&cmd);
+        assert!(has_arg(&args, "--document-hidden-items"));
     }
 
     #[test]
@@ -1024,9 +1043,10 @@ mod tests {
             &[],
         );
         let args = format_command_args(&cmd);
-        // Should have exactly one -- separator with both args after it
+        // Should have exactly one -- separator with all args after it
         let separator_count = args.iter().filter(|a| *a == "--").count();
         assert_eq!(separator_count, 1);
+        assert!(has_arg(&args, "--document-hidden-items"));
         assert!(has_arg(&args, "--document-private-items"));
         assert!(has_arg(&args, "--cfg"));
         assert!(has_arg(&args, "docsrs"));
