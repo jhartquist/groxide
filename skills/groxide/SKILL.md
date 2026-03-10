@@ -2,11 +2,11 @@
 name: groxide
 description: >
   Query Rust crate documentation from the terminal using groxide (grox).
-  Use when you need to look up Rust API docs, check type signatures, explore
-  module contents, find methods on a type, or search crate documentation —
-  without leaving the terminal or browsing docs.rs. Ideal for LLM coding agents
-  working on Rust projects. Do NOT use for general Rust language questions,
-  reading local source files, or managing Cargo dependencies.
+  Use when you need to explore your own crate's structure and source, look up
+  dependency APIs, check type signatures, find methods on a type, or search
+  crate documentation — without leaving the terminal or browsing docs.rs.
+  Ideal for LLM coding agents working on Rust projects. Do NOT use for general
+  Rust language questions, reading arbitrary files, or managing Cargo dependencies.
 license: MIT OR Apache-2.0
 compatibility: Requires Rust nightly toolchain and cargo
 allowed-tools: Bash(grox:*)
@@ -28,7 +28,29 @@ Agents should capture stdout only. Exit codes: 0 = success, 1 = not found, 2 = e
 
 **Outside a Rust project**: query the standard library (`grox std::collections::HashMap`) or auto-fetch any crate from crates.io (`grox axum::Router`). No Cargo.toml needed for these.
 
-## Common Patterns
+## Exploring Your Own Crate
+
+groxide gives you **semantically-scoped views** of code — query by item path, not
+file path. You get exactly the struct, function, or module you ask for, with doc
+comments included in the source. No need to know which file something lives in.
+
+```sh
+grox                          # crate overview (run with no args)
+grox -rp -k mod               # discover all modules (public + private)
+grox -rp                      # full API surface with signatures
+grox -rpb                     # structural skeleton (names only)
+grox -s mycrate::some::Type   # source for one item (includes doc comments)
+grox -rps mycrate::render     # full source of a module tree
+```
+
+Use `-s` instead of `-d` — source code already contains `///` doc comments, so
+`-s` gives you docs and implementation in one view without duplication.
+
+**Scaling to large codebases:** Use `grox -rp -k mod` to discover modules, then
+query individual modules with `grox -rps <module>`. Subagents can each take a
+module in parallel to quickly map out the codebase.
+
+## Looking Up Dependencies
 
 The examples below assume you are inside a Rust project that depends on the queried crates (e.g., `serde`, `tokio`). For stdlib and auto-fetch, see the dedicated sections below — those work anywhere.
 
@@ -169,8 +191,8 @@ dependency resolution.
 | Flag | Short | Purpose |
 |------|-------|---------|
 | `--brief` | `-b` | Show only item names (compact output) |
-| `--docs` | `-d` | Show full rendered documentation per item |
-| `--source` | `-s` | Show source code (composable with `-d` for source + docs) |
+| `--docs` | `-d` | Show rendered documentation (without source). Agents: prefer `-s` instead |
+| `--source` | `-s` | Show source code with doc comments, file path, and line numbers |
 | `--search <Q>` | `-S` | Full-text search (`\|` for OR, space for AND) |
 | `--json` | `-j` | JSON Lines output |
 | `--kind <K>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
@@ -208,10 +230,13 @@ User asks: "How do I read a file asynchronously with tokio?"
 
 ## Tips for Effective Use
 
+- **Prefer `-s` over `-d` for agents.** Source code includes `///` doc comments,
+  so `-s` gives you docs + implementation in one view. `-d` renders docs separately
+  without source — useful for humans but redundant for agents.
 - **Start broad, then drill down.** Query the crate first (`grox tokio`), then
   a module (`grox tokio::sync`), then a type (`grox tokio::sync::Mutex`).
 - **Use `-r` to orient.** When you don't know what's in a module, `-r` gives
-  a quick overview. Add `-b` for names only, `-d` for full docs.
+  a quick overview. Add `-b` for names only, `-s` for full source.
 - **Use `--json` for structured data.** When you need to extract specific fields
   (signatures, method lists), JSON is more reliable to parse than plain text.
 - **Search before guessing paths.** If you're not sure of the exact path,
