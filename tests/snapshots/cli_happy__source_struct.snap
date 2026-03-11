@@ -2,10 +2,7 @@
 source: tests/cli_happy.rs
 expression: stdout
 ---
-struct groxide_test_api::GenericStruct
-pub struct GenericStruct<T: Clone>
-
-── Source: src/lib.rs:21-23 ──
+struct groxide_test_api::GenericStruct  src/lib.rs:21-23
 pub struct GenericStruct<T: Clone> {
     value: T,
 }

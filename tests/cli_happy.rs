@@ -183,8 +183,8 @@ fn source_mode() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Source: src/lib.rs:"),
-        "should have source file header: {stdout}"
+        stdout.contains("src/lib.rs:"),
+        "should have source file location in header: {stdout}"
     );
     assert!(
         stdout.contains("pub fn add"),
@@ -349,8 +349,8 @@ fn source_mode_struct() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("Source: src/lib.rs:"),
-        "should have source header: {stdout}"
+        stdout.contains("src/lib.rs:"),
+        "should have source location in header: {stdout}"
     );
     assert!(
         stdout.contains("pub struct GenericStruct"),
@@ -383,8 +383,8 @@ fn source_mode_shows_source_instead_of_docs() {
     );
     // Should include source header
     assert!(
-        stdout.contains("Source: src/lib.rs:"),
-        "should have source divider: {stdout}"
+        stdout.contains("src/lib.rs:"),
+        "should have source location in header: {stdout}"
     );
 }
 
@@ -855,8 +855,8 @@ fn recursive_source_crate_root() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     // Should contain source from multiple modules
     assert!(
-        stdout.contains("Source:"),
-        "should contain source blocks: {stdout}"
+        stdout.contains("src/"),
+        "should contain source locations in headers: {stdout}"
     );
     // Should contain items from different modules
     assert!(

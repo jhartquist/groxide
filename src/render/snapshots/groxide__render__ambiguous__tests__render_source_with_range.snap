@@ -2,10 +2,7 @@
 source: src/render/ambiguous.rs
 expression: output
 ---
-struct mycrate::Mutex
-pub struct Mutex<T: ?Sized>
-
-── Source: src/sync/mutex.rs:42-147 ──
+struct mycrate::Mutex  src/sync/mutex.rs:42-147
 pub struct Mutex<T: ?Sized> {
     s: semaphore::Semaphore,
     c: UnsafeCell<T>,

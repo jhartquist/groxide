@@ -2,18 +2,12 @@
 source: tests/cli_happy.rs
 expression: stdout
 ---
-const groxide_test_api::containers::MAX_CAPACITY
-pub const MAX_CAPACITY: usize
-
-── Source: src/containers.rs:80 ──
+const groxide_test_api::containers::MAX_CAPACITY  src/containers.rs:80
 pub const MAX_CAPACITY: usize = 256;
 
 ────────────────────────────────────────
 
-struct groxide_test_api::containers::Pair
-pub struct Pair<A, B>
-
-── Source: src/containers.rs:57-60 ──
+struct groxide_test_api::containers::Pair  src/containers.rs:57-60
 pub struct Pair<A, B> {
     first: A,
     second: B,
@@ -21,10 +15,7 @@ pub struct Pair<A, B> {
 
 ────────────────────────────────────────
 
-struct groxide_test_api::containers::Stack
-pub struct Stack<T>
-
-── Source: src/containers.rs:17-19 ──
+struct groxide_test_api::containers::Stack  src/containers.rs:17-19
 pub struct Stack<T> {
     elements: Vec<T>,
 }

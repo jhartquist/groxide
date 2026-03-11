@@ -3,19 +3,13 @@ source: src/render/ambiguous.rs
 expression: output
 ---
 --- mycrate::sync::Mutex ---
-struct mycrate::sync::Mutex
-pub struct Mutex<T>
-
-── Source: src/sync/mutex.rs:42-100 ──
+struct mycrate::sync::Mutex  src/sync/mutex.rs:42-100
 pub struct Mutex<T> {
     inner: T,
 }
 
 --- mycrate::sync::MutexGuard ---
-struct mycrate::sync::MutexGuard
-pub struct MutexGuard<'a, T>
-
-── Source: src/sync/mutex.rs:150-180 ──
+struct mycrate::sync::MutexGuard  src/sync/mutex.rs:150-180
 pub struct MutexGuard<'a, T> {
     lock: &'a Mutex<T>,
 }

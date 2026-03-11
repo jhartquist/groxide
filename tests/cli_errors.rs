@@ -560,10 +560,10 @@ fn docs_and_source_are_composable() {
         stdout.contains("Adds two numbers"),
         "should contain docs with -ds: {stdout}"
     );
-    // Should include source
+    // Should include source location in header
     assert!(
-        stdout.contains("Source: src/lib.rs:"),
-        "should contain source with -ds: {stdout}"
+        stdout.contains("src/lib.rs:"),
+        "should contain source location with -ds: {stdout}"
     );
 }
 

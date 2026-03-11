@@ -147,8 +147,9 @@ pub(crate) fn render_impls_other(item: &IndexItem) -> String {
 
 /// Renders the source view (`--source`) for a single item.
 ///
-/// Shows header, signature, then source block. When `include_docs` is true
-/// (i.e. `-d -s` combined), rendered documentation is included before the source.
+/// Shows a compact header with kind, path, and file location, then source code.
+/// When `include_docs` is true (i.e. `-d -s` combined), rendered documentation
+/// is included between the header and source.
 pub(crate) fn render_source(
     item: &IndexItem,
     source_content: Option<&str>,
@@ -165,13 +166,27 @@ pub(crate) fn render_source(
         Some(content) => {
             let mut out = String::new();
 
-            // Header: kind + path
+            // Header: kind + path + file location
             let gate = feature_gate_suffix(item.feature_gate.as_ref());
-            let _ = writeln!(out, "{} {}{gate}", item.kind.short_name(), item.path);
-
-            // Signature
-            if !item.signature.is_empty() {
-                let _ = writeln!(out, "{}", item.signature);
+            if span.line_start == span.line_end {
+                let _ = writeln!(
+                    out,
+                    "{} {}{gate}  {}:{}",
+                    item.kind.short_name(),
+                    item.path,
+                    span.file,
+                    span.line_start
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "{} {}{gate}  {}:{}-{}",
+                    item.kind.short_name(),
+                    item.path,
+                    span.file,
+                    span.line_start,
+                    span.line_end
+                );
             }
 
             // Docs (only when -d is also set)
@@ -184,21 +199,6 @@ pub(crate) fn render_source(
                 }
             }
 
-            // Source block with divider
-            out.push('\n');
-            if span.line_start == span.line_end {
-                let _ = writeln!(
-                    out,
-                    "\u{2500}\u{2500} Source: {}:{} \u{2500}\u{2500}",
-                    span.file, span.line_start
-                );
-            } else {
-                let _ = writeln!(
-                    out,
-                    "\u{2500}\u{2500} Source: {}:{}-{} \u{2500}\u{2500}",
-                    span.file, span.line_start, span.line_end
-                );
-            }
             out.push_str(content);
             trim_trailing_newlines(&mut out);
             out

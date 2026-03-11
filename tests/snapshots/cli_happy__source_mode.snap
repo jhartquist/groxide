@@ -2,10 +2,7 @@
 source: tests/cli_happy.rs
 expression: stdout
 ---
-fn groxide_test_api::add
-pub fn add(a: i32, b: i32) -> i32
-
-── Source: src/lib.rs:86-88 ──
+fn groxide_test_api::add  src/lib.rs:86-88
 pub fn add(a: i32, b: i32) -> i32 {
     a + b
 }
