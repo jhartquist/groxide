@@ -167,25 +167,24 @@ pub(crate) fn render_source(
             let mut out = String::new();
 
             // Header: kind + path + file location
+            // Use "crate" instead of "mod" for the crate root item
+            let kind_label = if item.kind == ItemKind::Module && !item.path.contains("::") {
+                "crate"
+            } else {
+                item.kind.short_name()
+            };
             let gate = feature_gate_suffix(item.feature_gate.as_ref());
             if span.line_start == span.line_end {
                 let _ = writeln!(
                     out,
-                    "{} {}{gate}  {}:{}",
-                    item.kind.short_name(),
-                    item.path,
-                    span.file,
-                    span.line_start
+                    "{kind_label} {}{gate}  {}:{}",
+                    item.path, span.file, span.line_start
                 );
             } else {
                 let _ = writeln!(
                     out,
-                    "{} {}{gate}  {}:{}-{}",
-                    item.kind.short_name(),
-                    item.path,
-                    span.file,
-                    span.line_start,
-                    span.line_end
+                    "{kind_label} {}{gate}  {}:{}-{}",
+                    item.path, span.file, span.line_start, span.line_end
                 );
             }
 
