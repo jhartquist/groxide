@@ -286,7 +286,7 @@ impl IndexBuilder<'_> {
 
         // Sort items by ID for deterministic order
         let mut sorted_items: Vec<_> = self.krate.index.iter().collect();
-        sorted_items.sort_by(|(a, _), (b, _)| a.cmp(b));
+        sorted_items.sort_by_key(|(a, _)| *a);
 
         for (id, item) in sorted_items {
             if self.blanket_impl_items.contains(id) {
