@@ -1,17 +1,18 @@
 # groxide
 
-[![CI](https://github.com/jhartquist/groxide/actions/workflows/ci.yml/badge.svg)](https://github.com/jhartquist/groxide/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/jhartquist/groxide/graph/badge.svg)](https://codecov.io/gh/jhartquist/groxide)
 [![Crates.io](https://img.shields.io/crates/v/groxide.svg)](https://crates.io/crates/groxide)
+[![docs.rs](https://img.shields.io/docsrs/groxide.svg)](https://docs.rs/groxide)
+[![CI](https://github.com/jhartquist/groxide/actions/workflows/ci.yml/badge.svg)](https://github.com/jhartquist/groxide/actions/workflows/ci.yml)
 [![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/groxide.svg)](LICENSE-MIT)
 
-Query Rust crate documentation from the terminal. Inspired by `go doc` — the path is the query, smart defaults by item kind.
+Query Rust crate documentation from the terminal. Works on the current crate, its dependencies, the stdlib, and any crate on crates.io.
+
+> [!WARNING]
+> This project was heavily vibe-coded. I didn't write it by hand and I don't claim to understand every piece of it. I came up with the idea, the general strategy, and the design plan. I've been using `grox` daily across several Rust projects and have tested it carefully, but I plan to rewrite it by hand when I have time.
 
 ## What it looks like
 
-Inside a Rust project, query any dependency by path. Here's a project that depends on `tokio`:
-
-**Method lookup** — get signature, docs, and examples instantly:
+Inside a Rust project, query any dependency by path. Method lookup gets you signature, docs, and examples:
 
 ```
 $ grox tokio::sync::Mutex::lock
@@ -44,7 +45,7 @@ Examples
   *n = 2;
 ```
 
-**Recursive listing** — discover what's in a module:
+Recursive listing shows what's in a module:
 
 ```
 $ grox -r tokio::sync
@@ -60,7 +61,7 @@ struct  tokio::sync::Mutex                        pub struct Mutex<T: ?Sized>
 # ... (30 items total)
 ```
 
-**Works from anywhere** — query the standard library or auto-fetch from crates.io with no project needed:
+It works outside a project too. Standard library queries and crates.io auto-fetch need no `Cargo.toml`:
 
 ```
 $ grox std::collections::HashMap
@@ -83,36 +84,13 @@ Methods:
   ...
 ```
 
-## Why
-
-LLM coding agents and humans both need fast, token-efficient access to crate docs without leaving the terminal. `groxide` resolves paths like `tokio::sync::Mutex`, auto-builds a queryable index from rustdoc JSON, and renders plain text output tuned for ~200-800 tokens per query.
-
-## Features
-
-- **Path is the query.** `grox serde::Deserialize` — no subcommands.
-- **Smart defaults.** Output adapts by item kind (struct, module, function, etc.).
-- **Progressive disclosure.** Crate -> module -> type -> method drill-down.
-- **Token-efficient.** Output adapted per item kind for concise results.
-- **Zero setup.** Auto-builds and caches index on first use.
-- **Auto-fetch.** Unknown crates are fetched from crates.io automatically — works outside a project.
-- **Standard library.** Query `std`, `core`, and `alloc` directly — works anywhere.
-- **Full-text search.** `grox tokio -S "spawn"` searches across a crate's docs.
-- **Multiple output formats.** Plain text (default), JSON (`--json`), brief (`--brief`), full docs (`--docs`), source code (`--source`). Combine `-d -s` for source with full docs.
-
-## Requirements
-
-- Rust stable (MSRV 1.85)
-- Rust nightly toolchain (for rustdoc JSON generation): `rustup toolchain install nightly`
-
-## Installation
-
-### From crates.io
+## Install
 
 ```sh
 cargo install groxide
 ```
 
-### From source
+Or from source:
 
 ```sh
 git clone https://github.com/jhartquist/groxide.git
@@ -120,39 +98,38 @@ cd groxide
 cargo install --path .
 ```
 
-The binary is called `grox`.
+Requires Rust stable (MSRV 1.85) and a nightly toolchain for rustdoc JSON generation:
+
+```sh
+rustup toolchain install nightly
+```
 
 ### Agent skill
 
-groxide ships with an [agent skill](https://agentskills.io) that teaches AI coding agents how to use it. Install the skill so your agent can query Rust docs autonomously:
+`groxide` ships with an [agent skill](https://agentskills.io) that teaches AI coding agents how to use it.
 
-**Claude Code:**
+For Claude Code:
 
 ```sh
 cp -r skills/groxide ~/.claude/skills/
 ```
 
-**Or install from GitHub (works with Claude Code, Codex, Cursor, Copilot, and [20+ other tools](https://agentskills.io)):**
+For other agents (Codex, Cursor, Copilot, and [20+ others](https://agentskills.io)):
 
 ```sh
 npx skills add jhartquist/groxide
 ```
 
-## Quick start
-
-**Inside a Rust project** — queries your dependencies automatically:
+## Usage
 
 ```sh
-# Query a dependency's type (serde is in your Cargo.toml)
-grox serde::Deserialize
-
-# Full method documentation
+# Method docs
 grox tokio::sync::Mutex::lock
 
-# Search across a crate's documentation
+# Search across a crate's docs
 grox tokio -S "spawn"
 
-# View source code
+# Source code with file path and line numbers
 grox -s tokio::sync::Mutex::new
 
 # Recursive listing of a module
@@ -161,89 +138,65 @@ grox -r tokio::sync
 # Brief skeleton (names only)
 grox -r -b tokio
 
-# Check if a type implements a trait
+# Trait implementations
 grox --impls Clone wgpu::Device
 
-# JSON output for programmatic use
+# JSON Lines output
 grox --json serde::Serialize
-
-# Clear the documentation cache
-grox --clear-cache
-```
-
-**Works anywhere** — no Cargo.toml needed:
-
-```sh
-# Query standard library
-grox std::collections::HashMap
-
-# Auto-fetch any crate from crates.io
-grox axum::Router
 
 # Pin to a specific version
 grox serde@1.0.210::Deserialize
+
+# Wipe the cache
+grox --clear-cache
 ```
 
-## Usage
+## Reference
 
 ```
 grox [OPTIONS] [PATH]
 ```
 
-### Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `[PATH]` | Rust path to query (e.g., `tokio::sync::Mutex`, `serde@1.0`) |
-
-### Options
-
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--brief` | `-b` | Show only item names (compact output) |
-| `--docs` | `-d` | Show full rendered documentation per item |
-| `--source` | `-s` | Show source code with file path and line numbers |
+| `--brief` | `-b` | Item names only |
+| `--docs` | `-d` | Full rendered documentation |
+| `--source` | `-s` | Source with file path and line numbers |
 | `--search <QUERY>` | `-S` | Full-text search (`\|` for OR, space for AND) |
-| `--kind <KIND>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
+| `--kind <KIND>` | `-k` | Filter by `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
 | `--private` | `-p` | Include non-public items |
-| `--json` | `-j` | JSON Lines output |
-| `--impls [TRAIT]` | `-i` | Show trait implementations, optionally filtered by trait name |
-| `--recursive` | `-r` | List all public items recursively (composable with `-b`, `-d`, `-s`) |
+| `--json` | `-j` | JSON Lines |
+| `--impls [TRAIT]` | `-i` | Trait implementations, optionally filtered |
+| `--recursive` | `-r` | List items recursively (composes with `-b`, `-d`, `-s`) |
+| `--readme` | | Crate README |
+| `--clear-cache` | | Wipe the cache |
+| `--manifest-path <PATH>` | | Path to `Cargo.toml` |
+| `--features <FEATURES>` | | Comma-separated features |
+| `--all-features` | | All features |
+| `--no-default-features` | | Skip the default feature |
 
 `-d` and `-s` compose: `grox -d -s path` shows source with full docs. `-j`, `-p`, and `-k` are orthogonal and combine with any mode.
-| `--readme` | | Show the crate's README |
-| `--clear-cache` | | Wipe the global documentation cache and exit |
-| `--manifest-path <PATH>` | | Path to Cargo.toml |
-| `--features <FEATURES>` | | Comma-separated list of features to activate |
-| `--all-features` | | Activate all available features |
-| `--no-default-features` | | Do not activate the `default` feature |
 
-### Exit codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Success (item found, search completed, ambiguous match rendered) |
-| 1 | Not found (crate or item not found after all resolution) |
-| 2 | Error (nightly missing, build failed, invalid arguments, etc.) |
+Exit codes: `0` success, `1` not found, `2` error.
 
 ## How it works
 
-1. **Resolve** the crate: current project, dependency, workspace member, transitive dep, stdlib, or auto-fetch from crates.io.
+1. **Resolve** the crate: current project, dependency, workspace member, transitive dep, stdlib, or crates.io auto-fetch.
 2. **Generate** rustdoc JSON via `cargo +nightly rustdoc --output-format json`.
-3. **Build** a queryable index from the JSON (4-pass algorithm: parent map, path computation, item conversion, relationships).
+3. **Build** a queryable index from the JSON.
 4. **Cache** the index to disk (`target/groxide/` for local, `~/.cache/groxide/` for external). Invalidated by mtime (current crate) or version (deps).
-5. **Query** with a 5-stage pipeline: exact path -> case-insensitive -> suffix match -> name match -> not found.
-6. **Render** plain text output with smart defaults per item kind, truncated to ~1500 chars.
+5. **Query** through a 5-stage pipeline: exact path, case-insensitive, suffix match, name match, not found.
+6. **Render** plain text with smart defaults per item kind, truncated to ~1500 chars.
 
-## Project context
+## Inside vs outside a Rust project
 
-**Inside a Rust project** (directory with `Cargo.toml`): groxide reads the project's dependency graph from `Cargo.toml`. Running `grox` with no arguments shows the current crate's docs. Queries resolve through a priority chain: current crate → direct dependencies → workspace members → transitive dependencies → stdlib → crates.io auto-fetch. The index cache lives in `target/groxide/`.
+Inside a project (directory with `Cargo.toml`), `grox` reads the project's dependency graph. Running `grox` with no arguments shows the current crate's docs. Queries resolve through: current crate, direct dependencies, workspace members, transitive dependencies, stdlib, then crates.io auto-fetch. The cache lives in `target/groxide/`.
 
-**Outside a Rust project**: Only stdlib queries (`grox std::collections::HashMap`) and crates.io auto-fetch (`grox serde::Deserialize`) work. Running `grox` with no arguments will error since there is no current crate. The cache for external crates lives in `~/.cache/groxide/`.
+Outside a project, only stdlib queries and crates.io auto-fetch work. Running `grox` with no arguments errors out (no current crate). The cache for external crates lives in `~/.cache/groxide/`.
 
-## Output design
+## Output for agents
 
-All documentation content goes to **stdout**. All status/progress messages go to **stderr**. This separation is critical for agent integration — agents pipe stdout into their context window and ignore stderr.
+All documentation content goes to **stdout**. All status messages go to **stderr**. This separation matters for LLM agents: they pipe stdout into context and ignore stderr.
 
 Status messages are prefixed with `[grox]`:
 
@@ -252,23 +205,16 @@ Status messages are prefixed with `[grox]`:
 [grox] Building index for tokio 1.40.0... done (2.3s)
 ```
 
-## Security considerations
+## Security
 
-**Code execution**: groxide runs `cargo +nightly rustdoc` on crate source code. For your own project and its dependencies, this is the same trust model as `cargo build`. For auto-fetched external crates, groxide downloads source from crates.io and runs rustdoc on it — the same trust model as `cargo install`.
+`grox` runs `cargo +nightly rustdoc` on crate source. For your own project and its dependencies, the trust model is the same as `cargo build`. For auto-fetched external crates, source is downloaded from crates.io and rustdoc is run on it; same trust model as `cargo install`.
 
-**Network access**: When auto-fetching, groxide contacts the crates.io API to resolve versions and download tarballs. No other network access occurs. Downloads are size-limited (500 MB) with timeouts.
-
-**File system**: Index caches are written to `target/groxide/` (project-local) and `~/.cache/groxide/` (global). External crate tarballs are extracted with path-traversal protection.
+Network access is limited to the crates.io API for version resolution and tarball downloads. Downloads are size-limited (500 MB) with timeouts. External tarballs are extracted with path-traversal protection.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, testing, and development workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.

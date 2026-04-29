@@ -9,7 +9,7 @@ use crate::types::{DocIndex, ItemKind, QueryResult};
 /// 4. Name match (single-segment only, from `name_map`)
 /// 5. `NotFound` with Levenshtein suggestions
 ///
-/// Case sensitivity rules (inspired by `go doc`):
+/// Case sensitivity rules:
 /// - All-lowercase query -> case-insensitive (matches any casing)
 /// - Any uppercase character -> exact case match only
 ///
@@ -236,7 +236,7 @@ fn apply_kind_filter(
     }
 }
 
-/// Applies case sensitivity rules inspired by `go doc`.
+/// Applies case sensitivity rules.
 ///
 /// - All-lowercase query -> case-insensitive (return all indices)
 /// - Any uppercase character -> exact case match only

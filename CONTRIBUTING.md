@@ -50,7 +50,7 @@ Do **not** use `cargo insta accept` (it requires an interactive terminal).
 
 ### Test fixture
 
-Tests use a fixture crate at `test-fixtures/groxide_test_api/` with a pre-generated rustdoc JSON file. Do not `cd` into the fixture directory to run tests — always run from the project root.
+Tests use a fixture crate at `test-fixtures/groxide_test_api/` with a pre-generated rustdoc JSON file. Don't `cd` into the fixture directory to run tests; always run from the project root.
 
 ### Cache invalidation
 
@@ -109,21 +109,7 @@ src/
     ambiguous.rs    Ambiguous match display
 tests/              Integration tests
 test-fixtures/      Test fixture crate
-docs/
-  spec/             Specification files (source of truth)
-  IMPLEMENTATION.md Task breakdown
 ```
-
-## Adding dependencies
-
-Use `cargo add`:
-
-```sh
-cargo add some-crate
-cargo add some-crate --dev  # for dev-dependencies
-```
-
-Never hand-edit version strings in `Cargo.toml`.
 
 ## License
 
