@@ -159,7 +159,7 @@ impl ProjectContext {
         if crate_names_match(query, &current_pkg.name) {
             return CrateSource::CurrentCrate {
                 manifest_path: current_pkg.manifest_path.clone().into_std_path_buf(),
-                name: normalize_crate_name(&current_pkg.name),
+                name: current_pkg.name.to_string(),
                 version: current_pkg.version.to_string(),
             };
         }
