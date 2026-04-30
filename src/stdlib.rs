@@ -165,8 +165,6 @@ pub(crate) fn generate_stdlib_json(
     // `compiler-builtins-c`) that break across nightly versions and don't gate
     // public API items. We use default features unless the user explicitly
     // specified feature flags.
-    eprintln!("[grox] Building index for {crate_name}...");
-
     let effective_features = if features.is_default() {
         // Strip --all-features; use defaults for stdlib crates
         FeatureFlags {
@@ -190,7 +188,6 @@ pub(crate) fn generate_stdlib_json(
     // 5. Return JSON path
     let normalized = crate_name.replace('-', "_");
     let json_path = target_dir.join("doc").join(format!("{normalized}.json"));
-    eprintln!("[grox] Building index for {crate_name}... done");
     Ok(json_path)
 }
 

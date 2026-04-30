@@ -243,7 +243,11 @@ pub(crate) fn load_or_build_index(
     let name = source.name().to_string();
     let version = source.version().unwrap_or("").to_string();
     if !quiet {
-        eprint!("[grox] Building index for {name} {version}...");
+        if version.is_empty() {
+            eprintln!("[grox] Building index for {name}");
+        } else {
+            eprintln!("[grox] Building index for {name} {version}");
+        }
     }
 
     // Handle external crates: fetch first
@@ -288,7 +292,7 @@ pub(crate) fn load_or_build_index(
 
     let elapsed = start.elapsed().as_secs_f64();
     if !quiet {
-        eprintln!(" done ({elapsed:.1}s)");
+        eprintln!("[grox] Built index for {name} ({elapsed:.1}s)");
     }
 
     Ok((index, source))
@@ -604,9 +608,9 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
         .filter(|pkg| pkg.targets.iter().any(cargo_metadata::Target::is_lib))
         .collect();
 
-    // Phase 1: Build all indices with a single progress line
+    // Phase 1: Build all indices
     let start = Instant::now();
-    eprint!("[grox] Building workspace indices...");
+    eprintln!("[grox] Building workspace indices...");
 
     let mut built: Vec<(&cargo_metadata::Package, DocIndex, CrateSource)> = Vec::new();
     let mut errors: Vec<(String, GroxError)> = Vec::new();
@@ -625,7 +629,7 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
     }
 
     let elapsed = start.elapsed().as_secs_f64();
-    eprintln!(" done ({elapsed:.1}s)");
+    eprintln!("[grox] Built workspace indices ({elapsed:.1}s)");
 
     for (name, e) in &errors {
         eprintln!("[grox] Failed to build index for {name}: {e}");
