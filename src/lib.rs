@@ -80,7 +80,7 @@ pub fn run(cli: &Cli) -> Result<()> {
     // Step 4: Load or build DocIndex
     let features = FeatureFlags::from_cli(cli);
     let feature_suffix = features.cache_suffix();
-    let (index, source) =
+    let (mut index, source) =
         load_or_build_index(source, &features, &feature_suffix, cli.private, false)?;
 
     // Step 5: Handle --readme (early return)
@@ -105,16 +105,15 @@ pub fn run(cli: &Cli) -> Result<()> {
         } else {
             cli.kind.map(ItemKind::from)
         };
-        let mut result = resolve_item(&query_path, &index, kind_filter);
-
-        // Step 7b: On NotFound, try resolving via re-export stubs
-        if matches!(result, QueryResult::NotFound { .. }) {
-            if let Some(resolved) =
-                reexport::try_resolve_reexport_on_not_found(&query_path, &index, kind_filter)
-            {
-                result = resolved;
-            }
-        }
+        let result = resolve_with_reexport_fallbacks(
+            &query_path,
+            &mut index,
+            kind_filter,
+            ctx.as_ref(),
+            &features,
+            &feature_suffix,
+            cli.private,
+        );
 
         let render_ctx = RenderContext::from_cli(&index, cli);
 
@@ -296,6 +295,57 @@ pub(crate) fn load_or_build_index(
     }
 
     Ok((index, source))
+}
+
+/// Runs item resolution against `index`, then on failure tries two re-export
+/// recovery strategies in order:
+///
+/// 1. **Same-name stub search** (`try_resolve_reexport_on_not_found`): when
+///    the query path doesn't match anything but the index has a re-export
+///    stub at a different path with the same item name.
+/// 2. **Prefix re-export descent** (`try_resolve_via_prefix_reexport`): when
+///    a *prefix* of the query is a re-export of another crate's module
+///    (e.g. `std::vec` → `alloc::vec`). The descent loads the source crate's
+///    index and resolves the remainder there. On success, `index` is
+///    swapped for the source crate's index.
+fn resolve_with_reexport_fallbacks(
+    query_path: &QueryPath,
+    index: &mut DocIndex,
+    kind_filter: Option<ItemKind>,
+    ctx: Option<&ProjectContext>,
+    features: &FeatureFlags,
+    feature_suffix: &str,
+    private: bool,
+) -> QueryResult {
+    let mut result = resolve_item(query_path, index, kind_filter);
+
+    if matches!(result, QueryResult::NotFound { .. }) {
+        if let Some(resolved) =
+            reexport::try_resolve_reexport_on_not_found(query_path, index, kind_filter)
+        {
+            result = resolved;
+        }
+    }
+
+    let unresolved = matches!(result, QueryResult::NotFound { .. })
+        || matches!(&result, QueryResult::Ambiguous { indices, .. } if indices.iter().all(|&i| {
+            index.items[i].reexport_source.is_some()
+        }));
+    if unresolved {
+        if let Some((source_index, idx)) = reexport::try_resolve_via_prefix_reexport(
+            query_path,
+            index,
+            ctx,
+            features,
+            feature_suffix,
+            private,
+        ) {
+            *index = source_index;
+            result = QueryResult::Found { index: idx };
+        }
+    }
+
+    result
 }
 
 /// Reads rustdoc JSON, tolerating brief `NotFound` windows when concurrent
