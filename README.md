@@ -8,7 +8,7 @@
 Query Rust crate documentation from the terminal. Works on the current crate, its dependencies, the stdlib, and any crate on crates.io.
 
 > [!WARNING]
-> This project was heavily vibe-coded. I didn't write it by hand and I don't claim to understand every piece of it. I came up with the idea, the general strategy, and the design plan. I've been using `grox` daily across several Rust projects and have tested it carefully, but I plan to rewrite it by hand when I have time.
+> This project was built with heavy AI assistance. I didn't write it by hand and I don't claim to understand every piece of it. I came up with the idea, the general strategy, and the design plan. I've been using `grox` daily across several Rust projects and have tested it carefully, but I plan to rewrite it by hand when I have time.
 
 ## What it looks like
 
