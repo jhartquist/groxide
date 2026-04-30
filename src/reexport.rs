@@ -170,6 +170,97 @@ pub(crate) fn try_resolve_via_prefix_reexport(
     None
 }
 
+/// Tries to resolve a query through cross-crate wildcard re-exports, e.g.
+/// `pub use clap_builder::*` in clap's lib.rs makes `clap_builder`'s public
+/// items reachable via `clap::Item`. The glob list is recorded at index-build
+/// time; here we walk the query's parent path, find globs originating from
+/// matching modules, load the source crate(s), and look up the remaining
+/// segments there.
+pub(crate) fn try_resolve_via_glob_reexport(
+    query: &QueryPath,
+    index: &DocIndex,
+    ctx: Option<&crate::resolve::ProjectContext>,
+    features: &FeatureFlags,
+    feature_suffix: &str,
+    private: bool,
+) -> Option<(DocIndex, usize)> {
+    if query.item_segments.is_empty() || index.glob_uses.is_empty() {
+        return None;
+    }
+
+    // Determine the parent path the user is querying within. For
+    // `clap::Args` the parent is "clap" (the crate root); for
+    // `clap::sub::Args` it's "clap::sub". We try the longest prefix first
+    // so child-module globs are preferred over crate-root globs.
+    let crate_name = &index.crate_name;
+    let mut parent_segments: Vec<String> = vec![crate_name.clone()];
+    parent_segments.extend(query.item_segments[..query.item_segments.len() - 1].iter().cloned());
+    let item_name = query.item_segments.last()?;
+
+    while !parent_segments.is_empty() {
+        let parent_path = parent_segments.join("::");
+        let candidates: Vec<&crate::types::GlobUse> = index
+            .glob_uses
+            .iter()
+            .filter(|g| {
+                g.parent_path == parent_path
+                    || (parent_segments.len() == 1 && g.parent_path.is_empty())
+            })
+            .collect();
+
+        for glob in candidates {
+            let source = glob.source_path.trim_start_matches("::");
+            let (source_crate, source_item_path) =
+                source.split_once("::").map_or((source, ""), |(c, p)| (c, p));
+            if source_crate.is_empty() {
+                continue;
+            }
+
+            // Resolve and load source crate.
+            let crate_query = QueryPath {
+                crate_spec: CrateSpec::Named(source_crate.to_string()),
+                item_segments: Vec::new(),
+            };
+            let Ok((src, _)) = crate::resolve_crate_source(ctx, crate_query) else {
+                continue;
+            };
+            let Ok((source_index, _)) =
+                crate::load_or_build_index(src, features, feature_suffix, private, false)
+            else {
+                continue;
+            };
+
+            // Build inner query: source_item_path + remaining query segments
+            // after `parent_segments`. For `grox clap::Args` with glob
+            // `clap_builder::*`, source_item_path="" and remaining=["Args"].
+            let mut inner_segments: Vec<String> = if source_item_path.is_empty() {
+                Vec::new()
+            } else {
+                source_item_path.split("::").map(String::from).collect()
+            };
+            let suffix_start = parent_segments.len() - 1; // skip crate name
+            inner_segments.extend(query.item_segments[suffix_start..].iter().cloned());
+
+            let inner_query = QueryPath {
+                crate_spec: CrateSpec::CurrentCrate,
+                item_segments: inner_segments.clone(),
+            };
+            let result = crate::resolve_item(&inner_query, &source_index, None);
+            if let QueryResult::Found { index: idx } = result {
+                return Some((source_index, idx));
+            }
+            // Final fallback: search by trailing item name in the source crate.
+            if let Some(idx) = follow_by_name(&source_index, item_name) {
+                return Some((source_index, idx));
+            }
+        }
+
+        parent_segments.pop();
+    }
+
+    None
+}
+
 /// Falls back to a name-based lookup in `source_index` for the last `::`
 /// segment of `item_path`. Prefers non-stub items (real definitions) over
 /// re-export stubs to avoid following cycles.

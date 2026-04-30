@@ -327,6 +327,20 @@ pub(crate) struct TraitImplInfo {
     pub(crate) is_synthetic: bool,
 }
 
+/// A cross-crate wildcard re-export: `pub use other_crate::path::*` in some
+/// module of the indexed crate. We can't expand the items into the current
+/// index at build time (their definitions live in another crate's rustdoc
+/// JSON), so we record the glob here and resolve it lazily at query time.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct GlobUse {
+    /// Path of the module containing the `use *;`. Empty string means the
+    /// crate root.
+    pub(crate) parent_path: String,
+    /// Full path being globbed, exactly as it appeared in source — e.g.
+    /// `clap_builder` for `pub use clap_builder::*` in clap's lib.rs.
+    pub(crate) source_path: String,
+}
+
 /// The queryable index for one crate. Built from rustdoc JSON, cached to disk.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct DocIndex {
@@ -346,6 +360,11 @@ pub(crate) struct DocIndex {
     /// Trait implementations keyed by parent type's item index.
     pub(crate) trait_impls: HashMap<usize, Vec<TraitImplInfo>>,
 
+    /// Cross-crate wildcard re-exports (`pub use other_crate::*`) recorded
+    /// for lazy resolution at query time.
+    #[serde(default)]
+    pub(crate) glob_uses: Vec<GlobUse>,
+
     /// Normalized crate name (hyphens -> underscores).
     pub(crate) crate_name: String,
 
@@ -362,6 +381,7 @@ impl DocIndex {
             name_map: HashMap::new(),
             suffix_map: HashMap::new(),
             trait_impls: HashMap::new(),
+            glob_uses: Vec::new(),
             crate_name,
             crate_version,
         }

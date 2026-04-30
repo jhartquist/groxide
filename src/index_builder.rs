@@ -40,6 +40,7 @@ pub(crate) fn build_index(krate: &Crate, crate_name: &str, crate_version: &str) 
     builder.pass2_compute_paths();
     builder.pass3_convert_items();
     builder.pass4_link_relationships();
+    builder.collect_cross_crate_globs();
 
     builder.index
 }
@@ -509,6 +510,54 @@ impl IndexBuilder<'_> {
                 self.index.trait_impls.insert(parent_idx, trait_impls);
             }
         }
+    }
+
+    /// Records `pub use other_crate::*` statements that target items outside
+    /// `self.krate.index` (i.e. another crate). Same-crate globs are already
+    /// expanded into individual paths by `compute_paths_for_glob_use`.
+    fn collect_cross_crate_globs(&mut self) {
+        let mut globs = Vec::new();
+        for (mod_id, mod_item) in &self.krate.index {
+            let ItemEnum::Module(m) = &mod_item.inner else {
+                continue;
+            };
+            let parent_path = self
+                .id_to_path
+                .get(mod_id)
+                .cloned()
+                .unwrap_or_else(String::new);
+
+            for child_id in &m.items {
+                let Some(child) = self.krate.index.get(child_id) else {
+                    continue;
+                };
+                let ItemEnum::Use(use_item) = &child.inner else {
+                    continue;
+                };
+                if !use_item.is_glob {
+                    continue;
+                }
+                let resolves_in_crate = use_item
+                    .id
+                    .as_ref()
+                    .is_some_and(|id| self.krate.index.contains_key(id));
+                if resolves_in_crate {
+                    continue; // handled by compute_paths_for_glob_use already
+                }
+                globs.push(crate::types::GlobUse {
+                    parent_path: parent_path.clone(),
+                    source_path: use_item.source.clone(),
+                });
+            }
+        }
+        // Stable order so caches are deterministic.
+        globs.sort_by(|a, b| {
+            a.parent_path
+                .cmp(&b.parent_path)
+                .then_with(|| a.source_path.cmp(&b.source_path))
+        });
+        globs.dedup();
+        self.index.glob_uses = globs;
     }
 
     fn resolve_module_children(&self, module: &rustdoc_types::Module) -> Vec<Id> {

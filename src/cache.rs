@@ -9,7 +9,7 @@ use crate::resolve::CrateSource;
 use crate::types::DocIndex;
 
 /// Current cache format version. Bump when serialization format changes.
-const FORMAT_VERSION: u32 = 2;
+const FORMAT_VERSION: u32 = 3;
 
 /// Serialized cache file: header + index, both MessagePack-encoded.
 #[derive(Serialize, Deserialize)]

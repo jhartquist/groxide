@@ -355,6 +355,22 @@ fn resolve_with_reexport_fallbacks(
         }
     }
 
+    // Step 7d: still unresolved — try cross-crate wildcard re-exports
+    // (`pub use other_crate::*`) recorded in the index.
+    if matches!(result, QueryResult::NotFound { .. }) {
+        if let Some((source_index, idx)) = reexport::try_resolve_via_glob_reexport(
+            query_path,
+            index,
+            ctx,
+            features,
+            feature_suffix,
+            private,
+        ) {
+            *index = source_index;
+            result = QueryResult::Found { index: idx };
+        }
+    }
+
     result
 }
 
