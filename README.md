@@ -207,9 +207,9 @@ Status messages are prefixed with `[grox]`:
 
 ## Security
 
-`grox` runs `cargo +nightly rustdoc` on crate source. For your own project and its dependencies, the trust model is the same as `cargo build`. For auto-fetched external crates, source is downloaded from crates.io and rustdoc is run on it; same trust model as `cargo install`.
+`grox` invokes `cargo +nightly rustdoc` on crate source. This runs the crate's `build.rs` and any proc macros it depends on — same code execution as `cargo build`, but **not** the same as `cargo install` (no built binary is executed).
 
-Network access is limited to the crates.io API for version resolution and tarball downloads. Downloads are size-limited (500 MB) with timeouts. External tarballs are extracted with path-traversal protection.
+Auto-fetch matters: when you query a crate that isn't already a dependency (e.g. `grox some-random-crate`), `grox` downloads it from crates.io and compiles it. If you wouldn't add it to `Cargo.toml`, don't query it. Pin a version (`grox crate@1.2.3`) if you want reproducibility.
 
 ## Contributing
 
