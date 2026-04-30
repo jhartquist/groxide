@@ -190,6 +190,16 @@ pub(crate) fn resolve_crate_source(
                         };
                         return Ok((current_source, reinterpreted));
                     }
+                    // Surface workspace-local names that look related (e.g.
+                    // `candle` in a `candle-pitch` workspace) before silently
+                    // fetching an unrelated registry crate.
+                    let local = ctx.local_crate_name_matches(name);
+                    if !local.is_empty() {
+                        eprintln!(
+                            "[grox] Note: workspace contains similar local crate(s): {}",
+                            local.join(", ")
+                        );
+                    }
                     // Auto-fetch
                     let version = match &source {
                         CrateSource::External { version, .. } => version.clone(),
@@ -408,10 +418,15 @@ pub(crate) fn resolve_item(
 
     // Try 1: full path with crate name prepended
     let full_path = format!("{crate_name}::{item_path}");
-    let result = query::lookup(index, &full_path, kind_filter);
-    if !matches!(result, QueryResult::NotFound { .. }) {
-        return result;
+    let first_result = query::lookup(index, &full_path, kind_filter);
+    if !matches!(first_result, QueryResult::NotFound { .. }) {
+        return first_result;
     }
+    // Preserve suggestions from the most-specific lookup for the final NotFound.
+    let preserved_suggestions = match &first_result {
+        QueryResult::NotFound { suggestions, .. } => suggestions.clone(),
+        _ => Vec::new(),
+    };
 
     // Try 2: item segments only (suffix matching)
     let result = query::lookup(index, &item_path, kind_filter);
@@ -454,10 +469,10 @@ pub(crate) fn resolve_item(
         }
     }
 
-    // Final: not found with suggestions
+    // Final: not found, surface suggestions from the most-specific lookup
     QueryResult::NotFound {
         query: item_path,
-        suggestions: Vec::new(),
+        suggestions: preserved_suggestions,
     }
 }
 

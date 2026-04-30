@@ -489,8 +489,22 @@ fn run_rustdoc_command(mut cmd: Command) -> Result<()> {
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        if let Some(name) = parse_no_library_target(&stderr) {
+            return Err(GroxError::NoLibraryTarget { name });
+        }
         Err(GroxError::RustdocFailed { stderr })
     }
+}
+
+/// Detects cargo's "no library targets found in package `<name>`" error and
+/// extracts the package name. Returns `None` when stderr matches a different
+/// failure.
+fn parse_no_library_target(stderr: &str) -> Option<String> {
+    let needle = "no library targets found in package `";
+    let start = stderr.find(needle)? + needle.len();
+    let rest = &stderr[start..];
+    let end = rest.find('`')?;
+    Some(rest[..end].to_string())
 }
 
 /// Runs a rustdoc command, returning `Ok(())` on success or the stderr string on failure.

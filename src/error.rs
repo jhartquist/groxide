@@ -83,6 +83,13 @@ pub enum GroxError {
         stderr: String,
     },
 
+    /// The current crate has no library target — only a binary or example.
+    #[error("'{name}' has no library target — grox indexes library APIs only.\n\nIf this crate has dependencies you want to query, try `grox <dep>`.")]
+    NoLibraryTarget {
+        /// The crate name.
+        name: String,
+    },
+
     /// rust-src component not installed.
     #[error("standard library source not available\n\nRun: rustup component add rust-src")]
     StdLibSourceMissing,
@@ -149,6 +156,7 @@ impl GroxError {
             | Self::CargoMetadataFailed { .. }
             | Self::NightlyNotAvailable
             | Self::RustdocFailed { .. }
+            | Self::NoLibraryTarget { .. }
             | Self::StdLibSourceMissing
             | Self::ExternalFetchFailed { .. }
             | Self::InvalidQuery { .. }

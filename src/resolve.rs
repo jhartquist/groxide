@@ -193,6 +193,24 @@ impl ProjectContext {
         }
     }
 
+    /// Returns workspace-local crate names whose name contains `query` as a
+    /// case-insensitive substring. Used to flag situations where a query like
+    /// `grox candle` from a workspace with `candle-core`/`candle-pitch`
+    /// members would otherwise silently fetch an unrelated registry crate.
+    pub(crate) fn local_crate_name_matches(&self, query: &str) -> Vec<String> {
+        let q = query.to_lowercase();
+        let mut matches: Vec<String> = self
+            .metadata
+            .workspace_members
+            .iter()
+            .map(|id| self.metadata[id].name.to_string())
+            .filter(|name| name.to_lowercase().contains(&q) && name.to_lowercase() != q)
+            .collect();
+        matches.sort();
+        matches.dedup();
+        matches
+    }
+
     /// Searches direct dependencies of the current crate via the resolve graph.
     ///
     /// Uses `NodeDep::name` which handles renamed dependencies.

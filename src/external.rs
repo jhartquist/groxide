@@ -253,13 +253,22 @@ fn download_and_extract(name: &str, version: &str, target_dir: &Path) -> Result<
     let url = format!("https://crates.io/api/v1/crates/{name}/{version}/download");
     let agent = build_http_agent();
 
-    let mut response = agent
-        .get(&url)
-        .call()
-        .map_err(|e| GroxError::ExternalFetchFailed {
+    let mut response = agent.get(&url).call().map_err(|e| {
+        let details = match &e {
+            ureq::Error::StatusCode(403) => {
+                format!("version '{version}' not found on crates.io")
+            }
+            ureq::Error::StatusCode(400) => {
+                format!("'{version}' is not a valid version")
+            }
+            ureq::Error::StatusCode(404) => "crate not found on crates.io".to_string(),
+            _ => format!("download failed: {e}"),
+        };
+        GroxError::ExternalFetchFailed {
             name: name.to_string(),
-            details: format!("download failed: {e}"),
-        })?;
+            details,
+        }
+    })?;
 
     // Read body with size limit
     let mut body = Vec::new();
