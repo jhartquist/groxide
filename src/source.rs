@@ -282,7 +282,11 @@ mod tests {
         let ws = tmp.path();
         let pkg_dir = ws.join("member-a");
         std::fs::create_dir_all(pkg_dir.join("src")).unwrap();
-        std::fs::write(ws.join("Cargo.toml"), "[workspace]\nmembers=[\"member-a\"]\n").unwrap();
+        std::fs::write(
+            ws.join("Cargo.toml"),
+            "[workspace]\nmembers=[\"member-a\"]\n",
+        )
+        .unwrap();
         std::fs::write(pkg_dir.join("Cargo.toml"), "[package]\nname=\"member-a\"\n").unwrap();
         std::fs::write(
             pkg_dir.join("src").join("lib.rs"),
