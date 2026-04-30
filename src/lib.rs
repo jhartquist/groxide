@@ -264,11 +264,11 @@ pub(crate) fn load_or_build_index(
         (json_path, source)
     };
 
-    // Parse rustdoc JSON
-    let json_str = std::fs::read_to_string(&json_path).map_err(|e| GroxError::JsonReadFailed {
-        path: json_path.clone(),
-        source: e,
-    })?;
+    // Parse rustdoc JSON. Concurrent grox invocations against the same target
+    // dir can race: cargo's lock serializes cargo runs, but between cargo A
+    // finishing and cargo B starting, B may unlink the JSON before rewriting
+    // it, so an unlucky read here can ENOENT. Retry briefly on NotFound.
+    let json_str = read_rustdoc_json(&json_path)?;
     let krate = index_builder::parse_rustdoc_json(&json_str)?;
 
     // Build index — normalize crate name (hyphens -> underscores) for Rust module paths
@@ -292,6 +292,35 @@ pub(crate) fn load_or_build_index(
     }
 
     Ok((index, source))
+}
+
+/// Reads rustdoc JSON, tolerating brief `NotFound` windows when concurrent
+/// grox invocations are racing against the same `target/doc/<crate>.json`.
+/// Cargo itself serializes its own runs via the package-cache lock, but it
+/// may unlink-then-rewrite the JSON file, so a read landing in that window
+/// sees `ENOENT`. The race window is microseconds; a few short retries
+/// cover it.
+fn read_rustdoc_json(path: &Path) -> Result<String> {
+    const MAX_ATTEMPTS: u32 = 5;
+    const BACKOFF_MS: u64 = 25;
+
+    for attempt in 0..MAX_ATTEMPTS {
+        match std::fs::read_to_string(path) {
+            Ok(s) => return Ok(s),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound
+                && attempt + 1 < MAX_ATTEMPTS =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(BACKOFF_MS));
+            }
+            Err(e) => {
+                return Err(GroxError::JsonReadFailed {
+                    path: path.to_path_buf(),
+                    source: e,
+                });
+            }
+        }
+    }
+    unreachable!("loop returns or sleeps; final attempt returns Err")
 }
 
 /// Resolves an item with all fallback strategies.
