@@ -83,12 +83,12 @@ pub(crate) fn generate_rustdoc_json(
             name,
             version,
         } => {
-            let workspace_root = manifest_path
+            let package_dir = manifest_path
                 .parent()
                 .expect("invariant: manifest_path has a parent");
-            let target_dir = workspace_root.join("target");
+            let target_dir = find_workspace_target_dir(manifest_path)?;
             generate_for_current_crate(
-                workspace_root,
+                package_dir,
                 name,
                 version,
                 &target_dir,
@@ -278,7 +278,7 @@ fn generate_with_feature_cascade(
 /// Uses the shared feature cascade unless the user specified explicit feature
 /// flags.
 fn generate_for_current_crate(
-    workspace_root: &Path,
+    package_dir: &Path,
     crate_name: &str,
     crate_version: &str,
     target_dir: &Path,
@@ -286,13 +286,13 @@ fn generate_for_current_crate(
     private: bool,
 ) -> Result<()> {
     generate_with_feature_cascade(
-        workspace_root,
+        package_dir,
         crate_name,
         Some(crate_version),
         features,
         |f, rustdoc_args, rustc_args| {
             build_rustdoc_command(
-                Some(workspace_root),
+                Some(package_dir),
                 Some(crate_name),
                 None,
                 Some(target_dir),
