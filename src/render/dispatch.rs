@@ -146,12 +146,8 @@ pub(crate) fn handle_output(
                 ctx.kind_filter,
             );
 
-            if let Some(ref filter) = cli.impls {
-                let trait_filter = if filter.is_empty() {
-                    None
-                } else {
-                    Some(filter.as_str())
-                };
+            if cli.impls || cli.impls_of.is_some() {
+                let trait_filter = cli.impls_of.as_deref();
                 let output = render_impls(&display, trait_filter);
                 writeln!(w, "{output}").map_err(GroxError::Io)?;
             } else {

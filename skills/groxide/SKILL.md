@@ -148,7 +148,7 @@ Lists all trait implementations on a type, or all known implementors of a trait.
 ### Check if a type implements a specific trait
 
 ```sh
-grox --impls Clone wgpu::Device
+grox --impls-of Clone wgpu::Device
 ```
 
 Filters implementations to show only the named trait.
@@ -196,7 +196,8 @@ dependency resolution.
 | `--search <Q>` | `-S` | Full-text search (`\|` for OR, space for AND) |
 | `--json` | `-j` | JSON Lines output |
 | `--kind <K>` | `-k` | Filter by kind: `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
-| `--impls [TRAIT]` | `-i` | Show trait implementations, optionally filtered by trait name |
+| `--impls` | `-i` | Show trait implementations |
+| `--impls-of <TRAIT>` | | Filter trait implementations to a specific trait |
 | `--recursive` | `-r` | List all public items recursively (composable with `-b`, `-d`, `-s`) |
 | `--private` | `-p` | Include non-public items |
 | `--readme` | | Show crate README |

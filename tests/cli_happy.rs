@@ -633,7 +633,7 @@ fn recursive_with_kind_filter() {
 #[test]
 fn impls_filter_by_trait_name() {
     let output = grox()
-        .arg("--impls")
+        .arg("--impls-of")
         .arg("Default")
         .arg("groxide_test_api::containers::Stack")
         .output()
@@ -658,7 +658,7 @@ fn impls_filter_by_trait_name() {
 #[test]
 fn impls_filter_no_match() {
     let output = grox()
-        .arg("--impls")
+        .arg("--impls-of")
         .arg("NonexistentTrait")
         .arg("groxide_test_api::containers::Stack")
         .output()

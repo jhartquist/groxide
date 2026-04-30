@@ -138,8 +138,11 @@ grox -r tokio::sync
 # Brief skeleton (names only)
 grox -r -b tokio
 
-# Trait implementations
-grox --impls Clone wgpu::Device
+# Trait implementations (all)
+grox --impls wgpu::Device
+
+# Trait implementations filtered to a specific trait
+grox --impls-of Clone wgpu::Device
 
 # JSON Lines output
 grox --json serde::Serialize
@@ -166,7 +169,8 @@ grox [OPTIONS] [PATH]
 | `--kind <KIND>` | `-k` | Filter by `fn`, `struct`, `enum`, `trait`, `type`, `const`, `mod`, `macro` |
 | `--private` | `-p` | Include non-public items |
 | `--json` | `-j` | JSON Lines |
-| `--impls [TRAIT]` | `-i` | Trait implementations, optionally filtered |
+| `--impls` | `-i` | Trait implementations |
+| `--impls-of <TRAIT>` | | Filter trait implementations to one trait |
 | `--recursive` | `-r` | List items recursively (composes with `-b`, `-d`, `-s`) |
 | `--readme` | | Crate README |
 | `--clear-cache` | | Wipe the cache |

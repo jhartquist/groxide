@@ -29,7 +29,7 @@ EXAMPLES:
     grox -r -b tokio                 Structural skeleton (names only)
     grox -r -d tokio                 Recursive with full docs
     grox -r -s mycrate               Dump entire crate with source
-    grox --impls Clone wgpu::Device  Check if Device impl Clone
+    grox --impls-of Clone wgpu::Device  Check if Device impl Clone
     grox std::collections::HashMap   Query standard library
     grox --json serde::Serialize     JSON output
     grox serde@1.0.210::Deserialize  Pin to specific version
@@ -47,15 +47,15 @@ pub struct Cli {
     pub path: Option<String>,
 
     /// Show only item names (compact output)
-    #[arg(short = 'b', long, conflicts_with_all = ["docs", "source", "search", "impls"])]
+    #[arg(short = 'b', long, conflicts_with_all = ["docs", "source", "search", "impls", "impls_of"])]
     pub brief: bool,
 
     /// Show full rendered documentation per item
-    #[arg(short = 'd', long, conflicts_with_all = ["brief", "search", "impls"])]
+    #[arg(short = 'd', long, conflicts_with_all = ["brief", "search", "impls", "impls_of"])]
     pub docs: bool,
 
     /// Show source code with file path and line numbers
-    #[arg(short = 's', long, conflicts_with_all = ["brief", "impls"])]
+    #[arg(short = 's', long, conflicts_with_all = ["brief", "impls", "impls_of"])]
     pub source: bool,
 
     /// Full-text search across documentation
@@ -74,17 +74,21 @@ pub struct Cli {
     #[arg(short = 'j', long)]
     pub json: bool,
 
-    /// Show trait implementations, optionally filtered by trait name
-    #[arg(short = 'i', long, conflicts_with_all = ["brief", "docs", "source"],
-          num_args = 0..=1, default_missing_value = "")]
-    pub impls: Option<String>,
+    /// Show trait implementations
+    #[arg(short = 'i', long, conflicts_with_all = ["brief", "docs", "source"])]
+    pub impls: bool,
+
+    /// Show only implementations of the named trait (e.g. `--impls-of Clone`)
+    #[arg(long = "impls-of", value_name = "TRAIT",
+          conflicts_with_all = ["brief", "docs", "source", "impls"])]
+    pub impls_of: Option<String>,
 
     /// List all public items recursively in a crate or module tree
-    #[arg(short = 'r', long, conflicts_with_all = ["impls", "search"])]
+    #[arg(short = 'r', long, conflicts_with_all = ["impls", "impls_of", "search"])]
     pub recursive: bool,
 
     /// Show the crate's README
-    #[arg(long, conflicts_with_all = ["source", "search", "impls", "recursive"])]
+    #[arg(long, conflicts_with_all = ["source", "search", "impls", "impls_of", "recursive"])]
     pub readme: bool,
 
     /// Path to Cargo.toml
@@ -669,15 +673,38 @@ mod tests {
     #[test]
     fn clap_parses_impls_bare_flag() {
         let cli = Cli::try_parse_from(["grox", "something", "--impls"]).unwrap();
-        assert_eq!(cli.impls, Some(String::new()));
+        assert!(cli.impls);
+        assert!(cli.impls_of.is_none());
         assert_eq!(cli.path, Some("something".to_string()));
     }
 
     #[test]
-    fn clap_parses_impls_with_trait_filter() {
-        let cli = Cli::try_parse_from(["grox", "something", "--impls", "Clone"]).unwrap();
-        assert_eq!(cli.impls, Some("Clone".to_string()));
+    fn clap_parses_impls_of_with_trait_filter() {
+        let cli = Cli::try_parse_from(["grox", "something", "--impls-of", "Clone"]).unwrap();
+        assert!(!cli.impls);
+        assert_eq!(cli.impls_of, Some("Clone".to_string()));
         assert_eq!(cli.path, Some("something".to_string()));
+    }
+
+    #[test]
+    fn clap_does_not_consume_path_into_impls() {
+        // Regression: previously --impls was [<TRAIT>] (optional value), so
+        // `grox --impls std::vec::Vec` consumed the path as the trait filter
+        // and reported "not in a Rust project". With --impls a plain bool,
+        // the path lands where it belongs.
+        let cli = Cli::try_parse_from(["grox", "--impls", "std::vec::Vec"]).unwrap();
+        assert!(cli.impls);
+        assert_eq!(cli.path, Some("std::vec::Vec".to_string()));
+    }
+
+    #[test]
+    fn clap_rejects_impls_with_impls_of() {
+        let result = Cli::try_parse_from(["grox", "x", "--impls", "--impls-of", "Clone"]);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().kind(),
+            clap::error::ErrorKind::ArgumentConflict,
+        );
     }
 
     #[test]

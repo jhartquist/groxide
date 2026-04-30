@@ -42,8 +42,11 @@ Options:
   -j, --json
           JSON Lines output
 
-  -i, --impls [<IMPLS>]
-          Show trait implementations, optionally filtered by trait name
+  -i, --impls
+          Show trait implementations
+
+      --impls-of <TRAIT>
+          Show only implementations of the named trait (e.g. `--impls-of Clone`)
 
   -r, --recursive
           List all public items recursively in a crate or module tree
@@ -81,7 +84,7 @@ EXAMPLES:
     grox -r -b tokio                 Structural skeleton (names only)
     grox -r -d tokio                 Recursive with full docs
     grox -r -s mycrate               Dump entire crate with source
-    grox --impls Clone wgpu::Device  Check if Device impl Clone
+    grox --impls-of Clone wgpu::Device  Check if Device impl Clone
     grox std::collections::HashMap   Query standard library
     grox --json serde::Serialize     JSON output
     grox serde@1.0.210::Deserialize  Pin to specific version
