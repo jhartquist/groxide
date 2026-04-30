@@ -188,21 +188,31 @@ pub(crate) fn read_source_content(item: &types::IndexItem, source: &CrateSource)
         return None;
     }
 
-    let source_root = match source {
+    let file_path = match source {
         CrateSource::CurrentCrate { manifest_path, .. }
-        | CrateSource::Dependency { manifest_path, .. } => manifest_path.parent()?.to_path_buf(),
+        | CrateSource::Dependency { manifest_path, .. } => {
+            // Span paths are emitted relative to the cargo invocation root.
+            // For workspace members, that's the workspace root, not the
+            // package directory — so walk up ancestors of the package dir
+            // until span.file resolves to an existing file.
+            resolve_span_file(manifest_path.parent()?, &span.file)?
+        }
         CrateSource::External { name, version } => {
             let cache_dir = dirs::cache_dir()?;
             let ver = version.as_deref().unwrap_or("latest");
-            cache_dir.join("groxide").join(format!("{name}-{ver}"))
+            cache_dir
+                .join("groxide")
+                .join(format!("{name}-{ver}"))
+                .join(&span.file)
         }
         CrateSource::Stdlib { .. } => {
             let sysroot = crate::stdlib::get_sysroot().ok()?;
-            crate::stdlib::stdlib_library_path(&sysroot).ok()?
+            crate::stdlib::stdlib_library_path(&sysroot)
+                .ok()?
+                .join(&span.file)
         }
     };
 
-    let file_path = source_root.join(&span.file);
     let content = std::fs::read_to_string(&file_path).ok()?;
     let lines: Vec<&str> = content.lines().collect();
 
@@ -213,4 +223,100 @@ pub(crate) fn read_source_content(item: &types::IndexItem, source: &CrateSource)
     }
 
     Some(lines[start..end].join("\n"))
+}
+
+/// Resolves a span file path against a package directory, walking up to the
+/// workspace root if necessary.
+///
+/// Cargo emits span paths relative to the directory it was invoked from. For
+/// workspace members that's the workspace root, so a span like
+/// `crate-a/src/lib.rs` won't resolve under the package directory directly.
+/// Absolute paths (e.g. registry sources) are returned as-is by `Path::join`.
+fn resolve_span_file(package_dir: &std::path::Path, span_file: &str) -> Option<std::path::PathBuf> {
+    let mut dir = Some(package_dir);
+    while let Some(d) = dir {
+        let candidate = d.join(span_file);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        dir = d.parent();
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{ItemKind, SourceSpan};
+
+    fn make_item(file: &str, line_start: u32, line_end: u32) -> types::IndexItem {
+        types::IndexItem {
+            path: "demo".into(),
+            name: "demo".into(),
+            kind: ItemKind::Function,
+            signature: String::new(),
+            docs: String::new(),
+            summary: String::new(),
+            span: SourceSpan {
+                file: file.into(),
+                line_start,
+                line_end,
+            },
+            children: Vec::new(),
+            is_public: true,
+            has_body: true,
+            feature_gate: None,
+            reexport_source: None,
+        }
+    }
+
+    #[test]
+    fn reads_workspace_member_span_relative_to_workspace_root() {
+        // Mimics a virtual workspace:
+        //   <ws>/Cargo.toml
+        //   <ws>/member-a/Cargo.toml
+        //   <ws>/member-a/src/lib.rs
+        // Cargo emits span paths relative to the workspace root, so for the
+        // member-a package the span will be "member-a/src/lib.rs".
+        let tmp = tempfile::TempDir::new().unwrap();
+        let ws = tmp.path();
+        let pkg_dir = ws.join("member-a");
+        std::fs::create_dir_all(pkg_dir.join("src")).unwrap();
+        std::fs::write(ws.join("Cargo.toml"), "[workspace]\nmembers=[\"member-a\"]\n").unwrap();
+        std::fs::write(pkg_dir.join("Cargo.toml"), "[package]\nname=\"member-a\"\n").unwrap();
+        std::fs::write(
+            pkg_dir.join("src").join("lib.rs"),
+            "line one\nline two\nline three\n",
+        )
+        .unwrap();
+
+        let source = CrateSource::Dependency {
+            manifest_path: pkg_dir.join("Cargo.toml"),
+            name: "member-a".into(),
+            version: "0.1.0".into(),
+        };
+        let item = make_item("member-a/src/lib.rs", 1, 2);
+
+        let got = read_source_content(&item, &source).expect("source should be readable");
+        assert_eq!(got, "line one\nline two");
+    }
+
+    #[test]
+    fn reads_single_crate_span_relative_to_package_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let pkg_dir = tmp.path();
+        std::fs::create_dir_all(pkg_dir.join("src")).unwrap();
+        std::fs::write(pkg_dir.join("Cargo.toml"), "[package]\nname=\"solo\"\n").unwrap();
+        std::fs::write(pkg_dir.join("src").join("lib.rs"), "alpha\nbeta\n").unwrap();
+
+        let source = CrateSource::CurrentCrate {
+            manifest_path: pkg_dir.join("Cargo.toml"),
+            name: "solo".into(),
+            version: "0.1.0".into(),
+        };
+        let item = make_item("src/lib.rs", 1, 2);
+
+        let got = read_source_content(&item, &source).expect("source should be readable");
+        assert_eq!(got, "alpha\nbeta");
+    }
 }
