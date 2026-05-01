@@ -194,7 +194,7 @@ Exit codes: `0` success, `1` not found, `2` error.
 
 ## Inside vs outside a Rust project
 
-Inside a project (directory with `Cargo.toml`), `grox` reads the project's dependency graph. Running `grox` with no arguments shows the current crate's docs. Queries resolve through: current crate, direct dependencies, workspace members, transitive dependencies, stdlib, then crates.io auto-fetch. The cache lives in `target/groxide/`.
+Inside a project (directory with `Cargo.toml`), `grox` reads the project's dependency graph. Running `grox` with no arguments shows the current crate's docs. Queries resolve through: current crate, direct dependencies, workspace members, transitive dependencies, stdlib, then crates.io auto-fetch. Each step matches by exact name (with `-`/`_` equivalence) — `grox candle` in a workspace whose only members are `candle-pitch` and `candle-crepe` falls through to a crates.io fetch of `candle`. Use the full member name to target a workspace crate.
 
 Outside a project, only stdlib queries and crates.io auto-fetch work. Running `grox` with no arguments errors out (no current crate). The cache for external crates lives in `~/.cache/groxide/`.
 

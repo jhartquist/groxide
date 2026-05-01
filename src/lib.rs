@@ -190,16 +190,6 @@ pub(crate) fn resolve_crate_source(
                         };
                         return Ok((current_source, reinterpreted));
                     }
-                    // Surface workspace-local names that look related (e.g.
-                    // `candle` in a `candle-pitch` workspace) before silently
-                    // fetching an unrelated registry crate.
-                    let local = ctx.local_crate_name_matches(name);
-                    if !local.is_empty() {
-                        eprintln!(
-                            "[grox] Note: workspace contains similar local crate(s): {}",
-                            local.join(", ")
-                        );
-                    }
                     // Auto-fetch
                     let version = match &source {
                         CrateSource::External { version, .. } => version.clone(),
