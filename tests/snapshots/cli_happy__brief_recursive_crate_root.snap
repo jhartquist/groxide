@@ -17,6 +17,7 @@ groxide_test_api:
   static  VERSION
   fn      add
   mod     containers
+  mod     cross_reexports
   mod     deeply
   fn      generic_fn
   macro   greet
@@ -29,6 +30,11 @@ groxide_test_api::containers:
   const   MAX_CAPACITY
   struct  Pair
   struct  Stack
+
+groxide_test_api::cross_reexports:
+  struct  CrossStruct
+  fn      cross_fn
+  mod     cross_mod
 
 groxide_test_api::deeply:
   struct  DeepMarker

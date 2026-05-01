@@ -53,3 +53,19 @@ pub(crate) fn make_source_span() -> SourceSpan {
         line_end: 0,
     }
 }
+
+/// Builds a test `IndexItem` representing a re-export stub
+/// (`pub use source::Item as Item`). Sets `reexport_source`, sets a
+/// matching `pub use` signature, and leaves `children` empty so the item
+/// passes `query::is_reexport_stub`.
+pub(crate) fn make_reexport_stub(
+    name: &str,
+    path: &str,
+    kind: ItemKind,
+    source: &str,
+) -> IndexItem {
+    let mut item = make_item(name, path, kind);
+    item.reexport_source = Some(source.to_string());
+    item.signature = format!("pub use {source} as {name}");
+    item
+}

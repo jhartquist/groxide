@@ -5,3 +5,6 @@ edition = "2021"
 
 [features]
 unstable = []
+
+[dependencies]
+groxide_test_inner = { path = "../groxide_test_inner" }

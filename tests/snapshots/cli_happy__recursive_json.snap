@@ -19,6 +19,10 @@ expression: stdout
 {"path":"groxide_test_api::containers::MAX_CAPACITY","kind":"const","signature":"pub const MAX_CAPACITY: usize","summary":"The maximum capacity for a fixed-size container."}
 {"path":"groxide_test_api::containers::Pair","kind":"struct","signature":"pub struct Pair<A, B>","summary":"A pair of two values, possibly of different types."}
 {"path":"groxide_test_api::containers::Stack","kind":"struct","signature":"pub struct Stack<T>","summary":"A stack data structure backed by a `Vec`."}
+{"path":"groxide_test_api::cross_reexports","kind":"mod","signature":"pub mod cross_reexports","summary":"Cross-crate re-exports — exercises:"}
+{"path":"groxide_test_api::cross_reexports::CrossStruct","kind":"struct","signature":"pub use groxide_test_inner::CrossStruct as CrossStruct","summary":"Terminal cross-crate stub.","reexported_from":"groxide_test_inner::CrossStruct"}
+{"path":"groxide_test_api::cross_reexports::cross_fn","kind":"fn","signature":"pub use groxide_test_inner::cross_fn as cross_fn","summary":"Terminal cross-crate stub for a function.","reexported_from":"groxide_test_inner::cross_fn"}
+{"path":"groxide_test_api::cross_reexports::cross_mod","kind":"mod","signature":"pub use groxide_test_inner::cross_mod as cross_mod","summary":"Cross-crate module re-export.","reexported_from":"groxide_test_inner::cross_mod"}
 {"path":"groxide_test_api::deeply","kind":"mod","signature":"pub mod deeply","summary":"A module for testing deeply nested paths."}
 {"path":"groxide_test_api::deeply::DeepMarker","kind":"struct","signature":"pub struct DeepMarker","summary":"A marker type at the `deeply` module level."}
 {"path":"groxide_test_api::deeply::nested","kind":"mod","signature":"pub mod nested","summary":"The deepest level of nesting for path resolution tests."}

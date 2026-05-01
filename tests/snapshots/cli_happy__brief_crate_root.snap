@@ -4,6 +4,7 @@ expression: stdout
 ---
 crate groxide_test_api
   mod     containers
+  mod     cross_reexports
   mod     deeply
   mod     reexports
   mod     traits

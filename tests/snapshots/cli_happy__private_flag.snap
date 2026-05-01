@@ -12,6 +12,7 @@ macros, statics, unions, re-exports, nested modules, and more.
 
 modules:
   containers                      Container types for testing module-level items.
+  cross_reexports                 Cross-crate re-exports — exercises:
   deeply                          A module for testing deeply nested paths.
   reexports                       Module for testing re-export handling.
   traits                          Trait definitions for testing trait rendering.

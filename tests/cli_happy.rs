@@ -553,6 +553,91 @@ fn reexport_resolves_transparently_with_wrong_module_path() {
     assert!(stdout.contains("Helper"), "should show Helper: {stdout}");
 }
 
+// ── Cross-crate re-exports ───────────────────────────────────────────
+//
+// These tests pin the new resolution paths added for B2/B3/B5:
+// - Cross-crate wildcard re-exports via `pub use other::*`
+// - Cross-crate module re-exports walked through the prefix descent
+// - Cross-crate terminal stubs followed via the `follow_by_name` fallback
+//
+// They build against `groxide_test_inner` (a path-dep added to the fixture)
+// so they cover the actual end-to-end pipeline: index → resolve →
+// follow → render.
+
+#[test]
+fn cross_crate_terminal_stub_resolves_to_canonical() {
+    // `cross_reexports` has `pub use groxide_test_inner::CrossStruct;`.
+    // The query should follow the terminal stub into the inner crate
+    // and render the canonical struct.
+    let output = grox()
+        .arg("groxide_test_api::cross_reexports::CrossStruct")
+        .output()
+        .expect("command runs");
+
+    assert!(
+        output.status.success(),
+        "should resolve cross-crate stub, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("pub struct CrossStruct"),
+        "should show canonical struct signature, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("value"),
+        "should expose the inner struct's fields: {stdout}"
+    );
+}
+
+#[test]
+fn cross_crate_wildcard_glob_resolves_items_only_reachable_via_glob() {
+    // `cross_reexports` has `pub use groxide_test_inner::*;`. CROSS_CONST
+    // is only reachable through that glob — it is NOT terminal-stubbed.
+    // The query exercises `try_resolve_via_glob_reexport` end-to-end.
+    let output = grox()
+        .arg("groxide_test_api::cross_reexports::CROSS_CONST")
+        .output()
+        .expect("command runs");
+
+    assert!(
+        output.status.success(),
+        "should resolve via glob re-export, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("CROSS_CONST"),
+        "glob should expose CROSS_CONST: {stdout}"
+    );
+}
+
+#[test]
+fn cross_crate_module_reexport_descends_into_inner() {
+    // `cross_reexports` re-exports `groxide_test_inner::cross_mod`.
+    // Querying an item INSIDE that module is the prefix-descent case:
+    // resolve "cross_mod" stub here, then look up "ModItem" in the inner
+    // crate's `cross_mod`.
+    let output = grox()
+        .arg("groxide_test_api::cross_reexports::cross_mod::ModItem")
+        .output()
+        .expect("command runs");
+
+    assert!(
+        output.status.success(),
+        "should descend through module re-export, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("ModItem"),
+        "should resolve to canonical ModItem: {stdout}"
+    );
+}
+
 // ── --recursive mode ──────────────────────────────────────────────────
 
 #[test]

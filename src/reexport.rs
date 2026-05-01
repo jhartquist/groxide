@@ -357,3 +357,232 @@ pub(crate) fn try_resolve_reexport_on_not_found(
         }),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{make_item, make_reexport_stub};
+    use crate::types::{GlobUse, ItemKind};
+
+    fn query_path(crate_name: &str, segments: &[&str]) -> QueryPath {
+        QueryPath {
+            crate_spec: CrateSpec::Named(crate_name.to_string()),
+            item_segments: segments.iter().map(|s| (*s).to_string()).collect(),
+        }
+    }
+
+    // ---- try_resolve_reexport_on_not_found ----
+
+    #[test]
+    fn case_strict_match_does_not_treat_uppercase_vec_as_lowercase_vec() {
+        // Mirrors the std re-export setup that broke `grox std::vec::Vec`:
+        // both a `vec` module and a `vec` macro at std::vec, plus a struct
+        // `Vec` at alloc::vec::Vec. The query "Vec" must NOT collapse into
+        // matches against items named "vec".
+        let mut index = DocIndex::new("std".to_string(), "1.0.0".to_string());
+        index.add_item(make_reexport_stub(
+            "vec",
+            "std::vec",
+            ItemKind::Module,
+            "alloc::vec",
+        ));
+        index.add_item(make_reexport_stub(
+            "vec",
+            "std::vec",
+            ItemKind::Macro,
+            "alloc::vec",
+        ));
+
+        let q = query_path("std", &["vec", "Vec"]);
+        let result = try_resolve_reexport_on_not_found(&q, &index, None);
+        assert!(
+            result.is_none(),
+            "case-strict 'Vec' must not match items named 'vec', got {result:?}"
+        );
+    }
+
+    #[test]
+    fn case_insensitive_match_when_query_is_all_lowercase() {
+        // All-lowercase queries fall back to case-insensitive matching, so
+        // the mod and macro stubs both qualify.
+        let mut index = DocIndex::new("std".to_string(), "1.0.0".to_string());
+        index.add_item(make_reexport_stub(
+            "vec",
+            "std::vec",
+            ItemKind::Module,
+            "alloc::vec",
+        ));
+        index.add_item(make_reexport_stub(
+            "vec",
+            "std::vec",
+            ItemKind::Macro,
+            "alloc::vec",
+        ));
+
+        let q = query_path("std", &["vec"]);
+        let result = try_resolve_reexport_on_not_found(&q, &index, None);
+        assert!(
+            matches!(result, Some(QueryResult::Ambiguous { ref indices, .. }) if indices.len() == 2),
+            "lowercase 'vec' should match both mod and macro stubs, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn exact_case_match_returns_found_singleton() {
+        // Single struct named "Foo" — exact-case match returns Found.
+        let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
+        index.add_item(make_reexport_stub(
+            "Foo",
+            "mycrate::Foo",
+            ItemKind::Struct,
+            "inner::Foo",
+        ));
+
+        let q = query_path("mycrate", &["Foo"]);
+        let result = try_resolve_reexport_on_not_found(&q, &index, None);
+        assert!(
+            matches!(result, Some(QueryResult::Found { .. })),
+            "exact-case 'Foo' should resolve to Found, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn no_matches_returns_none() {
+        let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
+        index.add_item(make_item("real_thing", "mycrate::real_thing", ItemKind::Struct));
+
+        let q = query_path("mycrate", &["nonexistent"]);
+        let result = try_resolve_reexport_on_not_found(&q, &index, None);
+        assert!(result.is_none());
+    }
+
+    // ---- follow_by_name ----
+
+    #[test]
+    fn follow_by_name_prefers_non_stub_over_stub() {
+        // When both a stub and a real definition share a name, prefer the
+        // real definition so re-export following lands on actual content.
+        let mut index = DocIndex::new("inner".to_string(), "0.1.0".to_string());
+        // index 0 — stub
+        index.add_item(make_reexport_stub(
+            "Foo",
+            "inner::a::Foo",
+            ItemKind::Struct,
+            "deeper::Foo",
+        ));
+        // index 1 — real definition
+        index.add_item(make_item("Foo", "inner::b::Foo", ItemKind::Struct));
+
+        let idx = follow_by_name(&index, "Foo").expect("name match should be found");
+        assert_eq!(idx, 1, "should prefer the non-stub at index 1, got {idx}");
+    }
+
+    #[test]
+    fn follow_by_name_returns_stub_when_only_stub_exists() {
+        let mut index = DocIndex::new("inner".to_string(), "0.1.0".to_string());
+        index.add_item(make_reexport_stub(
+            "Foo",
+            "inner::a::Foo",
+            ItemKind::Struct,
+            "deeper::Foo",
+        ));
+
+        let idx = follow_by_name(&index, "Foo").expect("stub fallback should match");
+        assert_eq!(idx, 0);
+    }
+
+    #[test]
+    fn follow_by_name_unknown_returns_none() {
+        let mut index = DocIndex::new("inner".to_string(), "0.1.0".to_string());
+        index.add_item(make_item("Bar", "inner::Bar", ItemKind::Struct));
+
+        assert!(follow_by_name(&index, "Foo").is_none());
+    }
+
+    #[test]
+    fn follow_by_name_handles_path_input_taking_last_segment() {
+        // The function accepts a `::`-joined path and uses only the trailing
+        // segment for the name lookup.
+        let mut index = DocIndex::new("inner".to_string(), "0.1.0".to_string());
+        index.add_item(make_item("Foo", "inner::deep::Foo", ItemKind::Struct));
+
+        let idx = follow_by_name(&index, "anything::Foo").expect("trailing 'Foo' should match");
+        assert_eq!(idx, 0);
+    }
+
+    // ---- try_resolve_via_prefix_reexport (early-exit branches) ----
+
+    #[test]
+    fn prefix_descent_returns_none_for_single_segment_query() {
+        // Need at least 2 segments to have a "prefix" and a "remainder".
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let mut index = DocIndex::new("std".to_string(), "1.0.0".to_string());
+        index.add_item(make_reexport_stub(
+            "vec",
+            "std::vec",
+            ItemKind::Module,
+            "alloc::vec",
+        ));
+
+        let q = query_path("std", &["vec"]);
+        let result = try_resolve_via_prefix_reexport(&q, &index, None, &features, "", false);
+        assert!(result.is_none(), "1-segment query has no prefix to descend through");
+    }
+
+    #[test]
+    fn prefix_descent_returns_none_when_no_prefix_is_a_stub() {
+        // No items in the index — no possible prefix matches.
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
+
+        let q = query_path("mycrate", &["a", "b", "c"]);
+        let result = try_resolve_via_prefix_reexport(&q, &index, None, &features, "", false);
+        assert!(result.is_none());
+    }
+
+    // ---- try_resolve_via_glob_reexport (early-exit + glob filtering) ----
+
+    #[test]
+    fn glob_descent_returns_none_when_no_glob_uses() {
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let index = DocIndex::new("clap".to_string(), "4.5.0".to_string());
+        // glob_uses is empty by default
+
+        let q = query_path("clap", &["Arg"]);
+        let result = try_resolve_via_glob_reexport(&q, &index, None, &features, "", false);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn glob_descent_returns_none_for_empty_segments() {
+        let features = FeatureFlags {
+            all_features: false,
+            no_default_features: false,
+            features: Vec::new(),
+        };
+        let mut index = DocIndex::new("clap".to_string(), "4.5.0".to_string());
+        index.glob_uses.push(GlobUse {
+            parent_path: "clap".to_string(),
+            source_path: "clap_builder".to_string(),
+        });
+
+        let q = query_path("clap", &[]);
+        let result = try_resolve_via_glob_reexport(&q, &index, None, &features, "", false);
+        assert!(
+            result.is_none(),
+            "no item segments — nothing to look up via glob"
+        );
+    }
+}

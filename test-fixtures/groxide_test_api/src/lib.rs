@@ -5,6 +5,7 @@
 //! macros, statics, unions, re-exports, nested modules, and more.
 
 pub mod containers;
+pub mod cross_reexports;
 pub mod deeply;
 pub mod reexports;
 pub mod traits;
