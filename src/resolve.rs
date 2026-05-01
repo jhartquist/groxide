@@ -109,10 +109,11 @@ impl ProjectContext {
             .into_std_path_buf()
     }
 
-    /// Returns the workspace target directory (already resolved by
-    /// `cargo metadata`, no subprocess). Honours `CARGO_TARGET_DIR` and
-    /// `[build] target-dir` config when cargo did.
-    pub(crate) fn target_directory(&self) -> PathBuf {
+    /// Returns the *workspace* target directory (not a per-package one).
+    /// Already resolved by `cargo metadata` at `discover()` time, no
+    /// extra subprocess. Honours `CARGO_TARGET_DIR` and `[build] target-dir`
+    /// config when cargo did.
+    pub(crate) fn workspace_target_directory(&self) -> PathBuf {
         self.metadata.target_directory.clone().into_std_path_buf()
     }
 

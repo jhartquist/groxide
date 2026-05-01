@@ -69,7 +69,7 @@ pub(crate) fn cache_path(
 ) -> Option<PathBuf> {
     match source {
         CrateSource::CurrentCrate { name, .. } => {
-            let target_dir = ctx?.target_directory();
+            let target_dir = ctx?.workspace_target_directory();
             let filename = format!("{name}{feature_suffix}.groxide");
             Some(target_dir.join("groxide").join(filename))
         }
