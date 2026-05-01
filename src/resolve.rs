@@ -117,6 +117,14 @@ impl ProjectContext {
         self.metadata.target_directory.clone().into_std_path_buf()
     }
 
+    /// Returns the workspace root directory (where the workspace's
+    /// `Cargo.toml` and `Cargo.lock` live). Same caveat as
+    /// `workspace_target_directory`: comes from cached `cargo metadata`,
+    /// no subprocess.
+    pub(crate) fn workspace_root(&self) -> PathBuf {
+        self.metadata.workspace_root.clone().into_std_path_buf()
+    }
+
     /// Returns true if the workspace has no root package (virtual manifest).
     pub(crate) fn is_virtual_workspace(&self) -> bool {
         self.metadata

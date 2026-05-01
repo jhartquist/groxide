@@ -241,7 +241,7 @@ pub(crate) fn load_or_build_index(
 
     // Try loading from cache
     if let Some(ref path) = cache_file {
-        if let Some(index) = cache::load_cached(path, &source) {
+        if let Some(index) = cache::load_cached(path, &source, ctx) {
             return Ok((index, source));
         }
     }
@@ -293,11 +293,11 @@ pub(crate) fn load_or_build_index(
 
     // Save to cache (best-effort)
     if let Some(ref path) = cache_file {
-        cache::save_to_cache(path, &index, &source);
+        cache::save_to_cache(path, &index, &source, ctx);
     } else {
         // Recompute cache path since source may have changed (external version resolved)
         if let Some(path) = cache::cache_path(&source, feature_suffix, ctx) {
-            cache::save_to_cache(&path, &index, &source);
+            cache::save_to_cache(&path, &index, &source, ctx);
         }
     }
 

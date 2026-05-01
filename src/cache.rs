@@ -93,15 +93,27 @@ pub(crate) fn cache_path(
     }
 }
 
-/// Returns the max mtime (UNIX seconds) of the inputs that affect the
-/// crate's rustdoc JSON: `Cargo.toml`, every `.rs` under `src/`, and an
-/// optional `build.rs`. Walks the package directory once.
+/// Returns the max mtime (UNIX seconds) of the inputs that affect a crate's
+/// rustdoc JSON. Walks:
 ///
-/// Known limitation: doesn't detect changes from `Cargo.lock` updates that
-/// alter re-exported dependency surface, build-script-generated source, or
-/// edits inside `examples/`/`tests/`/`benches/` (which don't affect the
-/// library's rustdoc output anyway).
-pub(crate) fn current_crate_source_mtime(package_dir: &Path) -> Option<u64> {
+/// * `<package_dir>/Cargo.toml` (required)
+/// * `<package_dir>/build.rs` (optional)
+/// * `<package_dir>/src/**/*.rs`
+/// * `<workspace_root>/Cargo.toml` and `<workspace_root>/Cargo.lock`
+///   when `workspace_root` is `Some` and differs from `package_dir`. The
+///   workspace `Cargo.toml` matters because `[workspace.dependencies]`
+///   edits flow into member crates via inheritance; `Cargo.lock` matters
+///   because a transitive dep bump can alter the surface a `pub use`
+///   statement re-exports.
+///
+/// Known limitations (intentional): doesn't track build-script-generated
+/// source under `OUT_DIR`, `#[path = ...]` files outside `src/`, or
+/// rustflags / config.toml changes. Run `grox --clear-cache` to recover
+/// from those cases on the rare occasions they bite.
+pub(crate) fn current_crate_source_mtime(
+    package_dir: &Path,
+    workspace_root: Option<&Path>,
+) -> Option<u64> {
     fn mtime_secs(path: &Path) -> Option<u64> {
         fs::metadata(path)
             .ok()?
@@ -143,13 +155,31 @@ pub(crate) fn current_crate_source_mtime(package_dir: &Path) -> Option<u64> {
         }
     }
 
+    if let Some(ws_root) = workspace_root {
+        if ws_root != package_dir {
+            // Workspace Cargo.toml — different file from the package one
+            if let Some(t) = mtime_secs(&ws_root.join("Cargo.toml")) {
+                max = max.max(t);
+            }
+        }
+        // Cargo.lock always at the workspace root (or single-crate package
+        // root, which equals package_dir — same file path either way).
+        if let Some(t) = mtime_secs(&ws_root.join("Cargo.lock")) {
+            max = max.max(t);
+        }
+    }
+
     Some(max)
 }
 
 /// Loads a cached [`DocIndex`] from disk if the cache is valid.
 ///
 /// Returns `None` if the cache file doesn't exist, is corrupted, or is stale.
-pub(crate) fn load_cached(path: &Path, source: &CrateSource) -> Option<DocIndex> {
+pub(crate) fn load_cached(
+    path: &Path,
+    source: &CrateSource,
+    ctx: Option<&crate::resolve::ProjectContext>,
+) -> Option<DocIndex> {
     if !path.exists() {
         return None;
     }
@@ -163,14 +193,7 @@ pub(crate) fn load_cached(path: &Path, source: &CrateSource) -> Option<DocIndex>
     let bytes = fs::read(path).ok()?;
     let data: CachedData = rmp_serde::from_slice(&bytes).ok()?;
 
-    let current_mtime = match source {
-        CrateSource::CurrentCrate { manifest_path, .. } => current_crate_source_mtime(
-            manifest_path
-                .parent()
-                .expect("invariant: manifest_path has a parent"),
-        ),
-        _ => None,
-    };
+    let current_mtime = compute_source_mtime(source, ctx);
 
     if !is_cache_valid(&data.header, source, current_mtime) {
         return None;
@@ -182,22 +205,44 @@ pub(crate) fn load_cached(path: &Path, source: &CrateSource) -> Option<DocIndex>
 /// Saves a [`DocIndex`] to disk with atomic write (temp file + rename).
 ///
 /// Cache save errors are non-fatal — logs a warning to stderr and continues.
-pub(crate) fn save_to_cache(path: &Path, index: &DocIndex, source: &CrateSource) {
-    if let Err(e) = save_to_cache_inner(path, index, source) {
+pub(crate) fn save_to_cache(
+    path: &Path,
+    index: &DocIndex,
+    source: &CrateSource,
+    ctx: Option<&crate::resolve::ProjectContext>,
+) {
+    if let Err(e) = save_to_cache_inner(path, index, source, ctx) {
         eprintln!("[grox] warning: failed to save cache: {e}");
     }
 }
 
-/// Inner implementation of cache saving that can return errors.
-fn save_to_cache_inner(path: &Path, index: &DocIndex, source: &CrateSource) -> Result<()> {
-    let mtime = match source {
-        CrateSource::CurrentCrate { manifest_path, .. } => current_crate_source_mtime(
-            manifest_path
+/// Computes the source-tree mtime used for `CurrentCrate` cache invalidation.
+/// Returns `None` for variants that don't use mtime keying (their cache key
+/// is version- or toolchain-based instead).
+fn compute_source_mtime(
+    source: &CrateSource,
+    ctx: Option<&crate::resolve::ProjectContext>,
+) -> Option<u64> {
+    match source {
+        CrateSource::CurrentCrate { manifest_path, .. } => {
+            let package_dir = manifest_path
                 .parent()
-                .expect("invariant: manifest_path has a parent"),
-        ),
+                .expect("invariant: manifest_path has a parent");
+            let workspace_root = ctx.map(crate::resolve::ProjectContext::workspace_root);
+            current_crate_source_mtime(package_dir, workspace_root.as_deref())
+        }
         _ => None,
-    };
+    }
+}
+
+/// Inner implementation of cache saving that can return errors.
+fn save_to_cache_inner(
+    path: &Path,
+    index: &DocIndex,
+    source: &CrateSource,
+    ctx: Option<&crate::resolve::ProjectContext>,
+) -> Result<()> {
+    let mtime = compute_source_mtime(source, ctx);
     let header = create_header(source, mtime);
     let data = CachedData {
         header,
@@ -405,8 +450,8 @@ mod tests {
         // Use a temp dir path directly — cache_path() returns global dir which we shouldn't pollute in tests
         let cache_file = tmp_path.join("deps/testcrate-1.0.0.groxide");
 
-        save_to_cache(&cache_file, &index, &source);
-        let loaded = load_cached(&cache_file, &source);
+        save_to_cache(&cache_file, &index, &source, None);
+        let loaded = load_cached(&cache_file, &source, None);
         assert!(loaded.is_some());
         assert_eq!(loaded.unwrap().crate_name, "testcrate");
     }
@@ -524,7 +569,7 @@ mod tests {
         let cache_dir = tmp_path.join("deps");
         let cache_file = cache_dir.join("testcrate-1.0.0.groxide");
 
-        save_to_cache(&cache_file, &index, &source);
+        save_to_cache(&cache_file, &index, &source, None);
 
         // Check that no .tmp.* files remain in the cache directory
         let entries: Vec<_> = fs::read_dir(&cache_dir)
@@ -558,13 +603,13 @@ mod tests {
         let index = make_test_index();
         let cache_file = tmp_path.join("deps/serde-1.0.0.groxide");
 
-        save_to_cache(&cache_file, &index, &source_v1);
+        save_to_cache(&cache_file, &index, &source_v1, None);
         assert!(
-            load_cached(&cache_file, &source_v1).is_some(),
+            load_cached(&cache_file, &source_v1, None).is_some(),
             "cache should be valid for v1"
         );
         assert!(
-            load_cached(&cache_file, &source_v2).is_none(),
+            load_cached(&cache_file, &source_v2, None).is_none(),
             "cache should be invalid for v2"
         );
     }
@@ -575,7 +620,7 @@ mod tests {
     fn load_cached_returns_none_for_missing_file() {
         let tmp = TempDir::new().unwrap();
         let source = make_dep_source(tmp.path());
-        let result = load_cached(&tmp.path().join("nonexistent.groxide"), &source);
+        let result = load_cached(&tmp.path().join("nonexistent.groxide"), &source, None);
         assert!(result.is_none());
     }
 
@@ -587,7 +632,7 @@ mod tests {
         let cache_file = tmp.path().join("corrupt.groxide");
         fs::write(&cache_file, b"not valid msgpack data").unwrap();
         let source = make_dep_source(tmp.path());
-        let result = load_cached(&cache_file, &source);
+        let result = load_cached(&cache_file, &source, None);
         assert!(result.is_none());
     }
 
