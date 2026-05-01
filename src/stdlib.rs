@@ -132,7 +132,7 @@ pub(crate) fn generate_stdlib_json(
     crate_name: &str,
     features: &FeatureFlags,
     private: bool,
-) -> Result<PathBuf> {
+) -> Result<String> {
     // 1. Validate crate name
     if !is_stdlib_crate(crate_name) {
         return Err(GroxError::RustdocFailed {
@@ -181,14 +181,21 @@ pub(crate) fn generate_stdlib_json(
         }
     };
 
-    let cmd =
-        build_stdlib_rustdoc_command(&manifest_path, &target_dir, &effective_features, private);
-    run_rustdoc_command(cmd)?;
-
-    // 5. Return JSON path
+    // 5. Run rustdoc and read JSON under an exclusive lock on the per-toolchain
+    // target dir. Concurrent grox invocations querying the same stdlib crate
+    // would otherwise race on `target/doc/<crate>.json` between cargo's
+    // unlink and rewrite — same race as the workspace path.
     let normalized = crate_name.replace('-', "_");
     let json_path = target_dir.join("doc").join(format!("{normalized}.json"));
-    Ok(json_path)
+    crate::docgen::run_cargo_and_read_json(&target_dir, &json_path, || {
+        let cmd = build_stdlib_rustdoc_command(
+            &manifest_path,
+            &target_dir,
+            &effective_features,
+            private,
+        );
+        run_rustdoc_command(cmd)
+    })
 }
 
 /// Builds the `cargo +nightly rustdoc` command for stdlib crates.
@@ -524,14 +531,14 @@ mod tests {
         };
         let result = generate_stdlib_json("core", &features, false);
         match result {
-            Ok(path) => {
-                assert!(path.exists(), "JSON should exist at: {path:?}");
-                let filename = path
-                    .file_name()
-                    .expect("has filename")
-                    .to_str()
-                    .expect("utf8");
-                assert_eq!(filename, "core.json");
+            Ok(json) => {
+                assert!(!json.is_empty(), "JSON content should be non-empty");
+                // rustdoc JSON starts with `{` and contains the crate name.
+                assert!(json.trim_start().starts_with('{'));
+                assert!(
+                    json.contains("\"crate_name\""),
+                    "JSON should contain crate_name field"
+                );
             }
             Err(GroxError::NightlyNotAvailable) => {
                 eprintln!("SKIP: nightly not available");

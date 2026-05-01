@@ -1,12 +1,63 @@
 use std::collections::HashSet;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use fs4::fs_std::FileExt;
 use serde::Deserialize;
 
 use crate::cli::FeatureFlags;
 use crate::error::{GroxError, Result};
 use crate::resolve::CrateSource;
+
+/// Holds an exclusive `flock` on a sentinel file in the target dir for as
+/// long as the caller is reading or writing rustdoc JSON inside it.
+///
+/// Multiple grox processes against the same target directory race on
+/// `target/doc/<crate>.json`: cargo's package-cache lock serializes cargo
+/// runs, but between cargo A returning and cargo B starting, B may unlink
+/// the JSON before rewriting it. Without our own lock, an unlucky read in
+/// that window saw `ENOENT`. Holding `flock` here makes our build+read
+/// critical section atomic with respect to other grox invocations.
+///
+/// The lock is automatically released when the [`File`] goes out of scope.
+/// On crash, the kernel releases it for us — no stale-lock recovery code.
+///
+/// Limitation: `flock(2)` semantics on ancient NFS are unreliable. Modern
+/// local filesystems (APFS, ext4, btrfs, xfs, NTFS via `LockFile`) all
+/// honour it correctly.
+struct LockedTargetDir {
+    _file: File,
+}
+
+impl LockedTargetDir {
+    fn acquire(target_dir: &Path) -> Result<Self> {
+        std::fs::create_dir_all(target_dir).map_err(GroxError::Io)?;
+        let lock_path = target_dir.join(".groxide.lock");
+        let file = File::create(&lock_path).map_err(GroxError::Io)?;
+        FileExt::lock_exclusive(&file).map_err(GroxError::Io)?;
+        Ok(Self { _file: file })
+    }
+}
+
+/// Acquires an exclusive lock on `target_dir`, runs `run_cargo`, and reads
+/// the resulting JSON file at `json_path` while still holding the lock.
+/// The lock releases on return regardless of error.
+pub(crate) fn run_cargo_and_read_json<F>(
+    target_dir: &Path,
+    json_path: &Path,
+    run_cargo: F,
+) -> Result<String>
+where
+    F: FnOnce() -> Result<()>,
+{
+    let _guard = LockedTargetDir::acquire(target_dir)?;
+    run_cargo()?;
+    std::fs::read_to_string(json_path).map_err(|e| GroxError::JsonReadFailed {
+        path: json_path.to_path_buf(),
+        source: e,
+    })
+}
 
 /// Metadata from `[package.metadata.docs.rs]` in a crate's Cargo.toml.
 ///
@@ -74,7 +125,7 @@ pub(crate) fn generate_rustdoc_json(
     source: &CrateSource,
     features: &FeatureFlags,
     private: bool,
-) -> Result<PathBuf> {
+) -> Result<String> {
     check_nightly_available()?;
 
     match source {
@@ -87,16 +138,17 @@ pub(crate) fn generate_rustdoc_json(
                 .parent()
                 .expect("invariant: manifest_path has a parent");
             let target_dir = find_workspace_target_dir(manifest_path)?;
-            generate_for_current_crate(
-                package_dir,
-                name,
-                version,
-                &target_dir,
-                features,
-                private,
-            )?;
             let json_path = json_output_path(&target_dir, name);
-            Ok(json_path)
+            run_cargo_and_read_json(&target_dir, &json_path, || {
+                generate_for_current_crate(
+                    package_dir,
+                    name,
+                    version,
+                    &target_dir,
+                    features,
+                    private,
+                )
+            })
         }
         CrateSource::Dependency {
             manifest_path,
@@ -104,15 +156,15 @@ pub(crate) fn generate_rustdoc_json(
             ..
         } => {
             let target_dir = find_workspace_target_dir(manifest_path)?;
-            generate_for_dependency(&target_dir, name, features, private)?;
             let json_path = json_output_path(&target_dir, name);
-            Ok(json_path)
+            run_cargo_and_read_json(&target_dir, &json_path, || {
+                generate_for_dependency(&target_dir, name, features, private)
+            })
         }
         CrateSource::Stdlib { name } => {
             // Stdlib generation is handled by a separate module (stdlib.rs)
-            // For now, generate using --manifest-path pointing to stdlib source
-            let json_path = generate_for_stdlib(name, features, private)?;
-            Ok(json_path)
+            // and locks its own per-toolchain target dir internally.
+            generate_for_stdlib(name, features, private)
         }
         CrateSource::External { name, .. } => {
             // External crate generation is handled by external.rs after extraction.
@@ -354,7 +406,7 @@ fn generate_for_stdlib(
     crate_name: &str,
     features: &FeatureFlags,
     private: bool,
-) -> Result<PathBuf> {
+) -> Result<String> {
     crate::stdlib::generate_stdlib_json(crate_name, features, private)
 }
 

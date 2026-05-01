@@ -259,8 +259,12 @@ pub(crate) fn load_or_build_index(
         }
     }
 
-    // Handle external crates: fetch first
-    let (json_path, source) = if let CrateSource::External {
+    // Generate or fetch rustdoc JSON. The non-external paths (current crate,
+    // dependency, stdlib) hold an exclusive flock on their target dir while
+    // running cargo and reading the resulting JSON, so concurrent grox
+    // processes serialize cleanly. External crates are fetched into unique
+    // per-version cache dirs and don't share state across invocations.
+    let (json_str, source) = if let CrateSource::External {
         name: ext_name,
         version: version_opt,
     } = source
@@ -271,17 +275,17 @@ pub(crate) fn load_or_build_index(
             name: canonical_name,
             version: Some(resolved_version),
         };
-        (json_path, source)
+        let json_str =
+            std::fs::read_to_string(&json_path).map_err(|e| GroxError::JsonReadFailed {
+                path: json_path,
+                source: e,
+            })?;
+        (json_str, source)
     } else {
-        let json_path = docgen::generate_rustdoc_json(&source, features, private)?;
-        (json_path, source)
+        let json_str = docgen::generate_rustdoc_json(&source, features, private)?;
+        (json_str, source)
     };
 
-    // Parse rustdoc JSON. Concurrent grox invocations against the same target
-    // dir can race: cargo's lock serializes cargo runs, but between cargo A
-    // finishing and cargo B starting, B may unlink the JSON before rewriting
-    // it, so an unlucky read here can ENOENT. Retry briefly on NotFound.
-    let json_str = read_rustdoc_json(&json_path)?;
     let krate = index_builder::parse_rustdoc_json(&json_str)?;
 
     // Build index — normalize crate name (hyphens -> underscores) for Rust module paths
@@ -372,35 +376,6 @@ fn resolve_with_reexport_fallbacks(
     }
 
     result
-}
-
-/// Reads rustdoc JSON, tolerating brief `NotFound` windows when concurrent
-/// grox invocations are racing against the same `target/doc/<crate>.json`.
-/// Cargo itself serializes its own runs via the package-cache lock, but it
-/// may unlink-then-rewrite the JSON file, so a read landing in that window
-/// sees `ENOENT`. The race window is microseconds; a few short retries
-/// cover it.
-fn read_rustdoc_json(path: &Path) -> Result<String> {
-    const MAX_ATTEMPTS: u32 = 5;
-    const BACKOFF_MS: u64 = 25;
-
-    for attempt in 0..MAX_ATTEMPTS {
-        match std::fs::read_to_string(path) {
-            Ok(s) => return Ok(s),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound
-                && attempt + 1 < MAX_ATTEMPTS =>
-            {
-                std::thread::sleep(std::time::Duration::from_millis(BACKOFF_MS));
-            }
-            Err(e) => {
-                return Err(GroxError::JsonReadFailed {
-                    path: path.to_path_buf(),
-                    source: e,
-                });
-            }
-        }
-    }
-    unreachable!("loop returns or sleeps; final attempt returns Err")
 }
 
 /// Resolves an item with all fallback strategies.
