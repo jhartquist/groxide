@@ -9,7 +9,7 @@ use crate::resolve::CrateSource;
 use crate::types::DocIndex;
 
 /// Current cache format version. Bump when serialization format changes.
-const FORMAT_VERSION: u32 = 3;
+const FORMAT_VERSION: u32 = 4;
 
 /// Serialized cache file: header + index, both MessagePack-encoded.
 #[derive(Serialize, Deserialize)]
@@ -34,17 +34,45 @@ struct CacheHeader {
 /// Source-specific invalidation metadata stored in the cache header.
 #[derive(Serialize, Deserialize)]
 enum CacheMetadata {
+    /// Source-tree max mtime (UNIX seconds) at the time the cache was saved.
+    /// On load, we recompute the source-tree mtime and compare; any edit to
+    /// `Cargo.toml`, `src/**/*.rs`, or `build.rs` invalidates.
+    CurrentCrate { source_mtime: u64 },
     Dependency { version: String },
     StdLib { toolchain_version: String },
     External { version: String },
 }
 
+/// Builds the cache-key suffix that distinguishes rustdoc outputs produced
+/// with different feature/private settings. The same crate at the same
+/// version compiled with `--all-features` or `--private` produces a
+/// different `DocIndex`, so they must hit different cache files.
+pub(crate) fn cache_suffix(features: &crate::cli::FeatureFlags, private: bool) -> String {
+    let mut suffix = features.cache_suffix();
+    if private {
+        suffix.push_str("-priv");
+    }
+    suffix
+}
+
 /// Computes the cache file path for a given crate source.
 ///
-/// All caches go under `~/.cache/groxide/` (deps, stdlib, external subdirectories).
-pub(crate) fn cache_path(source: &CrateSource, feature_suffix: &str) -> Option<PathBuf> {
+/// * Current crate: `<workspace_target>/groxide/<crate>{suffix}.groxide` —
+///   colocated with cargo's own incremental artifacts so a normal
+///   `cargo clean` wipes both. Requires `ctx` to know the workspace target.
+/// * Dependencies / stdlib / external: under `~/.cache/groxide/` because
+///   they're shared across projects (or have no project at all).
+pub(crate) fn cache_path(
+    source: &CrateSource,
+    feature_suffix: &str,
+    ctx: Option<&crate::resolve::ProjectContext>,
+) -> Option<PathBuf> {
     match source {
-        CrateSource::CurrentCrate { .. } => None,
+        CrateSource::CurrentCrate { name, .. } => {
+            let target_dir = ctx?.target_directory();
+            let filename = format!("{name}{feature_suffix}.groxide");
+            Some(target_dir.join("groxide").join(filename))
+        }
         CrateSource::Dependency { name, version, .. } => {
             let cache_dir = dirs::cache_dir()?;
             let filename = format!("{name}-{version}{feature_suffix}.groxide");
@@ -65,6 +93,59 @@ pub(crate) fn cache_path(source: &CrateSource, feature_suffix: &str) -> Option<P
     }
 }
 
+/// Returns the max mtime (UNIX seconds) of the inputs that affect the
+/// crate's rustdoc JSON: `Cargo.toml`, every `.rs` under `src/`, and an
+/// optional `build.rs`. Walks the package directory once.
+///
+/// Known limitation: doesn't detect changes from `Cargo.lock` updates that
+/// alter re-exported dependency surface, build-script-generated source, or
+/// edits inside `examples/`/`tests/`/`benches/` (which don't affect the
+/// library's rustdoc output anyway).
+pub(crate) fn current_crate_source_mtime(package_dir: &Path) -> Option<u64> {
+    fn mtime_secs(path: &Path) -> Option<u64> {
+        fs::metadata(path)
+            .ok()?
+            .modified()
+            .ok()?
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_secs())
+    }
+
+    let mut max = mtime_secs(&package_dir.join("Cargo.toml"))?;
+
+    if let Some(t) = mtime_secs(&package_dir.join("build.rs")) {
+        max = max.max(t);
+    }
+
+    let src_dir = package_dir.join("src");
+    if src_dir.is_dir() {
+        let mut stack = vec![src_dir];
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let Ok(file_type) = entry.file_type() else {
+                    continue;
+                };
+                if file_type.is_dir() {
+                    stack.push(path);
+                } else if file_type.is_file()
+                    && path.extension().is_some_and(|e| e == "rs")
+                {
+                    if let Some(t) = mtime_secs(&path) {
+                        max = max.max(t);
+                    }
+                }
+            }
+        }
+    }
+
+    Some(max)
+}
+
 /// Loads a cached [`DocIndex`] from disk if the cache is valid.
 ///
 /// Returns `None` if the cache file doesn't exist, is corrupted, or is stale.
@@ -82,7 +163,16 @@ pub(crate) fn load_cached(path: &Path, source: &CrateSource) -> Option<DocIndex>
     let bytes = fs::read(path).ok()?;
     let data: CachedData = rmp_serde::from_slice(&bytes).ok()?;
 
-    if !is_cache_valid(&data.header, source) {
+    let current_mtime = match source {
+        CrateSource::CurrentCrate { manifest_path, .. } => current_crate_source_mtime(
+            manifest_path
+                .parent()
+                .expect("invariant: manifest_path has a parent"),
+        ),
+        _ => None,
+    };
+
+    if !is_cache_valid(&data.header, source, current_mtime) {
         return None;
     }
 
@@ -100,7 +190,15 @@ pub(crate) fn save_to_cache(path: &Path, index: &DocIndex, source: &CrateSource)
 
 /// Inner implementation of cache saving that can return errors.
 fn save_to_cache_inner(path: &Path, index: &DocIndex, source: &CrateSource) -> Result<()> {
-    let header = create_header(source);
+    let mtime = match source {
+        CrateSource::CurrentCrate { manifest_path, .. } => current_crate_source_mtime(
+            manifest_path
+                .parent()
+                .expect("invariant: manifest_path has a parent"),
+        ),
+        _ => None,
+    };
+    let header = create_header(source, mtime);
     let data = CachedData {
         header,
         index: index.clone(),
@@ -137,15 +235,18 @@ fn save_to_cache_inner(path: &Path, index: &DocIndex, source: &CrateSource) -> R
 }
 
 /// Creates a cache header for the given crate source.
-fn create_header(source: &CrateSource) -> CacheHeader {
+///
+/// `current_mtime` must be `Some` for `CrateSource::CurrentCrate`; it's the
+/// max source-tree mtime that becomes the invalidation key.
+fn create_header(source: &CrateSource, current_mtime: Option<u64>) -> CacheHeader {
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
 
     let metadata = match source {
-        CrateSource::CurrentCrate { .. } => {
-            unreachable!("CurrentCrate should never be cached")
-        }
+        CrateSource::CurrentCrate { .. } => CacheMetadata::CurrentCrate {
+            source_mtime: current_mtime.unwrap_or(0),
+        },
         CrateSource::Dependency { version: ver, .. } => CacheMetadata::Dependency {
             version: ver.clone(),
         },
@@ -170,7 +271,14 @@ fn create_header(source: &CrateSource) -> CacheHeader {
 }
 
 /// Validates a cache header against the current source state.
-fn is_cache_valid(header: &CacheHeader, source: &CrateSource) -> bool {
+///
+/// `current_mtime` must be `Some` for `CrateSource::CurrentCrate` (the
+/// caller has just computed it); other variants ignore it.
+fn is_cache_valid(
+    header: &CacheHeader,
+    source: &CrateSource,
+    current_mtime: Option<u64>,
+) -> bool {
     // Version mismatch: always invalidate
     if header.grox_version != env!("CARGO_PKG_VERSION") {
         return false;
@@ -180,6 +288,12 @@ fn is_cache_valid(header: &CacheHeader, source: &CrateSource) -> bool {
     }
 
     match (&header.metadata, source) {
+        (
+            CacheMetadata::CurrentCrate {
+                source_mtime: cached_mtime,
+            },
+            CrateSource::CurrentCrate { .. },
+        ) => current_mtime.is_some_and(|now| now == *cached_mtime),
         (
             CacheMetadata::Dependency {
                 version: cached_version,
@@ -242,6 +356,7 @@ pub(crate) fn clear_global_cache() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::CrateSpec;
     use crate::types::{DocIndex, IndexItem, ItemKind, SourceSpan};
     use tempfile::TempDir;
 
@@ -299,16 +414,36 @@ mod tests {
     // ---- Cache path includes version ----
 
     #[test]
-    fn cache_path_returns_none_for_current_crate() {
+    fn cache_path_for_current_crate_requires_project_context() {
+        // CurrentCrate caches live in the workspace target dir, which
+        // we can only learn about from a ProjectContext. Without ctx,
+        // cache_path returns None — call sites that have a project
+        // always pass one.
         let tmp = TempDir::new().unwrap();
         let source = CrateSource::CurrentCrate {
             manifest_path: tmp.path().join("Cargo.toml"),
             name: "mycrate".to_string(),
             version: "2.3.4".to_string(),
         };
+        assert!(cache_path(&source, "", None).is_none());
+    }
+
+    #[test]
+    fn cache_path_for_current_crate_with_ctx_lives_in_workspace_target() {
+        // Run against the live groxide project. Cache should be
+        // <workspace_target>/groxide/<crate>{suffix}.groxide.
+        let ctx =
+            crate::resolve::ProjectContext::discover(None).expect("groxide project context");
+        let source = ctx.resolve_crate(&CrateSpec::CurrentCrate);
+        let path =
+            cache_path(&source, "", Some(&ctx)).expect("Some(path) when ctx is provided");
         assert!(
-            cache_path(&source, "").is_none(),
-            "CurrentCrate should not be cached"
+            path.parent().is_some_and(|p| p.ends_with("groxide")),
+            "path should be in <target>/groxide/, got {path:?}"
+        );
+        assert_eq!(
+            path.file_name().and_then(|n| n.to_str()),
+            Some("groxide.groxide"),
         );
     }
 
@@ -320,7 +455,7 @@ mod tests {
             name: "serde".to_string(),
             version: "1.0.210".to_string(),
         };
-        let path = cache_path(&source, "").unwrap();
+        let path = cache_path(&source, "", None).unwrap();
         assert!(
             path.to_str().unwrap().contains("serde-1.0.210.groxide"),
             "path should include version: {path:?}"
@@ -333,7 +468,7 @@ mod tests {
             name: "tokio".to_string(),
             version: Some("1.40.0".to_string()),
         };
-        let path = cache_path(&source, "").unwrap();
+        let path = cache_path(&source, "", None).unwrap();
         assert!(
             path.to_str().unwrap().contains("tokio-1.40.0.groxide"),
             "path should include version: {path:?}"
@@ -351,8 +486,8 @@ mod tests {
             version: "1.0.0".to_string(),
         };
 
-        let path_default = cache_path(&source, "").unwrap();
-        let path_feat = cache_path(&source, "-feat_0a1b2c3d4e5f6a7b").unwrap();
+        let path_default = cache_path(&source, "", None).unwrap();
+        let path_feat = cache_path(&source, "-feat_0a1b2c3d4e5f6a7b", None).unwrap();
 
         assert_ne!(path_default, path_feat);
         assert!(
@@ -372,7 +507,7 @@ mod tests {
             name: "mycrate".to_string(),
             version: "1.0.0".to_string(),
         };
-        let path = cache_path(&source, "").unwrap();
+        let path = cache_path(&source, "", None).unwrap();
         let filename = path.file_name().unwrap().to_str().unwrap();
         assert_eq!(filename, "mycrate-1.0.0.groxide");
     }
@@ -464,7 +599,7 @@ mod tests {
             name: "std".to_string(),
         };
         // This test requires nightly for toolchain hash detection
-        let Some(path) = cache_path(&source, "") else {
+        let Some(path) = cache_path(&source, "", None) else {
             eprintln!("SKIP: nightly not available for toolchain hash");
             return;
         };
@@ -493,7 +628,7 @@ mod tests {
             name: "tokio".to_string(),
             version: Some("1.40.0".to_string()),
         };
-        let path = cache_path(&source, "").unwrap();
+        let path = cache_path(&source, "", None).unwrap();
         let path_str = path.to_str().unwrap();
         assert!(
             path_str.contains("groxide/external/"),
@@ -511,7 +646,7 @@ mod tests {
             name: "serde".to_string(),
             version: "1.0.0".to_string(),
         };
-        let path = cache_path(&source, "").unwrap();
+        let path = cache_path(&source, "", None).unwrap();
         let path_str = path.to_str().unwrap();
         assert!(
             path_str.contains("groxide/deps/"),

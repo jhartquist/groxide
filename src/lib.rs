@@ -79,9 +79,15 @@ pub fn run(cli: &Cli) -> Result<()> {
 
     // Step 4: Load or build DocIndex
     let features = FeatureFlags::from_cli(cli);
-    let feature_suffix = features.cache_suffix();
-    let (mut index, source) =
-        load_or_build_index(source, &features, &feature_suffix, cli.private, false)?;
+    let feature_suffix = cache::cache_suffix(&features, cli.private);
+    let (mut index, source) = load_or_build_index(
+        source,
+        &features,
+        &feature_suffix,
+        cli.private,
+        false,
+        ctx.as_ref(),
+    )?;
 
     // Step 5: Handle --readme (early return)
     if cli.readme {
@@ -95,6 +101,7 @@ pub fn run(cli: &Cli) -> Result<()> {
             cli,
             Some(&source),
             &features,
+            ctx.as_ref(),
         )?;
     } else {
         // Step 7: Resolve item in index
@@ -227,9 +234,10 @@ pub(crate) fn load_or_build_index(
     feature_suffix: &str,
     private: bool,
     quiet: bool,
+    ctx: Option<&ProjectContext>,
 ) -> Result<(DocIndex, CrateSource)> {
     // Compute cache path
-    let cache_file = cache::cache_path(&source, feature_suffix);
+    let cache_file = cache::cache_path(&source, feature_suffix, ctx);
 
     // Try loading from cache
     if let Some(ref path) = cache_file {
@@ -288,7 +296,7 @@ pub(crate) fn load_or_build_index(
         cache::save_to_cache(path, &index, &source);
     } else {
         // Recompute cache path since source may have changed (external version resolved)
-        if let Some(path) = cache::cache_path(&source, feature_suffix) {
+        if let Some(path) = cache::cache_path(&source, feature_suffix, ctx) {
             cache::save_to_cache(&path, &index, &source);
         }
     }
@@ -546,6 +554,7 @@ fn handle_search(
     cli: &Cli,
     source: Option<&CrateSource>,
     features: &FeatureFlags,
+    ctx: Option<&ProjectContext>,
 ) -> Result<()> {
     let kind_filter = cli.kind.map(ItemKind::from);
     let results = search::search(index, search_query, kind_filter)?;
@@ -620,10 +629,15 @@ fn handle_search(
                     no_default_features: false,
                     features: Vec::new(),
                 };
-                let all_suffix = all_features.cache_suffix();
-                if let Ok((all_index, _)) =
-                    load_or_build_index(src.clone(), &all_features, &all_suffix, cli.private, false)
-                {
+                let all_suffix = cache::cache_suffix(&all_features, cli.private);
+                if let Ok((all_index, _)) = load_or_build_index(
+                    src.clone(),
+                    &all_features,
+                    &all_suffix,
+                    cli.private,
+                    false,
+                    ctx,
+                ) {
                     let all_results = search::search(&all_index, search_query, kind_filter)?;
                     if !all_results.is_empty() {
                         eprintln!(
@@ -646,7 +660,7 @@ fn handle_search(
 fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Result<()> {
     let members = ctx.workspace_member_packages();
     let features = FeatureFlags::from_cli(cli);
-    let feature_suffix = features.cache_suffix();
+    let feature_suffix = cache::cache_suffix(&features, cli.private);
 
     // Filter to library crates only (rustdoc can't generate docs for binary-only crates)
     let lib_members: Vec<_> = members
@@ -668,7 +682,14 @@ fn handle_workspace(w: &mut impl Write, ctx: &ProjectContext, cli: &Cli) -> Resu
             version: pkg.version.to_string(),
         };
 
-        match load_or_build_index(source, &features, &feature_suffix, cli.private, true) {
+        match load_or_build_index(
+            source,
+            &features,
+            &feature_suffix,
+            cli.private,
+            true,
+            Some(ctx),
+        ) {
             Ok((index, source)) => built.push((pkg, index, source)),
             Err(e) => errors.push((pkg.name.to_string(), e)),
         }
@@ -793,7 +814,7 @@ mod tests {
         let mut stdout_buf = Vec::new();
 
         if let Some(search_query) = cli.search.as_deref() {
-            match handle_search(&mut stdout_buf, index, search_query, &cli, None, &features) {
+            match handle_search(&mut stdout_buf, index, search_query, &cli, None, &features, None) {
                 Ok(()) => {
                     let output = String::from_utf8(stdout_buf).expect("valid utf8");
                     return (Ok(output), String::new());
@@ -923,7 +944,7 @@ mod tests {
         let cli = Cli::try_parse_from(["grox", "-S", "add"]).expect("parses");
         let mut buf = Vec::new();
         let features = FeatureFlags::from_cli(&cli);
-        let result = handle_search(&mut buf, &index, "add", &cli, None, &features);
+        let result = handle_search(&mut buf, &index, "add", &cli, None, &features, None);
         assert!(result.is_ok(), "search should succeed");
         let output = String::from_utf8(buf).expect("valid utf8");
         assert!(
@@ -1040,7 +1061,7 @@ mod tests {
         let cli = Cli::try_parse_from(["grox", "-S", "add", "--json"]).expect("parses");
         let mut buf = Vec::new();
         let features = FeatureFlags::from_cli(&cli);
-        let result = handle_search(&mut buf, &index, "add", &cli, None, &features);
+        let result = handle_search(&mut buf, &index, "add", &cli, None, &features, None);
         assert!(result.is_ok(), "search should succeed");
         let output = String::from_utf8(buf).expect("valid utf8");
         // Each line should be valid JSON
@@ -1059,7 +1080,7 @@ mod tests {
         let cli = Cli::try_parse_from(["grox", "-S", ""]).expect("parses");
         let mut buf = Vec::new();
         let features = FeatureFlags::from_cli(&cli);
-        let result = handle_search(&mut buf, &index, "", &cli, None, &features);
+        let result = handle_search(&mut buf, &index, "", &cli, None, &features, None);
         assert!(result.is_err(), "empty search should fail");
     }
 

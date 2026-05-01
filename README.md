@@ -188,7 +188,7 @@ Exit codes: `0` success, `1` not found, `2` error.
 1. **Resolve** the crate: current project, dependency, workspace member, transitive dep, stdlib, or crates.io auto-fetch.
 2. **Generate** rustdoc JSON via `cargo +nightly rustdoc --output-format json`.
 3. **Build** a queryable index from the JSON.
-4. **Cache** the index to disk (`target/groxide/` for local, `~/.cache/groxide/` for external). Invalidated by mtime (current crate) or version (deps).
+4. **Cache** the index to disk. Current crate caches live in `<workspace_target>/groxide/<crate>.groxide` (invalidated when `Cargo.toml`, `src/**/*.rs`, or `build.rs` change). Dependency, stdlib, and external caches live under `~/.cache/groxide/` keyed on version (deps), toolchain hash (stdlib), or version (external). Feature flags and `--private` are hashed into the filename so they don't collide.
 5. **Query** through a 5-stage pipeline: exact path, case-insensitive, suffix match, name match, not found.
 6. **Render** plain text with smart defaults per item kind, truncated to ~1500 chars.
 

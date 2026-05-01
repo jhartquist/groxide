@@ -49,7 +49,7 @@ pub(crate) fn try_follow_reexport(
 
     // Load source crate index
     let (source_index, _source) =
-        crate::load_or_build_index(source, features, feature_suffix, private, false).ok()?;
+        crate::load_or_build_index(source, features, feature_suffix, private, false, ctx).ok()?;
 
     // Query canonical item in source index
     let source_query = QueryPath {
@@ -146,7 +146,8 @@ pub(crate) fn try_resolve_via_prefix_reexport(
         };
         let (source, _) = crate::resolve_crate_source(ctx, crate_query).ok()?;
         let (source_index, _) =
-            crate::load_or_build_index(source, features, feature_suffix, private, false).ok()?;
+            crate::load_or_build_index(source, features, feature_suffix, private, false, ctx)
+                .ok()?;
 
         // Build full query path inside the source crate: source_item_path + remaining.
         let mut full_segments: Vec<String> = source_item_path.split("::").map(String::from).collect();
@@ -225,7 +226,7 @@ pub(crate) fn try_resolve_via_glob_reexport(
                 continue;
             };
             let Ok((source_index, _)) =
-                crate::load_or_build_index(src, features, feature_suffix, private, false)
+                crate::load_or_build_index(src, features, feature_suffix, private, false, ctx)
             else {
                 continue;
             };
