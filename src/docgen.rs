@@ -402,11 +402,7 @@ fn generate_for_dependency(
 ///
 /// Delegates to the `stdlib` module for sysroot detection, toolchain hashing,
 /// and per-toolchain cache isolation.
-fn generate_for_stdlib(
-    crate_name: &str,
-    features: &FeatureFlags,
-    private: bool,
-) -> Result<String> {
+fn generate_for_stdlib(crate_name: &str, features: &FeatureFlags, private: bool) -> Result<String> {
     crate::stdlib::generate_stdlib_json(crate_name, features, private)
 }
 

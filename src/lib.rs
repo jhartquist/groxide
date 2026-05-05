@@ -814,7 +814,15 @@ mod tests {
         let mut stdout_buf = Vec::new();
 
         if let Some(search_query) = cli.search.as_deref() {
-            match handle_search(&mut stdout_buf, index, search_query, &cli, None, &features, None) {
+            match handle_search(
+                &mut stdout_buf,
+                index,
+                search_query,
+                &cli,
+                None,
+                &features,
+                None,
+            ) {
                 Ok(()) => {
                     let output = String::from_utf8(stdout_buf).expect("valid utf8");
                     return (Ok(output), String::new());

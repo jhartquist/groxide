@@ -37,10 +37,18 @@ enum CacheMetadata {
     /// Source-tree max mtime (UNIX seconds) at the time the cache was saved.
     /// On load, we recompute the source-tree mtime and compare; any edit to
     /// `Cargo.toml`, `src/**/*.rs`, or `build.rs` invalidates.
-    CurrentCrate { source_mtime: u64 },
-    Dependency { version: String },
-    StdLib { toolchain_version: String },
-    External { version: String },
+    CurrentCrate {
+        source_mtime: u64,
+    },
+    Dependency {
+        version: String,
+    },
+    StdLib {
+        toolchain_version: String,
+    },
+    External {
+        version: String,
+    },
 }
 
 /// Builds the cache-key suffix that distinguishes rustdoc outputs produced
@@ -144,9 +152,7 @@ pub(crate) fn current_crate_source_mtime(
                 };
                 if file_type.is_dir() {
                     stack.push(path);
-                } else if file_type.is_file()
-                    && path.extension().is_some_and(|e| e == "rs")
-                {
+                } else if file_type.is_file() && path.extension().is_some_and(|e| e == "rs") {
                     if let Some(t) = mtime_secs(&path) {
                         max = max.max(t);
                     }
@@ -319,11 +325,7 @@ fn create_header(source: &CrateSource, current_mtime: Option<u64>) -> CacheHeade
 ///
 /// `current_mtime` must be `Some` for `CrateSource::CurrentCrate` (the
 /// caller has just computed it); other variants ignore it.
-fn is_cache_valid(
-    header: &CacheHeader,
-    source: &CrateSource,
-    current_mtime: Option<u64>,
-) -> bool {
+fn is_cache_valid(header: &CacheHeader, source: &CrateSource, current_mtime: Option<u64>) -> bool {
     // Version mismatch: always invalidate
     if header.grox_version != env!("CARGO_PKG_VERSION") {
         return false;
@@ -477,11 +479,9 @@ mod tests {
     fn cache_path_for_current_crate_with_ctx_lives_in_workspace_target() {
         // Run against the live groxide project. Cache should be
         // <workspace_target>/groxide/<crate>{suffix}.groxide.
-        let ctx =
-            crate::resolve::ProjectContext::discover(None).expect("groxide project context");
+        let ctx = crate::resolve::ProjectContext::discover(None).expect("groxide project context");
         let source = ctx.resolve_crate(&CrateSpec::CurrentCrate);
-        let path =
-            cache_path(&source, "", Some(&ctx)).expect("Some(path) when ctx is provided");
+        let path = cache_path(&source, "", Some(&ctx)).expect("Some(path) when ctx is provided");
         assert!(
             path.parent().is_some_and(|p| p.ends_with("groxide")),
             "path should be in <target>/groxide/, got {path:?}"

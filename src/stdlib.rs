@@ -188,12 +188,8 @@ pub(crate) fn generate_stdlib_json(
     let normalized = crate_name.replace('-', "_");
     let json_path = target_dir.join("doc").join(format!("{normalized}.json"));
     crate::docgen::run_cargo_and_read_json(&target_dir, &json_path, || {
-        let cmd = build_stdlib_rustdoc_command(
-            &manifest_path,
-            &target_dir,
-            &effective_features,
-            private,
-        );
+        let cmd =
+            build_stdlib_rustdoc_command(&manifest_path, &target_dir, &effective_features, private);
         run_rustdoc_command(cmd)
     })
 }

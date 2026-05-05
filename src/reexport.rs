@@ -150,7 +150,8 @@ pub(crate) fn try_resolve_via_prefix_reexport(
                 .ok()?;
 
         // Build full query path inside the source crate: source_item_path + remaining.
-        let mut full_segments: Vec<String> = source_item_path.split("::").map(String::from).collect();
+        let mut full_segments: Vec<String> =
+            source_item_path.split("::").map(String::from).collect();
         full_segments.extend(remaining.iter().cloned());
         let inner_query = QueryPath {
             crate_spec: CrateSpec::CurrentCrate,
@@ -195,7 +196,11 @@ pub(crate) fn try_resolve_via_glob_reexport(
     // so child-module globs are preferred over crate-root globs.
     let crate_name = &index.crate_name;
     let mut parent_segments: Vec<String> = vec![crate_name.clone()];
-    parent_segments.extend(query.item_segments[..query.item_segments.len() - 1].iter().cloned());
+    parent_segments.extend(
+        query.item_segments[..query.item_segments.len() - 1]
+            .iter()
+            .cloned(),
+    );
     let item_name = query.item_segments.last()?;
 
     while !parent_segments.is_empty() {
@@ -211,8 +216,9 @@ pub(crate) fn try_resolve_via_glob_reexport(
 
         for glob in candidates {
             let source = glob.source_path.trim_start_matches("::");
-            let (source_crate, source_item_path) =
-                source.split_once("::").map_or((source, ""), |(c, p)| (c, p));
+            let (source_crate, source_item_path) = source
+                .split_once("::")
+                .map_or((source, ""), |(c, p)| (c, p));
             if source_crate.is_empty() {
                 continue;
             }
@@ -450,7 +456,11 @@ mod tests {
     #[test]
     fn no_matches_returns_none() {
         let mut index = DocIndex::new("mycrate".to_string(), "0.1.0".to_string());
-        index.add_item(make_item("real_thing", "mycrate::real_thing", ItemKind::Struct));
+        index.add_item(make_item(
+            "real_thing",
+            "mycrate::real_thing",
+            ItemKind::Struct,
+        ));
 
         let q = query_path("mycrate", &["nonexistent"]);
         let result = try_resolve_reexport_on_not_found(&q, &index, None);
@@ -531,7 +541,10 @@ mod tests {
 
         let q = query_path("std", &["vec"]);
         let result = try_resolve_via_prefix_reexport(&q, &index, None, &features, "", false);
-        assert!(result.is_none(), "1-segment query has no prefix to descend through");
+        assert!(
+            result.is_none(),
+            "1-segment query has no prefix to descend through"
+        );
     }
 
     #[test]
