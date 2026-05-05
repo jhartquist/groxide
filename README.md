@@ -64,6 +64,23 @@ tokio::sync:
   ...
 ```
 
+Run with no arguments from inside a Rust project to see the current crate's public API:
+
+```
+$ grox
+
+crate groxide
+
+modules:
+  cli
+  error
+
+functions:
+  pub fn run(cli: &cli::Cli) -> error::Result<()>             Runs the groxide CLI with the given parsed arguments.
+```
+
+Add `-r` for the full recursive listing of everything public in the crate.
+
 It works outside a project too. Standard library queries and crates.io auto-fetch need no `Cargo.toml`:
 
 ```
@@ -126,6 +143,10 @@ npx skills add jhartquist/groxide
 ## Usage
 
 ```sh
+# Current crate overview (run inside a Rust project)
+grox
+grox -r                  # full recursive listing of the current crate
+
 # Method docs
 grox tokio::sync::Mutex::lock
 
