@@ -529,12 +529,9 @@ mod tests {
         match result {
             Ok(json) => {
                 assert!(!json.is_empty(), "JSON content should be non-empty");
-                // rustdoc JSON starts with `{` and contains the crate name.
                 assert!(json.trim_start().starts_with('{'));
-                assert!(
-                    json.contains("\"crate_name\""),
-                    "JSON should contain crate_name field"
-                );
+                crate::index_builder::parse_rustdoc_json(&json)
+                    .expect("generated JSON should parse as rustdoc_types::Crate");
             }
             Err(GroxError::NightlyNotAvailable) => {
                 eprintln!("SKIP: nightly not available");
