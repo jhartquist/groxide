@@ -7,36 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - Unreleased
 
+Initial release.
+
 ### Added
 
-- Core CLI with path-based queries (`grox serde::Deserialize`).
-- Rustdoc JSON index builder with 4-pass algorithm (parent map, path computation, item conversion, relationships).
-- Disk cache with mtime invalidation (current crate) and version invalidation (dependencies).
-- 5-stage query engine: exact path, case-insensitive, suffix match, name match, not found.
-- Full-text search with 5-tier scoring (`--search`).
-- Plain text renderer with smart defaults per item kind.
-- List mode (`--list`), JSON Lines mode (`--json`), source mode (`--source`), impls mode (`--impls`).
-- Crate resolution chain: current crate, dependencies, workspace, transitive deps, stdlib, auto-fetch.
-- Auto-fetch external crates from crates.io with version pinning (`serde@1.0.210`).
+- Path-based query CLI: `grox <path>` resolves Rust crate items by path with smart defaults per item kind.
+- Crate resolution chain: current crate, direct dependencies, workspace members, transitive deps, stdlib, then crates.io auto-fetch.
+- 5-stage query pipeline (exact path, case-insensitive, suffix match, name match, not found) with "Did you mean" suggestions.
+- Cross-crate re-export resolution: queries follow `pub use` re-exports, including wildcard re-exports.
+- Render modes: default (per-kind), `--brief`, `--docs`, `--source`, `--json`, `--readme`.
+- Recursive listing (`--recursive`), composable with `-b`, `-d`, `-s`.
+- Trait implementations: `--impls` lists all, `--impls-of <TRAIT>` filters to a specific trait.
+- Full-text search (`--search`) with `|` (OR) and space (AND) combinators.
 - Standard library support (`std`, `core`, `alloc`).
-- README display (`--readme`).
-- Kind filtering (`--kind fn`, `--kind struct`, etc.).
-- Private item display (`--private`).
+- Auto-fetch from crates.io with version pinning (e.g. `serde@1.0.210`).
 - Feature flag support (`--features`, `--all-features`, `--no-default-features`).
-- Truncation with progressive disclosure (paragraph, sentence, word, hard boundary).
-- Ambiguous match handling with suggestions and "Did you mean" hints.
-- Single-segment query reinterpretation (e.g., `grox Mutex` searches current crate).
-- Multi-crate search fallback across cached dependency indices.
-- Token-efficient output (~200-800 tokens per query).
-
-### Fixed
-
-- Fixed MSRV declaration (1.75 -> 1.85) to match actual dependency requirements.
-- Fixed repository URLs in Cargo.toml and README.
-- Fixed outdated clippy command references in documentation.
-
-### Changed
-
-- Removed mise task runner dependency; pre-commit checks are now documented as plain cargo commands.
-- Added project context documentation to README (in-project vs outside behavior).
-- Added security considerations section to README.
+- Kind filter (`--kind`) and private-item display (`--private`).
+- Rustdoc JSON index built via `cargo +nightly rustdoc --output-format json`, cached on disk and invalidated by source mtime (current crate) or version (dependencies, stdlib, external crates).
+- Truncation with progressive disclosure (paragraph, sentence, word, hard boundary) targeting roughly 200-800 tokens per query.
+- Status messages on stderr, content on stdout, for clean LLM-agent integration.
+- Agent skill bundle under `skills/groxide/`, installable via `npx skills add` or by copying into `~/.claude/skills/`.

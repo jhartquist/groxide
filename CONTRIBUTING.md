@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Rust stable** (MSRV 1.85): `rustup toolchain install stable`
+- **Rust stable** (MSRV 1.88): `rustup toolchain install stable`
 - **Rust nightly**: Required for rustdoc JSON generation. Install with `rustup toolchain install nightly`
 
 ## Building

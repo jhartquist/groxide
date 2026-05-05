@@ -4,7 +4,7 @@ description: >
   Query Rust crate documentation from the terminal using groxide (grox).
   Use when you need to explore your own crate's structure and source, look up
   dependency APIs, check type signatures, find methods on a type, or search
-  crate documentation — without leaving the terminal or browsing docs.rs.
+  crate documentation, without leaving the terminal or browsing docs.rs.
   Ideal for LLM coding agents working on Rust projects. Do NOT use for general
   Rust language questions, reading arbitrary files, or managing Cargo dependencies.
 license: MIT OR Apache-2.0
@@ -15,9 +15,9 @@ metadata:
   version: "0.1.0"
 ---
 
-# groxide — Query Rust Docs from the Terminal
+# groxide: Query Rust Docs from the Terminal
 
-The path is the query. No subcommands — just `grox <path>`.
+The path is the query. No subcommands; just `grox <path>`.
 
 Output goes to stdout (documentation content) and stderr (status messages).
 Agents should capture stdout only. Exit codes: 0 = success, 1 = not found, 2 = error.
@@ -30,7 +30,7 @@ Agents should capture stdout only. Exit codes: 0 = success, 1 = not found, 2 = e
 
 ## Exploring Your Own Crate
 
-groxide gives you **semantically-scoped views** of code — query by item path, not
+groxide gives you **semantically-scoped views** of code: query by item path, not
 file path. You get exactly the struct, function, or module you ask for, with doc
 comments included in the source. No need to know which file something lives in.
 
@@ -43,8 +43,8 @@ grox -s mycrate::some::Type   # source for one item (includes doc comments)
 grox -rps mycrate::render     # full source of a module tree
 ```
 
-Use `-s` instead of `-d` — source code already contains `///` doc comments, so
-`-s` gives you docs and implementation in one view without duplication.
+Use `-s` instead of `-d` when possible. Source code already contains `///` doc
+comments, so `-s` gives you docs and implementation in one view without duplication.
 
 **Scaling to large codebases:** Use `grox -rp -k mod` to discover modules, then
 query individual modules with `grox -rps <module>`. Subagents can each take a
@@ -52,7 +52,7 @@ module in parallel to quickly map out the codebase.
 
 ## Looking Up Dependencies
 
-The examples below assume you are inside a Rust project that depends on the queried crates (e.g., `serde`, `tokio`). For stdlib and auto-fetch, see the dedicated sections below — those work anywhere.
+The examples below assume you are inside a Rust project that depends on the queried crates (e.g., `serde`, `tokio`). For stdlib and auto-fetch, see the dedicated sections below; those work anywhere.
 
 ### Look up a type
 
@@ -85,7 +85,7 @@ discovering what a module offers before drilling into specific items.
 grox -r -b tokio
 ```
 
-Shows only item names — the most compact view. Great for getting a structural
+Shows only item names. The most compact view, great for getting a structural
 overview of a crate or module.
 
 ### Full docs recursively
@@ -233,7 +233,7 @@ User asks: "How do I read a file asynchronously with tokio?"
 
 - **Prefer `-s` over `-d` for agents.** Source code includes `///` doc comments,
   so `-s` gives you docs + implementation in one view. `-d` renders docs separately
-  without source — useful for humans but redundant for agents.
+  without source, useful for humans but redundant for agents.
 - **Start broad, then drill down.** Query the crate first (`grox tokio`), then
   a module (`grox tokio::sync`), then a type (`grox tokio::sync::Mutex`).
 - **Use `-r` to orient.** When you don't know what's in a module, `-r` gives
@@ -242,7 +242,7 @@ User asks: "How do I read a file asynchronously with tokio?"
   (signatures, method lists), JSON is more reliable to parse than plain text.
 - **Search before guessing paths.** If you're not sure of the exact path,
   `grox crate_name -S "keyword"` finds items by documentation content.
-- **Check exit codes.** Exit 1 means the item doesn't exist — don't retry, try
+- **Check exit codes.** Exit 1 means the item doesn't exist; don't retry, try
   a different path or use search. Exit 2 means a tooling error.
 - **Run from a Rust project directory** when possible. This gives groxide access
   to the full dependency graph and enables queries like `grox` (current crate)
@@ -267,7 +267,7 @@ The path does not match any item in the crate's public API.
 - Check spelling (paths are case-insensitive but must match item names)
 - Use `grox crate_name -S "keyword"` to search by documentation content
 - Use `grox crate_name -r` to list what's available
-- The item may be behind a feature flag — try `--all-features`
+- The item may be behind a feature flag; try `--all-features`
 
 ### Exit code 2: error
 

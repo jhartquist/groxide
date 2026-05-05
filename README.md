@@ -50,15 +50,18 @@ Recursive listing shows what's in a module:
 ```
 $ grox -r tokio::sync
 
-mod     tokio::sync::broadcast                    pub mod broadcast
-mod     tokio::sync::futures                      pub mod futures
-mod     tokio::sync::mpsc                         pub mod mpsc
-mod     tokio::sync::oneshot                      pub mod oneshot
-mod     tokio::sync::watch                        pub mod watch
-struct  tokio::sync::AcquireError                 pub struct AcquireError
-struct  tokio::sync::Barrier                      pub struct Barrier
-struct  tokio::sync::Mutex                        pub struct Mutex<T: ?Sized>
-# ... (30 items total)
+tokio::sync:
+  struct  tokio::sync::AcquireError                    pub struct AcquireError(_)    [feature: sync]
+  struct  tokio::sync::Barrier                         pub struct Barrier    [feature: sync]
+  struct  tokio::sync::Mutex                           pub struct Mutex<T: ?Sized>    [feature: sync]
+  struct  tokio::sync::Notify                          pub struct Notify    [feature: sync]
+  struct  tokio::sync::OnceCell                        pub struct OnceCell<T>    [feature: sync]
+  struct  tokio::sync::RwLock                          pub struct RwLock<T: ?Sized>    [feature: sync]
+  struct  tokio::sync::Semaphore                       pub struct Semaphore    [feature: sync]
+  mod     tokio::sync::broadcast                       pub mod broadcast    [feature: sync]
+  mod     tokio::sync::mpsc                            pub mod mpsc    [feature: sync]
+  mod     tokio::sync::oneshot                         pub mod oneshot    [feature: sync]
+  ...
 ```
 
 It works outside a project too. Standard library queries and crates.io auto-fetch need no `Cargo.toml`:
@@ -66,7 +69,7 @@ It works outside a project too. Standard library queries and crates.io auto-fetc
 ```
 $ grox std::collections::HashMap
 
-struct std::collections::hash_map::HashMap
+struct std::collections::HashMap
 
 pub struct HashMap<K, V, S = crate::hash::RandomState, A: Allocator = crate::alloc::Global>
 
@@ -98,7 +101,7 @@ cd groxide
 cargo install --path .
 ```
 
-Requires Rust stable (MSRV 1.85) and a nightly toolchain for rustdoc JSON generation:
+Requires Rust stable (MSRV 1.88) and a nightly toolchain for rustdoc JSON generation:
 
 ```sh
 rustup toolchain install nightly
@@ -194,7 +197,7 @@ Exit codes: `0` success, `1` not found, `2` error.
 
 ## Inside vs outside a Rust project
 
-Inside a project (directory with `Cargo.toml`), `grox` reads the project's dependency graph. Running `grox` with no arguments shows the current crate's docs. Queries resolve through: current crate, direct dependencies, workspace members, transitive dependencies, stdlib, then crates.io auto-fetch. Each step matches by exact name (with `-`/`_` equivalence) — `grox candle` in a workspace whose only members are `candle-pitch` and `candle-crepe` falls through to a crates.io fetch of `candle`. Use the full member name to target a workspace crate.
+Inside a project (directory with `Cargo.toml`), `grox` reads the project's dependency graph. Running `grox` with no arguments shows the current crate's docs. Queries resolve through: current crate, direct dependencies, workspace members, transitive dependencies, stdlib, then crates.io auto-fetch. Each step matches by exact name (with `-`/`_` equivalence): `grox candle` in a workspace whose only members are `candle-pitch` and `candle-crepe` falls through to a crates.io fetch of `candle`. Use the full member name to target a workspace crate.
 
 Outside a project, only stdlib queries and crates.io auto-fetch work. Running `grox` with no arguments errors out (no current crate). The cache for external crates lives in `~/.cache/groxide/`.
 
@@ -211,7 +214,7 @@ Status messages are prefixed with `[grox]`:
 
 ## Security
 
-`grox` invokes `cargo +nightly rustdoc` on crate source. This runs the crate's `build.rs` and any proc macros it depends on — same code execution as `cargo build`, but **not** the same as `cargo install` (no built binary is executed).
+`grox` invokes `cargo +nightly rustdoc` on crate source. This runs the crate's `build.rs` and any proc macros it depends on; same code execution as `cargo build`, but **not** the same as `cargo install` (no built binary is executed).
 
 Auto-fetch matters: when you query a crate that isn't already a dependency (e.g. `grox some-random-crate`), `grox` downloads it from crates.io and compiles it. If you wouldn't add it to `Cargo.toml`, don't query it. Pin a version (`grox crate@1.2.3`) if you want reproducibility.
 
