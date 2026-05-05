@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/groxide.svg)](https://crates.io/crates/groxide)
 [![docs.rs](https://img.shields.io/docsrs/groxide.svg)](https://docs.rs/groxide)
 [![CI](https://github.com/jhartquist/groxide/actions/workflows/ci.yml/badge.svg)](https://github.com/jhartquist/groxide/actions/workflows/ci.yml)
-[![License: MIT OR Apache-2.0](https://img.shields.io/crates/l/groxide.svg)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 Query Rust crate documentation from the terminal. Works on the current crate, its dependencies, the stdlib, and any crate on crates.io.
 
