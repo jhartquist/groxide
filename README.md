@@ -218,10 +218,6 @@ Status messages are prefixed with `[grox]`:
 
 Auto-fetch matters: when you query a crate that isn't already a dependency (e.g. `grox some-random-crate`), `grox` downloads it from crates.io and compiles it. If you wouldn't add it to `Cargo.toml`, don't query it. Pin a version (`grox crate@1.2.3`) if you want reproducibility.
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
